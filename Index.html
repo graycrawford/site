@@ -3,7 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Four Column Layout</title>
+    <title>Gray Crawford</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .column {
+            flex: 1;
+            padding: 10px;
+            min-width: 200px;
+        }
+        h2 {
+            font-weight: bold;
+            color: #000000;
+            opacity: 0.6;
+            filter: blur(1px);
+
+        }
+
+        a {
+            color: #110563;
+            opacity: 1;
+            filter: blur(1px);
+            transition: filter 0.6s cubic-bezier(.37,.31,.22,1.37);
+            text-decoration: none;
+
+        }
+        a:hover {
+            color: #0400ff;
+            opacity: 1;
+            filter: blur(5px);
+        }
+
+        p {
+            opacity: 0.6;
+            mix-blend-mode: plus-darker;
+
+            transition: filter 0.6s cubic-bezier(.37,.31,.22,1.37);
+            filter: blur(0.6px);
+        }
+        p:hover {
+
+            filter: blur(10px);
+
+        }
+        .container, .column {
+            overflow: visible;
+            box-shadow: -30px 0px 100px rgba(0, 0, 0, 0.03);
+            
+
+        }
+
+        video {
+            
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            border-radius: 7px;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.1);
+
+            transition: filter 0.6s cubic-bezier(.37,.31,.22,1.37);
+            filter: blur(50px);
+
+        }
+        video:hover {
+
+            filter: blur(0px);
+
+        }
+        
+
+    </style>
+
+    
+</head>
+<body>
+
+    <div class="container">
+        <div class="column">
+            <h2>Gray Crawford</h2>
+            <p>designer, prototyper, engineer, artist</p>
+             <a href="https://twitter.com/graycrawford">tw</a> <a href="https://www.instagram.com/graycrawford/">ig</a>
+            
+        </div>
+
+        <div class="column">
+
+            <h2>spatial</h2>
+
+            <p>♻️ 2023 <b>Waft Locomotion</b></p>
+
+            <p>2019 - 2023 <b>Leap Motion - Ultraleap</b></p>
+            <p>2019 <b><i>Developing Familiarity with Hyperphysical Phenomena</i></b></p>
+            <p>2019 <b><i>Filament</i></b></p>
+            <p>2018 <b>JPL</b></p>
+            <p>2017 <b><i>Strata</i></b></p>
+
+
+        </div>
+
+        <div class="column">
+
+            <h2>generation</h2>
+
+            <p><i>realtime is important</i></p>
+            <p>generating, authoring, exploring latent space with expressive input</p>
+
+            
+            <p>♻️ 2022 <b>🪸Coral</b></p>
+
+
+            <video width="100%" height="auto" autoplay loop muted>
+                <source type="video/mp4" src="https://github.com/graycrawford/site/raw/main/xoroLoop.mp4">
+              </video>
+            <p>2019 <b>Xoromancy</b></p>
+            <p>2024 <b>  <a href="https://x.com/graycrawford/status/1799553927001882771">StreamDiffusion at SXSW + Gray Area</a> </b></p>
+            <p>2022 <b>early MJ, Dalle</b></p>
+
+
+
+        </div>
+
+        <div class="column">
+
+            <h2>design</h2>
+
+            <p>♻️ spectrographic music library</p>
+            <p>♻️ geometric aim chess set</p>
+
+        </div>
+
+
+        <!-- <div class="column">
+
+            <h2>older</h2>
+
+            <p>Filament </p>
+            <p>chess geometric redesign</p>
+
+
+
+        </div> -->
+<!-- 
+        <div class="container">
+            <div class="column">
+                <h2>Title 1</h2>
+                <p>Body text for entry 1.</p>
+                <h2>Title 2</h2>
+                <p>Body text for entry 2.</p>
+                <h2>Title 3</h2>
+                <p>Body text for entry 3.</p>
+                <h2>Title 4</h2>
+                <p>Body text for entry 4.</p>
+            </div>
+            <div class="column">
+                <h2>Title 5</h2>
+                <p>Body text for entry 5.</p>
+                <h2>Title 6</h2>
+                <p>Body text for entry 6.</p>
+                <h2>Title 7</h2>
+                <p>Body text for entry 7.</p>
+                <h2>Title 8</h2>
+                <p>Body text for entry 8.</p>
+            </div>
+            <div class="column">
+                <h2>Title 9</h2>
+                <p>Body text for entry 9.</p>
+                <h2>Title 10</h2>
+                <p>Body text for entry 10.</p>
+                <h2>Title 11</h2>
+                <p>Body text for entry 11.</p>
+                <h2>Title 12</h2>
+                <p>Body text for entry 12.</p>
+            </div>
+            <div class="column">
+                <h2>Title 13</h2>
+                <p>Body text for entry 13.</p>
+                <h2>Title 14</h2>
+                <p>Body text for entry 14.</p>
+                <h2>Title 15</h2>
+                <p>Body text for entry 15.</p>
+                <h2>Title 16</h2>
+                <p>Body text for entry 16.</p>
+            </div> -->
+    </div>
+</body>
+</html>
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gray Crawford's Portfolio</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif;
@@ -27,45 +227,43 @@
 <body>
     <div class="container">
         <div class="column">
-            <h2>Title 1</h2>
-            <p>Body text for entry 1.</p>
-            <h2>Title 2</h2>
-            <p>Body text for entry 2.</p>
-            <h2>Title 3</h2>
-            <p>Body text for entry 3.</p>
-            <h2>Title 4</h2>
-            <p>Body text for entry 4.</p>
+            <h2>About</h2>
+            <p>Interaction designer/prototyper focused on generative UI, spatial interfaces, embodiment</p>
+            <p>Previously at Leap Motion/Ultraleap, NASA JPL</p>
+            <p>ML & physics artist exploring expressive tools, generative promptism, simulated phenomena</p>
         </div>
         <div class="column">
-            <h2>Title 5</h2>
-            <p>Body text for entry 5.</p>
-            <h2>Title 6</h2>
-            <p>Body text for entry 6.</p>
-            <h2>Title 7</h2>
-            <p>Body text for entry 7.</p>
-            <h2>Title 8</h2>
-            <p>Body text for entry 8.</p>
+            <h2>Projects</h2>
+            <p>Master's Thesis: Embodied Familiarity with Hyperphysical Phenomena</p>
+            <p>Xoromancy: Gestural control of neural network imagery</p>
+            <p>AR Hand UI for 3D Manipulation at NASA JPL</p>
+            <p>STRATA: Cloth VR Instrument</p>
+            <p>VR Visualization of Museum Database</p>
+            <p>Spectrographic Music Library: Visual textures reveal genre and song structure</p>
         </div>
         <div class="column">
-            <h2>Title 9</h2>
-            <p>Body text for entry 9.</p>
-            <h2>Title 10</h2>
-            <p>Body text for entry 10.</p>
-            <h2>Title 11</h2>
-            <p>Body text for entry 11.</p>
-            <h2>Title 12</h2>
-            <p>Body text for entry 12.</p>
+            <h2>Explorations</h2>
+            <p>Streamdiffusion at SXSW: Branching conversation threads form unique structures</p>
+            <p>Generated thumbnail marginalia for each paragraph as visual accompaniment while writing</p> 
+            <p>Eager to run diffusion on FaceTime to prompt cloudy mental maps</p>
+            <p>Thinking about new prompt-assembly systems</p>
         </div>
         <div class="column">
-            <h2>Title 13</h2>
-            <p>Body text for entry 13.</p>
-            <h2>Title 14</h2>
-            <p>Body text for entry 14.</p>
-            <h2>Title 15</h2>
-            <p>Body text for entry 15.</p>
-            <h2>Title 16</h2>
-            <p>Body text for entry 16.</p>
+            <h2>Insights</h2>
+            <p>Branching conversation threads reveal potent messages and extended continuities</p>
+            <p>Expressive creation tools: We are lucky to encounter this much novelty</p>
+            <p>Spatial computing: Harder to build mental maps when shuffling objects in and out of view</p>
+            <p>New OS needs "new feet"</p>
         </div>
     </div>
 </body>
-</html>
+</html> -->
+
+
+
+
+
+
+
+
+
