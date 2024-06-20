@@ -7,8 +7,9 @@
     <style>
 
         :root {
-            --background: #000000;
-
+            --background: #ffffff;      /*      #000000;        */
+            --font-color: #000000;      /*      #ffffff;        */
+            --good-ease: cubic-bezier(.15,.02,0,1);
         }
 
 
@@ -27,21 +28,24 @@
             padding: 10px;
             min-width: 100px;
         }
+
         h2 {
             font-weight: bold;
-            color: #000000;
+            color: var(--font-color);
             opacity: 0.6;
-            filter: blur(1px);
+            transition: filter 0.6s var(--good-ease);
+            filter: blur(2px);
             mix-blend-mode: plus-darker;
-
-
+        }
+        h2:hover {
+            filter: blur(1px)
         }
 
         a {
             color: #110563;
             opacity: 1;
             filter: blur(1px);
-            transition: filter 0.6s cubic-bezier(.15,.02,0,1);
+            transition: filter 0.6s var(--good-ease);
             text-decoration: none;
             mix-blend-mode: plus-darker;
 
@@ -53,11 +57,11 @@
         }
 
         p {
-            color: #000000;
+            color: var(--font-color);
             opacity: 0.6;
             mix-blend-mode: plus-darker;
 
-            transition: filter 0.6s cubic-bezier(.15,.02,0,1); /*cubic-bezier(.37,.31,.24,1); */
+            transition: filter 0.6s var(--good-ease) ; /*cubic-bezier(.37,.31,.24,1); */
             filter: blur(0.6px);
         }
         p:hover {
@@ -68,12 +72,12 @@
         
         .container:hover .column:not(:hover) {
                         overflow: visible;
-                        filter: blur(3px);
+                        filter: blur(20px);
             /* box-shadow: -30px 0px 100px rgba(0, 0, 0, 0.03); */
         }
         .column {
-  transition: filter 1.1s cubic-bezier(.15,.02,0,1);
-}
+            transition: filter 1.1s var(--good-ease);
+        }
 
         video {
             
@@ -81,20 +85,17 @@
             height: auto;
             object-fit: cover;
             border-radius: 7px;
-            /* box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1); */
+            /* box-shadow: 0px 10px 20px rgba(0, 109, 211, 0.1); */
 
-            transition: filter 0.6s cubic-bezier(.15,.02,0,1);
+            transition: filter 0.6s var(--good-ease);
             filter: blur(3px);
             mix-blend-mode: plus-darker;
 
 
         }
         video:hover {
-
-            box-shadow: 0px 20px 50px rgba(0, 109, 211, 0.4);
-
+            /* box-shadow: 0px 20px 50px rgba(0, 109, 211, 0.4); */
             filter: blur(0px);
-
         }
 
         img {
@@ -104,14 +105,13 @@
             border-radius: 7px;
             /* box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1); */
 
-            transition: filter 0.6s cubic-bezier(.15,.02,0,1);
+            transition: filter 0.6s var(--good-ease);
             filter: blur(3px);
             mix-blend-mode: plus-darker;
         }
         img:hover {
 
             /* box-shadow: 0px 20px 50px rgba(0, 0, 0, 0.4); */
-
             filter: blur(0px);
 
         }
@@ -120,7 +120,7 @@
             /* border-radius: 7px; */
             /* /clip path1px on each side, round rect: */
             /* clip-path: inset(2px 2px 2px 2px round 7px); */
-            transition: filter 0.6s cubic-bezier(.15,.02,0,1);
+            transition: filter 0.6s var(--good-ease);
             filter: blur(3px);
             /* //clip to border-radius shape: */
             
@@ -136,7 +136,7 @@
 
     
 </head>
-<body style="background-color: #ffffff;">
+<body style="background-color: var(--background);">
 
     <div class="container">
         <div class="column">
