@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gray Crawford</title>
     <style>
+
+        :root {
+            --background: #000000;
+
+        }
+
+
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
@@ -17,7 +25,7 @@
         .column {
             flex: 1;
             padding: 10px;
-            min-width: 200px;
+            min-width: 100px;
         }
         h2 {
             font-weight: bold;
@@ -54,12 +62,13 @@
         }
         p:hover {
 
-            filter: blur(10px);
+            filter: blur(2.1px);
 
         }
+        
         .container:hover .column:not(:hover) {
                         overflow: visible;
-                        filter: blur(10px);
+                        filter: blur(3px);
             /* box-shadow: -30px 0px 100px rgba(0, 0, 0, 0.03); */
         }
         .column {
@@ -75,7 +84,7 @@
             /* box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1); */
 
             transition: filter 0.6s cubic-bezier(.15,.02,0,1);
-            filter: blur(50px);
+            filter: blur(3px);
             mix-blend-mode: plus-darker;
 
 
@@ -88,13 +97,37 @@
 
         }
 
+        img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            border-radius: 7px;
+            /* box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1); */
+
+            transition: filter 0.6s cubic-bezier(.15,.02,0,1);
+            filter: blur(3px);
+            mix-blend-mode: plus-darker;
+        }
+        img:hover {
+
+            /* box-shadow: 0px 20px 50px rgba(0, 0, 0, 0.4); */
+
+            filter: blur(0px);
+
+        }
+
         .twitter-tweet {
             /* border-radius: 7px; */
+            /* /clip path1px on each side, round rect: */
+            /* clip-path: inset(2px 2px 2px 2px round 7px); */
             transition: filter 0.6s cubic-bezier(.15,.02,0,1);
-            filter: blur(50px);
+            filter: blur(3px);
+            /* //clip to border-radius shape: */
+            
         }
         .twitter-tweet:hover {
             /* box-shadow: 0px 20px 50px rgba(0, 109, 211, 0.4); */
+            
             filter: blur(0px);
         }
         
@@ -127,9 +160,18 @@
             <p>♻️ 2023 <b>Waft Locomotion</b></p>
 
             <p>2019 - 2023 <b>Leap Motion - Ultraleap</b></p>
-            <p>2019 <b><i>Developing Familiarity with Hyperphysical Phenomena</i></b></p>
+
+            <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="en" dir="ltr">I’d love to share my VR Master’s Thesis, completed May ’19<br><br>✨Developing Embodied Familiarity with Hyperphysical Phenomena✨<a href="https://t.co/utqJkS4l6x">https://t.co/utqJkS4l6x</a><br><br>a culmination of VR prototypes + philosophical essays on<br><br>🌌spatial intuition with novel physics<br>✍️bodily ownership+representation <a href="https://t.co/DKnjbBoxR5">pic.twitter.com/DKnjbBoxR5</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/1232766457521377281?ref_src=twsrc%5Etfw">February 26, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+            <p>2019 <b><i>CMU Design Masters Thesis - Developing Familiarity with Hyperphysical Phenomena</i></b></p>
+            
+            <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="en" dir="ltr">Thrilled to announce that I’ll soon be releasing my debut album, FILAMENT<br><br>Accompanying FILAMENT is a selection of tracks shaped into interactive, embodied VR instruments / environments<br><br>I’m sharing an early peek today @ OC6 @ the Indie Dev Lounge — would love to see you there! <a href="https://t.co/OgP6vJak2X">pic.twitter.com/OgP6vJak2X</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/1177142224615698434?ref_src=twsrc%5Etfw">September 26, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
             <p>2019 <b><i>Filament</i></b></p>
+            <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="en" dir="ltr">Currently diving into <br>guiding <a href="https://twitter.com/hashtag/VisualEffectGraph?src=hash&amp;ref_src=twsrc%5Etfw">#VisualEffectGraph</a> particles <br>with my <a href="https://twitter.com/LeapMotion?ref_src=twsrc%5Etfw">@LeapMotion</a> hands <br>using <a href="https://twitter.com/aman_gif?ref_src=twsrc%5Etfw">@aman_gif</a>&#39;s MeshToSDF converter<br><br>Already seeing *so many* places where this can go; stoked to explore further <a href="https://t.co/QtOvKbEcOv">pic.twitter.com/QtOvKbEcOv</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/1105584468901933057?ref_src=twsrc%5Etfw">March 12, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+            
+            
             <p>2018 <b>JPL</b></p>
+
+            <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="en" dir="ltr">My first VR piece is STRATA, a musical exploration of dynamic spatial interfaces, mapping cloth dynamics to sonic characteristics [ <a href="https://twitter.com/optia_?ref_src=twsrc%5Etfw">@optia_</a> ]<br><br>If you have a <a href="https://twitter.com/LeapMotion?ref_src=twsrc%5Etfw">@LeapMotion</a> + Vive, I&#39;d love for you to play it! <a href="https://t.co/jLr5JnLxsC">https://t.co/jLr5JnLxsC</a> <a href="https://t.co/GCKcsCAtLK">pic.twitter.com/GCKcsCAtLK</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/992961382705491968?ref_src=twsrc%5Etfw">May 6, 2018</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
             <p>2017 <b><i>Strata</i></b></p>
 
 
@@ -142,13 +184,16 @@
             <p><i>realtime is important</i></p>
             <p>generating, authoring, exploring latent space with expressive input</p>
 
-            
+            <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="qme" dir="ltr">🪸<br><br>🦑🦐🦞🦀🐡🐠🐟🐬🐳🐋🦈 <a href="https://t.co/vXaPxeWV9R">pic.twitter.com/vXaPxeWV9R</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/1567597456451579904?ref_src=twsrc%5Etfw">September 7, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
             <p>♻️ 2022 <b>🪸Coral</b></p>
 
             <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="en" dir="ltr">eager to run diffusion on FaceTime so I can prompt myself cloudy if I’m not feeling 100 <a href="https://t.co/WzSUM7oJsL">pic.twitter.com/WzSUM7oJsL</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/1795891829566472318?ref_src=twsrc%5Etfw">May 29, 2024</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
             <p>2024 <b>  <a href="https://x.com/graycrawford/status/1799553927001882771">StreamDiffusion at SXSW + Gray Area</a> </b></p>
-            <!-- // put in image referencing this: feb98456-09ac-437e-ab1f-ce478ef020f4_ornate__texture_in_opal.png: -->
+            <!-- // put in image referencing this: https://github.com/graycrawford/site/blob/main/feb98456-09ac-437e-ab1f-ce478ef020f4_ornate__texture_in_opal.png?raw=true: -->
+            <img src="https://github.com/graycrawford/site/blob/main/feb98456-09ac-437e-ab1f-ce478ef020f4_ornate__texture_in_opal.png?raw=true" alt="ornate texture in opal" width="100%" height="auto">
             <p>2022 <b>early MJ, Dalle</b></p>
+
+            <blockquote class="twitter-tweet" data-media-max-width="560" data-dnt="true"><p lang="en" dir="ltr">generated thumbnail marginalia for each paragraph, visual accompaniment<br><br>while writing, navigating your text with idiosyncratic waypoints instead of text blocks’ endless urban sprawl <a href="https://t.co/vDzjYzxXGo">pic.twitter.com/vDzjYzxXGo</a></p>&mdash; gray ❄️🫧 (@graycrawford) <a href="https://twitter.com/graycrawford/status/1437134825836531712?ref_src=twsrc%5Etfw">September 12, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
             <p>2021 <b>prompt whispering early CLIP guided VQGAN / Diffusion models</b></p>
 
             <video width="100%" height="auto" autoplay loop muted>
