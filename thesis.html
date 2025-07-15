@@ -60,6 +60,21 @@
         h2:hover {
           filter: blur(3.6px)
         }
+
+        .lastname {
+          color: var(--font-color);
+          opacity: 0.6;
+          transition: filter 0.6s var(--good-ease);
+          filter: blur(2.2px);
+          mix-blend-mode: plus-darker;
+          line-height: 130%;
+          font-size: inherit;
+          font-weight: inherit;
+        }
+
+        .lastname:hover {
+          filter: blur(6.5px)
+        }
       
         h3 {
           /* font-weight: bold; */
@@ -206,7 +221,7 @@ strong:hover {
     <div class="container">
         <div class="column">
           <div class="nav-links">
-            <a href="/index.html" class="header-link"><h2>Gray Crawford</h2></a>
+            <a href="/index.html" class="header-link"><h2>Gray <span class="lastname">Crawford</span></h2></a>
             <a href="https://twitter.com/graycrawford">tw</a>
             <a href="https://www.instagram.com/graycrawford/">ig</a>
             <strong><a href="/thesis.html">thesis</a></strong>

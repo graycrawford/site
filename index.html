@@ -11,24 +11,64 @@
           --good-ease: cubic-bezier(.15, .02, 0, 1);
         }
       
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        html, body {
+          height: 100%;
+          overflow: hidden;
+        }
+
         body {
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif;
           margin: 0;
-          padding: 20px;
+          padding: 0;
           line-height: 140%;
         }
       
         .container {
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          gap: 20px;
+          padding: 0 20px;
+          width: 100vw;
+          height: 100vh;
+          box-sizing: border-box;
         }
       
         .column {
-          flex: 1;
-          padding: 10px;
-          min-width: 100px;
+          flex: 0 0 350px;
+          height: 100vh;
+          overflow-y: auto;
+          padding: 0 20px;
+          position: relative;
+          transition: filter 1.1s var(--good-ease);
+          box-sizing: border-box;
+          /* Hide scrollbars */
+          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none; /* Internet Explorer 10+ */
+        }
+
+        .column::-webkit-scrollbar {
+          display: none; /* WebKit */
+        }
+
+        .column::before,
+        .column::after {
+          content: '';
+          display: block;
+          height: 40px;
         }
       
+        .nav-links {
+          margin: 20px 0 0 0;
+          padding: 0;
+        }
+
         h1 {
           font-weight: bold;
           color: var(--font-color);
@@ -36,9 +76,9 @@
           transition: filter 0.6s var(--good-ease);
           filter: blur(2.2px);
           mix-blend-mode: plus-darker;
-          margin-left: -6%;
+          /* margin-left: -6%; */
           line-height: 110%;
-          margin-top: 20%;
+          margin: 20% 0 0 0;
         }
       
         h1:hover {
@@ -54,11 +94,26 @@
           mix-blend-mode: plus-darker;
           /* margin-left: -4%; */
           line-height: 130%;
-          margin-top: 8%;
+          margin: 8% 0 1em 0;
         }
       
         h2:hover {
           filter: blur(3.6px)
+        }
+
+        .lastname {
+          color: var(--font-color);
+          opacity: 0.6;
+          transition: filter 0.6s var(--good-ease);
+          filter: blur(2.2px);
+          mix-blend-mode: plus-darker;
+          line-height: 130%;
+          font-size: inherit;
+          font-weight: inherit;
+        }
+
+        .lastname:hover {
+          filter: blur(6.5px)
         }
       
         h3 {
@@ -68,7 +123,7 @@
           transition: filter 0.6s var(--good-ease);
           filter: blur(1.8px);
           mix-blend-mode: plus-darker;
-          margin-left: -2%;
+          /* margin-left: -2%; */
           line-height: 140%;
         }
       
@@ -123,7 +178,7 @@ p strong {
 }
 
 strong {
-    color: #05634f;
+    color: #7e5566;
     transition: filter 0.6s var(--good-ease);
     filter: blur(0px);
     mix-blend-mode: plus-darker;
@@ -142,14 +197,11 @@ strong:hover {
         }
       
         .container:hover .column:not(:hover) {
-          overflow: visible;
           filter: blur(0px); /* 4px 20px */
           /* box-shadow: -30px 0px 100px rgba(0, 0, 0, 0.03); */
         }
       
-        .column {
-          transition: filter 1.1s var(--good-ease);
-        }
+
       
         video {
           width: 100%;
@@ -190,12 +242,35 @@ strong:hover {
           transition: filter 0.6s var(--good-ease);
           filter: blur(3px);
           /* //clip to border-radius shape: */
+          margin: 20px 0;
         }
       
         .twitter-tweet:hover {
           /* box-shadow: 0px 20px 50px rgba(0, 109, 211, 0.4); */
           filter: blur(0px);
         }
+
+        .loading-placeholder {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          right: 20px;
+          background-color: var(--font-color);
+          opacity: 0.03;
+          border-radius: 24pt;
+          margin: 10px;
+          min-height: 1200px;
+          filter: blur(12pt);
+          transition: opacity 5s var(--good-ease);
+          z-index: -1;
+          pointer-events: none;
+        }
+
+        .loading-placeholder.hidden {
+          opacity: 0;
+        }
+
+
       </style>
       
     
@@ -203,15 +278,137 @@ strong:hover {
 <body style="background-color: var(--background);">
 
 
-    <div class="container">
+        <div class="container">
         <div class="column">
-            <h2>Gray Crawford</h2>
+          <div class="nav-links">
+            <strong><a href="/index.html" class="header-link"><h2>Gray <span class="lastname">Crawford</span></h2></a></strong>
+            <a href="https://twitter.com/graycrawford">tw</a>
+            <a href="https://www.instagram.com/graycrawford/">ig</a>
+            <a href="/thesis.html">thesis</a>
+          </div>
+        </div>
 
-            <p>designer, prototyper, engineer, artist</p>
-             <a href="https://twitter.com/graycrawford">tw</a> <a href="https://www.instagram.com/graycrawford/">ig</a>
-             <a href="/thesis.html">thesis</a>
+                 <div class="column">
+              <!-- gen column -->
+              <div class="loading-placeholder"></div>
+
+              <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><p lang="en" dir="ltr"> <a href="https://twitter.com/gopalkraman/status/1841647480238395513?ref_src=twsrc%5Etfw"></a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+                <blockquote class="twitter-tweet">
+                    <a href="https://twitter.com/graycrawford/status/1100935327374626818"></a>
+                </blockquote>
+
+
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1860524647021969900"></a>
+             </blockquote>
+             
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1910414274855657726"></a>
+             </blockquote>
+             
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1795891829566472318"></a>
+             </blockquote>
+             
+
+              
+              <!-- <blockquote class="twitter-tweet">
+               <a href="https://twitter.com/graycrawford/status/1503492133411426304"></a>
+           </blockquote> -->
+
+             
+        </div>
+
+                 <div class="column">
+              <!-- genUI column -->
+              <div class="loading-placeholder"></div>
+              <blockquote class="twitter-tweet">
+               <a href="https://twitter.com/graycrawford/status/1820827755598184729"></a>
+           </blockquote>
+
+
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1828485425041940743"></a>
+             </blockquote>
+             
+             <blockquote class="twitter-tweet">
+              <a href="https://twitter.com/graycrawford/status/1536543460534013952"></a>
+          </blockquote>
+
+        </div>
+        
+                 <div class="column">
+              <!-- spectrograms column -->
+              <div class="loading-placeholder"></div>
+              <blockquote class="twitter-tweet">
+               <a href="https://twitter.com/graycrawford/status/1799553927001882771"></a>
+           </blockquote>
+
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1819805456170397707"></a>
+             </blockquote>
+             
+        </div>
+        
+                 <div class="column">
+              <!-- layout column -->
+              <div class="loading-placeholder"></div>
+              <blockquote class="twitter-tweet">
+               <a href="https://twitter.com/graycrawford/status/1559349301104365570"></a>
+           </blockquote>
+
+             <blockquote class="twitter-tweet">
+                <a href="https://twitter.com/graycrawford/status/1400884788718825474"></a>
+            </blockquote>
+
+            <blockquote class="twitter-tweet">
+              <a href="https://twitter.com/graycrawford/status/1698891160448860394"></a>
+          </blockquote>
+
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1811921270151483578"></a>
+             </blockquote>
+
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1890844353716994469"></a>
+             </blockquote>
+
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1600921304453959680"></a>
+             </blockquote>
+             
+             <blockquote class="twitter-tweet">
+                 <a href="https://twitter.com/graycrawford/status/1600922629086453760"></a>
+             </blockquote>
+
+        </div>
+        
+                 <div class="column">
+              <!-- vr column -->   
+              <div class="loading-placeholder"></div>
+              <blockquote class="twitter-tweet">
+               <a href="https://twitter.com/graycrawford/status/1732562172411363591"></a>
+           </blockquote>
+
+             <blockquote class="twitter-tweet">
+              <a href="https://twitter.com/graycrawford/status/1177142224615698434"></a>
+          </blockquote>
+             
         </div>
 
     </div>
+    
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    
+    <script>
+        // Fade out loading placeholders after delay
+        setTimeout(() => {
+            const placeholders = document.querySelectorAll('.loading-placeholder');
+            placeholders.forEach(placeholder => {
+                placeholder.classList.add('hidden');
+            });
+        }, 4000); // Wait 4 seconds, then start 5-second fade out
+    </script>
 </body>
-</html>
+</html> 
