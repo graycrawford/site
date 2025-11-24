@@ -146,13 +146,19 @@
       
       #crystal-toggles {
         position: absolute;
-        top: -184px; /* Much higher above tilt slider (-54px) and X slider (-24px) */
-        left: 0;
+        bottom: 0px; /* Lower the entire cluster */
+        left: 244px; /* Immediately past last slider (214px) + 30px gap */
         display: flex;
-        flex-direction: column-reverse;
-        gap: 4px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0;
+        justify-content: flex-start;
+        align-items: flex-end;
+        width: auto;
+        height: auto;
       }
       .crystal-toggle {
+        position: absolute;
         width: 20px;
         height: 20px;
         background-color: rgba(255, 255, 255, 0.1);
@@ -180,6 +186,7 @@
       
       /* Preset Menu */
       #preset-toggle {
+        position: absolute;
         width: 20px;
         height: 20px;
         background-color: rgba(255, 255, 255, 0.1);
@@ -191,7 +198,6 @@
         color: rgba(255, 255, 255, 0.3);
         font-size: 12px;
         transition: all 0.2s ease;
-        margin-top: 4px;
       }
       #preset-toggle:hover {
         background-color: rgba(255, 255, 255, 0.2);
@@ -278,20 +284,27 @@
     <div id="xy-pad">
       <div id="xy-pad-background"></div>
       <div id="xy-pad-knob"></div>
-      <input type="range" id="xy-pad-x-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
-      <input type="range" id="xy-pad-y-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
-      <input type="range" id="xy-pad-zoom-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
-      <input type="range" id="xy-pad-fade-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
-      <input type="range" id="xy-pad-exposure-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
-      <input type="range" id="xy-pad-tilt-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <input type="range" id="xy-pad-x-slider" class="xy-pad-row-slider" min="0" max="100" value="0" title="index of refraction">
+      <input type="range" id="xy-pad-y-slider" class="xy-pad-row-slider" min="0" max="100" value="0" title="sun elevation">
+      <input type="range" id="xy-pad-zoom-slider" class="xy-pad-row-slider" min="0" max="100" value="0" title="zoom">
+      <input type="range" id="xy-pad-fade-slider" class="xy-pad-row-slider" min="0" max="100" value="0" title="fade rate">
+      <input type="range" id="xy-pad-exposure-slider" class="xy-pad-row-slider" min="0" max="100" value="0" title="exposure">
+      <input type="range" id="xy-pad-tilt-slider" class="xy-pad-row-slider" min="0" max="100" value="0" title="tilt">
       <div id="crystal-toggles">
-        <div id="preset-toggle" title="Presets">
+        <!-- Preset button first, on top row -->
+        <div id="preset-toggle" title="presets" style="left: 0px; bottom: 17.32px;">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
         </div>
-        <div class="crystal-toggle" data-type="enableRandom" title="Random">R</div>
-        <div class="crystal-toggle" data-type="enablePlate" title="Plate">Pl</div>
-        <div class="crystal-toggle" data-type="enableColumn" title="Column">Col</div>
-        <div class="crystal-toggle" data-type="enableParry" title="Parry">Pa</div>
+        <!-- Bottom row: R, Pl, Col, Pa (20px spacing) -->
+        <div class="crystal-toggle" data-type="enableRandom" title="random" style="left: 20px; bottom: 0px;">R</div>
+        <div class="crystal-toggle" data-type="enablePlate" title="plate" style="left: 40px; bottom: 0px;">Pl</div>
+        <div class="crystal-toggle" data-type="enableColumn" title="column" style="left: 60px; bottom: 0px;">Col</div>
+        <div class="crystal-toggle" data-type="enableParry" title="Parry" style="left: 80px; bottom: 0px;">Pa</div>
+        <div class="crystal-toggle" data-type="enableLowitz" title="lowitz" style="left: 100px; bottom: 0px;">Lo</div>
+        <!-- Top row: Py, Oc, Co (equilateral triangle offset: 10px horizontal from bottom row, 17.32px vertical) -->
+        <div class="crystal-toggle" data-type="enablePyramidal" title="pyramidal" style="left: 30px; bottom: 17.32px;">Py</div>
+        <div class="crystal-toggle" data-type="enableOctahedral" title="octahedral (ammonia)" style="left: 50px; bottom: 17.32px;">Oc</div>
+        <div class="crystal-toggle" data-type="enableCuboctahedral" title="cuboctahedral (co2)" style="left: 70px; bottom: 17.32px;">Co</div>
       </div>
       <!-- Native preset picker (positioned dynamically over preset-toggle button) -->
       <select id="preset-picker"></select>

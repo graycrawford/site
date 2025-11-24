@@ -13,6 +13,10 @@ const CONFIG = {
   enablePlate: true,
   enableColumn: false,
   enableParry: false,
+  enablePyramidal: false,
+  enableOctahedral: false,
+  enableCuboctahedral: false,
+  enableLowitz: false,
   
   crystalTilt: 20, // degrees, variance from ideal orientation
   ior: 1.31,
@@ -53,6 +57,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: true,
         crystalTilt: 1,
         ior: 1.1,
@@ -68,6 +76,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: true,
         crystalTilt: 1,
         ior: 1.1,
@@ -84,6 +96,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 2.34,
         ior: 1.11,
@@ -100,6 +116,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 2.83,
         ior: 1.3,
@@ -115,6 +135,10 @@ const PRESETS = {
         enablePlate: false,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 2.83,
         ior: 1.22,
@@ -132,6 +156,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: true,
         crystalTilt: 25.27,
         ior: 1.04,
@@ -148,6 +176,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 2.83,
         ior: 1.3,
@@ -164,6 +196,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 4.29,
         ior: 1.5,
@@ -180,6 +216,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 0.88,
         ior: 1.37,
@@ -196,6 +236,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 0,
         ior: 1.03,
@@ -212,6 +256,10 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: false,
         enableParry: false,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: false,
         crystalTilt: 0.88,
         ior: 1.28,
@@ -228,11 +276,115 @@ const PRESETS = {
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
         enableRandom: true,
         crystalTilt: 2.22,
         ior: 1.04,
         exposure: 0.0079, // 10^-2.1
         fadeFactor: 0.275,
+        saturation: 2.8
+    },
+    "Preset 8": {
+        particleCount: 100000,
+        sunElevation: -15,
+        camElevation: -15,
+        lockSunCenter: true,
+        zoom: 1.7,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
+        enableRandom: false,
+        crystalTilt: 3.26,
+        ior: 1.14,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.059,
+        saturation: 2.8
+    },
+    "Preset 9": {
+        particleCount: 100000,
+        sunElevation: -10,
+        camElevation: -10,
+        lockSunCenter: true,
+        zoom: 20,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
+        enableRandom: true,
+        crystalTilt: 2.41,
+        ior: 1.01,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.059,
+        saturation: 2.8
+    },
+    "Preset 10": {
+        particleCount: 100000,
+        sunElevation: -7,
+        camElevation: -7,
+        lockSunCenter: true,
+        zoom: 40,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
+        enableRandom: true,
+        crystalTilt: 2.22,
+        ior: 1.0,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.072,
+        saturation: 3.0
+    },
+    "Preset 11": {
+        particleCount: 100000,
+        sunElevation: -22,
+        camElevation: -22,
+        lockSunCenter: true,
+        zoom: 20,
+        enablePlate: false,
+        enableColumn: false,
+        enableParry: false,
+        enablePyramidal: true,
+        enableOctahedral: false,
+        enableCuboctahedral: false,
+        enableLowitz: false,
+        enableRandom: false,
+        crystalTilt: 4.01,
+        ior: 1.0,
+        exposure: 0.0000251, // 10^-4.6
+        fadeFactor: 0.002,
+        saturation: 2.8
+    },
+    "Preset 12": {
+        particleCount: 100000,
+        sunElevation: -23,
+        camElevation: -23,
+        lockSunCenter: true,
+        zoom: 3.6,
+        enablePlate: false,
+        enableColumn: false,
+        enableParry: false,
+        enablePyramidal: false,
+        enableOctahedral: false,
+        enableCuboctahedral: true,
+        enableLowitz: false,
+        enableRandom: false,
+        crystalTilt: 7.18,
+        ior: 1.06,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.059,
         saturation: 2.8
     }
 };
@@ -241,7 +393,11 @@ const CRYSTAL_TYPES = {
   'Random': 0,
   'Plate': 1,
   'Column': 2,
-  'Parry': 3
+  'Parry': 3,
+  'Pyramidal': 4,
+  'Octahedral': 5,
+  'Cuboctahedral': 6,
+  'Lowitz': 7
 };
 
 // --- Scene Setup ---
@@ -356,6 +512,10 @@ uniform vec3 uSunPos;
 uniform float uCamElevation; // degrees
 uniform float uZoom; // FOV zoom factor
 uniform vec4 uTypeWeights; // Cumulative probabilities: x=Random, y=Plate, z=Column, w=Parry
+uniform float uPyramidalWeight; // Cumulative probability threshold for Pyramidal
+uniform float uOctahedralWeight; // Cumulative probability threshold for Octahedral
+uniform float uCuboctahedralWeight; // Cumulative probability threshold for Cuboctahedral
+uniform float uLowitzWeight; // Cumulative probability threshold for Lowitz
 uniform float uTiltVariance; // Radians
 uniform float uIOR;
 uniform float uAspect; // Crystal aspect ratio (width/length)
@@ -430,13 +590,22 @@ mat3 getCrystalOrientation(float seed) {
     // if rnd < x -> Type 0 (Random)
     // else if rnd < y -> Type 1 (Plate)
     // else if rnd < z -> Type 2 (Column)
-    // else -> Type 3 (Parry)
+    // else if rnd < w -> Type 3 (Parry)
+    // else if rnd < uPyramidalWeight -> Type 4 (Pyramidal)
+    // else if rnd < uOctahedralWeight -> Type 5 (Octahedral)
+    // else if rnd < uCuboctahedralWeight -> Type 6 (Cuboctahedral)
+    // else -> Type 7 (Lowitz)
     
     float rndType = hash11(seed + 999.9);
-    int type = 3;
+    int type = 7; // Default to Lowitz (last type)
     if (rndType < uTypeWeights.x) type = 0;
     else if (rndType < uTypeWeights.y) type = 1;
     else if (rndType < uTypeWeights.z) type = 2;
+    else if (rndType < uTypeWeights.w) type = 3;
+    else if (rndType < uPyramidalWeight) type = 4;
+    else if (rndType < uOctahedralWeight) type = 5;
+    else if (rndType < uCuboctahedralWeight) type = 6;
+    else type = 7; // Lowitz
     
     if (type == 0) { // Random (3D Uniform)
         // Standard uniform rotation
@@ -492,7 +661,7 @@ mat3 getCrystalOrientation(float seed) {
         
         rot = rotTilt * rotAzimuth;
 
-    } else if (type == 2 || type == 3) { // Column or Parry (C-axis horizontal)
+    } else if (type == 2 || type == 3 || type == 4) { // Column, Parry, or Pyramidal (C-axis horizontal)
         // C-axis is Y in local space. 
         // We want C-axis to be Horizontal in world space.
         // So rotate local Y to some random horizontal vector.
@@ -565,6 +734,47 @@ mat3 getCrystalOrientation(float seed) {
         mat3 tiltRot = angleAxis(tilt, tiltAxis); // This is approximate
         
         rot = tiltRot * azRot * spinRot * toHorizontal;
+    } else if (type == 5 || type == 6) { // Octahedral or Cuboctahedral (tilt-influenced)
+        // Start with a preferred orientation (e.g., one face up)
+        // Then apply tilt variance
+        
+        float azimuth = h.x * TWO_PI;
+        
+        // Gaussian tilt distribution
+        vec2 hG = hash21(seed + 55.12);
+        float r = sqrt(-2.0 * log(hG.x + 0.0001));
+        float gaussian = r * cos(TWO_PI * hG.y);
+        float tilt = gaussian * uTiltVariance;
+        
+        float tiltDir = h.z * TWO_PI;
+        
+        // Start with identity (or preferred orientation)
+        // For octahedral/cuboctahedral, we can start with one face pointing up
+        // Then apply tilt around a random axis
+        mat3 rotAzimuth = angleAxis(azimuth, vec3(0.0, 1.0, 0.0));
+        mat3 rotTilt = angleAxis(tilt, vec3(cos(tiltDir), 0.0, sin(tiltDir)));
+        
+        rot = rotTilt * rotAzimuth;
+    } else if (type == 7) { // Lowitz (tilted about x-axis)
+        // Lowitz crystals are hexagonal crystals (plates or columns) tilted about the x-axis
+        // X-axis is horizontal and perpendicular to the sun's direction
+        // This creates arcs connecting the 22° halo with the parhelia
+        
+        // Start with a plate-like orientation (C-axis vertical)
+        float azimuth = h.x * TWO_PI;
+        mat3 rotAzimuth = angleAxis(azimuth, vec3(0.0, 1.0, 0.0));
+        
+        // Apply tilt about x-axis (horizontal, perpendicular to sun)
+        // Gaussian distribution for tilt variance
+        vec2 hG = hash21(seed + 77.88);
+        float r = sqrt(-2.0 * log(hG.x + 0.0001));
+        float gaussian = r * cos(TWO_PI * hG.y);
+        float tilt = gaussian * uTiltVariance;
+        
+        // Rotate about x-axis
+        mat3 rotTilt = angleAxis(tilt, vec3(1.0, 0.0, 0.0));
+        
+        rot = rotTilt * rotAzimuth;
     }
     
     // Crystal Aspect Ratio:
@@ -595,16 +805,126 @@ mat3 getCrystalOrientation(float seed) {
 
 // --- Ray Tracing ---
 
-// Hexagon Normals (in local space, C-axis = Y)
-// Face 1, 2: Top/Bottom (0, 1, 0), (0, -1, 0)
-// Face 3-8: Prism faces. Normal is (cos(t), 0, sin(t)) for t = 0, 60, 120...
-
-vec3 getFaceNormal(int faceIdx) {
-    if (faceIdx == 1) return vec3(0.0, 1.0, 0.0);
-    if (faceIdx == 2) return vec3(0.0, -1.0, 0.0);
+// Octahedral Normals (8 triangular faces)
+// Octahedron vertices: (±1,0,0), (0,±1,0), (0,0,±1)
+// Faces are triangles connecting 3 vertices
+vec3 getOctahedralFaceNormal(int faceIdx) {
+    // 8 faces: each face is a triangle
+    // Face 0: (1,0,0), (0,1,0), (0,0,1) -> normal = normalize((1,1,1)) = (1,1,1)/√3
+    // Face 1: (1,0,0), (0,-1,0), (0,0,1) -> normal = normalize((1,-1,1))
+    // Face 2: (-1,0,0), (0,1,0), (0,0,1) -> normal = normalize((-1,1,1))
+    // Face 3: (-1,0,0), (0,-1,0), (0,0,1) -> normal = normalize((-1,-1,1))
+    // Face 4: (1,0,0), (0,1,0), (0,0,-1) -> normal = normalize((1,1,-1))
+    // Face 5: (1,0,0), (0,-1,0), (0,0,-1) -> normal = normalize((1,-1,-1))
+    // Face 6: (-1,0,0), (0,1,0), (0,0,-1) -> normal = normalize((-1,1,-1))
+    // Face 7: (-1,0,0), (0,-1,0), (0,0,-1) -> normal = normalize((-1,-1,-1))
     
-    float angle = float(faceIdx - 3) * (PI / 3.0);
-    return vec3(sin(angle), 0.0, cos(angle)); // Indicies 3,4,5,6,7,8
+    vec3 signs[8];
+    signs[0] = vec3(1.0, 1.0, 1.0);
+    signs[1] = vec3(1.0, -1.0, 1.0);
+    signs[2] = vec3(-1.0, 1.0, 1.0);
+    signs[3] = vec3(-1.0, -1.0, 1.0);
+    signs[4] = vec3(1.0, 1.0, -1.0);
+    signs[5] = vec3(1.0, -1.0, -1.0);
+    signs[6] = vec3(-1.0, 1.0, -1.0);
+    signs[7] = vec3(-1.0, -1.0, -1.0);
+    
+    return normalize(signs[faceIdx]);
+}
+
+// Cuboctahedral Normals (14 faces: 8 triangular + 6 square)
+// Cuboctahedron: vertices at (±1,±1,0), (±1,0,±1), (0,±1,±1)
+// Triangular faces connect vertices sharing one coordinate
+vec3 getCuboctahedralFaceNormal(int faceIdx) {
+    // 8 triangular faces (0-7): Each connects 3 vertices
+    // Face 0: (1,1,0), (1,0,1), (0,1,1) -> normal = normalize((1,1,1))
+    // Face 1: (1,-1,0), (1,0,1), (0,-1,1) -> normal = normalize((1,-1,1))
+    // Face 2: (-1,1,0), (-1,0,1), (0,1,1) -> normal = normalize((-1,1,1))
+    // Face 3: (-1,-1,0), (-1,0,1), (0,-1,1) -> normal = normalize((-1,-1,1))
+    // Face 4: (1,1,0), (1,0,-1), (0,1,-1) -> normal = normalize((1,1,-1))
+    // Face 5: (1,-1,0), (1,0,-1), (0,-1,-1) -> normal = normalize((1,-1,-1))
+    // Face 6: (-1,1,0), (-1,0,-1), (0,1,-1) -> normal = normalize((-1,1,-1))
+    // Face 7: (-1,-1,0), (-1,0,-1), (0,-1,-1) -> normal = normalize((-1,-1,-1))
+    if (faceIdx < 8) {
+        // Triangular faces - normals point outward from center
+        vec3 signs[8];
+        signs[0] = vec3(1.0, 1.0, 1.0);
+        signs[1] = vec3(1.0, -1.0, 1.0);
+        signs[2] = vec3(-1.0, 1.0, 1.0);
+        signs[3] = vec3(-1.0, -1.0, 1.0);
+        signs[4] = vec3(1.0, 1.0, -1.0);
+        signs[5] = vec3(1.0, -1.0, -1.0);
+        signs[6] = vec3(-1.0, 1.0, -1.0);
+        signs[7] = vec3(-1.0, -1.0, -1.0);
+        return normalize(signs[faceIdx]);
+    } else {
+        // Square faces (8-13): ±X, ±Y, ±Z (perpendicular to axes)
+        int squareIdx = faceIdx - 8;
+        if (squareIdx == 0) return vec3(1.0, 0.0, 0.0);  // +X
+        if (squareIdx == 1) return vec3(-1.0, 0.0, 0.0); // -X
+        if (squareIdx == 2) return vec3(0.0, 1.0, 0.0);  // +Y
+        if (squareIdx == 3) return vec3(0.0, -1.0, 0.0); // -Y
+        if (squareIdx == 4) return vec3(0.0, 0.0, 1.0);  // +Z
+        return vec3(0.0, 0.0, -1.0); // -Z
+    }
+}
+
+// Hexagon Normals (in local space, C-axis = Y)
+// Face 1, 2: Top/Bottom basal faces (0, 1, 0), (0, -1, 0)
+// Face 3-8: Prism faces. Normal is (cos(t), 0, sin(t)) for t = 0, 60, 120...
+// Face 9-14: Upper pyramidal faces (tilted ~28° from horizontal)
+// Face 15-20: Lower pyramidal faces (tilted ~52° from horizontal)
+
+vec3 getFaceNormal(int faceIdx, int crystalType) {
+    // Octahedral (8 faces)
+    if (crystalType == 5) {
+        if (faceIdx >= 1 && faceIdx <= 8) {
+            return getOctahedralFaceNormal(faceIdx - 1);
+        }
+        return vec3(0.0, 1.0, 0.0);
+    }
+    
+    // Cuboctahedral (14 faces)
+    if (crystalType == 6) {
+        if (faceIdx >= 1 && faceIdx <= 14) {
+            return getCuboctahedralFaceNormal(faceIdx - 1);
+        }
+        return vec3(0.0, 1.0, 0.0);
+    }
+    
+    // Hexagonal/Pyramidal (8 or 20 faces)
+    if (faceIdx == 1) return vec3(0.0, 1.0, 0.0);  // Top basal
+    if (faceIdx == 2) return vec3(0.0, -1.0, 0.0); // Bottom basal
+    
+    // Prism faces (3-8)
+    if (faceIdx >= 3 && faceIdx <= 8) {
+        float angle = float(faceIdx - 3) * (PI / 3.0);
+        return vec3(sin(angle), 0.0, cos(angle));
+    }
+    
+    // Upper pyramidal faces (9-14): ~28° tilt from horizontal
+    // These create 9°, 18°, 20° halos
+    if (faceIdx >= 9 && faceIdx <= 14) {
+        float angle = float(faceIdx - 9) * (PI / 3.0);
+        float tiltAngle = 28.0 * PI / 180.0; // ~28 degrees
+        vec3 horizontal = vec3(sin(angle), 0.0, cos(angle));
+        vec3 vertical = vec3(0.0, 1.0, 0.0);
+        // Rotate horizontal vector upward by tiltAngle
+        return normalize(horizontal * cos(tiltAngle) + vertical * sin(tiltAngle));
+    }
+    
+    // Lower pyramidal faces (15-20): ~52° tilt from horizontal  
+    // These create 23°, 24°, 35° halos
+    if (faceIdx >= 15 && faceIdx <= 20) {
+        float angle = float(faceIdx - 15) * (PI / 3.0);
+        float tiltAngle = 52.0 * PI / 180.0; // ~52 degrees
+        vec3 horizontal = vec3(sin(angle), 0.0, cos(angle));
+        vec3 vertical = vec3(0.0, -1.0, 0.0); // Pointing down
+        // Rotate horizontal vector downward by tiltAngle
+        return normalize(horizontal * cos(tiltAngle) + vertical * sin(tiltAngle));
+    }
+    
+    return vec3(0.0, 1.0, 0.0); // Fallback
 }
 
 // Intersect ray with infinite plane defined by normal and distance
@@ -674,15 +994,23 @@ void main() {
     
     // Redetermine type for aspect ratio (duplicate logic, optimized out by compiler hopefully)
     float rndType = hash11(seed + 999.9);
-    int type = 3;
+    int type = 7; // Default to Lowitz
     if (rndType < uTypeWeights.x) type = 0;
     else if (rndType < uTypeWeights.y) type = 1;
     else if (rndType < uTypeWeights.z) type = 2;
+    else if (rndType < uTypeWeights.w) type = 3;
+    else if (rndType < uPyramidalWeight) type = 4;
+    else if (rndType < uOctahedralWeight) type = 5;
+    else if (rndType < uCuboctahedralWeight) type = 6;
+    else type = 7; // Lowitz
     
     float localAspect = uAspect;
-    if (type == 1) localAspect = 0.2;
-    else if (type == 2 || type == 3) localAspect = 2.0;
-    else localAspect = 1.0;
+    if (type == 1) localAspect = 0.2;  // Plate
+    else if (type == 2 || type == 3) localAspect = 2.0; // Column/Parry
+    else if (type == 4) localAspect = 2.0; // Pyramidal (similar to column)
+    else if (type == 5 || type == 6) localAspect = 1.0; // Octahedral/Cuboctahedral (spherical)
+    else if (type == 7) localAspect = 0.2; // Lowitz (plate-like)
+    else localAspect = 1.0; // Random
     
     // 2. Ray Direction (Sun -> Crystal)
     // Sun is at infinity, so all rays are parallel to uSunPos
@@ -692,33 +1020,44 @@ void main() {
     vec3 rayDir = invRot * rayDirWorld; // In local space
     
     // 3. Select Entry Face
-    // Calculate projected areas of all 8 faces
-    // Area of Prism face: Width * Height. Let's say Width=1. Height=Aspect. Area=Aspect.
-    // Area of Basal face: Hexagon area. Side=width/sqrt(3)? Let's set apothem=1.
-    // Distance to prism face = 1. Side length s = 2*tan(30) = 1.15.
-    // Basal Area = 3*sqrt(3)/2 * s^2 ?? 
-    // Let's normalize dimensions: distance to prism face = 1.
-    // Prism Face Area (Rect) = Side * Length. Side = 2*tan(30deg)*1 = 1.1547.
-    // Length = uAspect * 2.0 (since uAspect is usually L/D).
-    // Basal Face Area (Hex) = 2 * sqrt(3) * 1^2 = 3.464.
+    // Calculate projected areas of all faces
+    // For standard crystals: 8 faces (2 basal + 6 prism)
+    // For pyramidal crystals: 20 faces (2 basal + 6 prism + 12 pyramidal)
     
     float s = 1.1547;
     float L = localAspect * 2.0; 
     float areaPrism = s * L;
-    float areaBasal = 3.464; 
+    float areaBasal = 3.464;
+    // Pyramidal faces are triangular, approximate area
+    float areaPyramidal = 0.5 * s * 0.5; // Rough estimate, smaller than prism faces
     
-    // Compute dot products for all 8 faces to see which are illuminated
-    float weights[8];
+    int numFaces = 8; // Default
+    if (type == 4) numFaces = 20; // Pyramidal has 20 faces
+    else if (type == 5) numFaces = 8; // Octahedral has 8 faces
+    else if (type == 6) numFaces = 14; // Cuboctahedral has 14 faces
+    
+    // Compute dot products for all faces to see which are illuminated
     float totalWeight = 0.0;
+    float faceWeights[20]; // Support up to 20 faces
     
-    for (int i=1; i<=8; i++) {
-        vec3 n = getFaceNormal(i);
+    for (int i=1; i<=numFaces; i++) {
+        vec3 n = getFaceNormal(i, type);
         float proj = dot(n, -rayDir); // Must be facing the ray
         float w = max(0.0, proj);
-        if (i <= 2) w *= areaBasal;
-        else w *= areaPrism;
         
-        weights[i-1] = w;
+        // Area weighting based on crystal type
+        if (type == 5 || type == 6) {
+            // Octahedral/Cuboctahedral: all faces similar area
+            w *= 1.0; // Uniform weighting
+        } else if (i <= 2) {
+            w *= areaBasal; // Basal faces
+        } else if (i <= 8) {
+            w *= areaPrism; // Prism faces
+        } else {
+            w *= areaPyramidal; // Pyramidal faces (9-20)
+        }
+        
+        faceWeights[i-1] = w;
         totalWeight += w;
     }
     
@@ -728,11 +1067,11 @@ void main() {
     float accum = 0.0;
     vec3 n1 = vec3(0.0);
     
-    for (int i=0; i<8; i++) {
-        accum += weights[i];
+    for (int i=0; i<numFaces; i++) {
+        accum += faceWeights[i];
         if (rnd <= accum) {
             entryFace = i + 1;
-            n1 = getFaceNormal(entryFace);
+            n1 = getFaceNormal(entryFace, type);
             break;
         }
     }
@@ -824,9 +1163,9 @@ void main() {
     if (entryFace == 1) { // Top Basal
         P0 = vec3((uv.x - 0.5)*2.0, 1.0, (uv.y - 0.5)*2.0); // Square approx for hex
         // Check hex bounds? Ignore for now, approximate as square.
-    } else if (entryFace == 2) { // Bottom
+    } else if (entryFace == 2) { // Bottom Basal
         P0 = vec3((uv.x - 0.5)*2.0, -1.0, (uv.y - 0.5)*2.0);
-    } else { // Prism
+    } else if (entryFace >= 3 && entryFace <= 8) { // Prism faces
         // Face normal angle
         float angle = float(entryFace - 3) * (PI / 3.0);
         vec3 n = vec3(sin(angle), 0.0, cos(angle));
@@ -834,6 +1173,26 @@ void main() {
         vec3 bitangent = vec3(0.0, 1.0, 0.0);
         
         P0 = n * 1.0 + tangent * (uv.x - 0.5) * s + bitangent * (uv.y - 0.5) * L;
+    } else if (entryFace >= 9 && entryFace <= 20) { // Pyramidal faces (9-20)
+        // Approximate pyramidal face as a triangle, use center point
+        vec3 n = getFaceNormal(entryFace, type);
+        // Place point on the face at a reasonable distance
+        P0 = n * 1.0; // Simplified: place at unit distance along normal
+    } else if (type == 5) { // Octahedral
+        // Place entry point on the face plane
+        vec3 n = getFaceNormal(entryFace, type);
+        float faceDist = 0.57735; // 1.0 / sqrt(3.0) - distance from center to face
+        P0 = n * faceDist; // Place on face plane
+    } else if (type == 6) { // Cuboctahedral
+        // Place entry point on the face plane
+        vec3 n = getFaceNormal(entryFace, type);
+        float faceDist;
+        if (entryFace <= 8) {
+            faceDist = 0.7071; // 1.0 / sqrt(2.0) for triangular faces
+        } else {
+            faceDist = 1.0; // Square faces
+        }
+        P0 = n * faceDist; // Place on face plane
     }
     
     // Now trace from P0 along rd.
@@ -843,21 +1202,46 @@ void main() {
     
     float h_len = localAspect; // Half length
     float d_prism = 1.0; // Apothem
+    float d_pyramidal = 1.0; // Approximate distance for pyramidal faces
     
-    for (int i=1; i<=8; i++) {
+    int maxFace = 8; // Default
+    if (type == 4) maxFace = 20; // Pyramidal
+    else if (type == 5) maxFace = 8; // Octahedral
+    else if (type == 6) maxFace = 14; // Cuboctahedral
+    
+    for (int i=1; i<=maxFace; i++) {
         if (i == entryFace) continue;
         
-        vec3 n = getFaceNormal(i);
-        float dist = (i <= 2) ? h_len : d_prism;
+        vec3 n = getFaceNormal(i, type);
+        float dist;
+        if (type == 5) {
+            // Octahedral: distance from center to face = 1/√3 ≈ 0.577
+            // For octahedron with vertices at (±1,0,0), (0,±1,0), (0,0,±1)
+            dist = 0.57735; // 1.0 / sqrt(3.0)
+        } else if (type == 6) {
+            // Cuboctahedral: triangular faces at distance 1/√2 ≈ 0.707, square faces at distance 1.0
+            if (i <= 8) {
+                dist = 0.7071; // 1.0 / sqrt(2.0) for triangular faces
+            } else {
+                dist = 1.0; // Square faces
+            }
+        } else if (i <= 2) {
+            dist = h_len; // Basal faces
+        } else if (i <= 8) {
+            dist = d_prism; // Prism faces
+        } else {
+            dist = d_pyramidal; // Pyramidal faces
+        }
         
         // Intersection distance t
         // P0 + t*rd is on plane -> dot(P0 + t*rd, n) = dist
         // t = (dist - dot(P0, n)) / dot(rd, n)
         
         float denom = dot(rd, n);
-        if (denom > 0.0) { // Must be exiting face (normal points out, ray points out)
+        if (abs(denom) > 0.001) { // Avoid division by zero, check both directions
              float t = (dist - dot(P0, n)) / denom;
-             if (t > 0.001 && t < minT) {
+             // For exit, ray must be moving away from center (t > 0) and normal should point outward
+             if (t > 0.001 && t < minT && denom > 0.0) {
                  minT = t;
                  exitFace = i;
                  n2 = n;
@@ -1048,6 +1432,10 @@ const material = new THREE.ShaderMaterial({
     uCamElevation: { value: 90.0 },
     uZoom: { value: 1.0 },
     uTypeWeights: { value: new THREE.Vector4() },
+    uPyramidalWeight: { value: 1.0 },
+    uOctahedralWeight: { value: 1.0 },
+    uCuboctahedralWeight: { value: 1.0 },
+    uLowitzWeight: { value: 1.0 },
     uCrystalType: { value: CONFIG.crystalType === 'Random' ? 0 : 1 },
     uTiltVariance: { value: 0.0 },
     uIOR: { value: CONFIG.ior },
@@ -1228,6 +1616,10 @@ types.open();
 types.add(CONFIG, 'enablePlate').name('Plates');
 types.add(CONFIG, 'enableColumn').name('Columns');
 types.add(CONFIG, 'enableParry').name('Parry');
+types.add(CONFIG, 'enablePyramidal').name('Pyramidal');
+types.add(CONFIG, 'enableOctahedral').name('Octahedral');
+types.add(CONFIG, 'enableCuboctahedral').name('Cuboctahedral');
+types.add(CONFIG, 'enableLowitz').name('Lowitz');
 types.add(CONFIG, 'enableRandom').name('Random');
 
 gui.add(CONFIG, 'crystalTilt', 0, 45).step(0.01).name('Tilt (Deg)').onChange(v => targetState.crystalTilt = v);
@@ -1448,14 +1840,14 @@ if (xyPad && xyPadKnob && xyPadBg) {
                     currentState[type] = newVal;
                     
                     // Force Parry if all off
-                    if (!CONFIG.enableRandom && !CONFIG.enablePlate && !CONFIG.enableColumn && !CONFIG.enableParry) {
+                    if (!CONFIG.enableRandom && !CONFIG.enablePlate && !CONFIG.enableColumn && !CONFIG.enableParry && !CONFIG.enablePyramidal && !CONFIG.enableOctahedral && !CONFIG.enableCuboctahedral && !CONFIG.enableLowitz) {
                         CONFIG.enableParry = true;
                         targetState.enableParry = true;
                         currentState.enableParry = true;
                     }
                     
                     // Update GUI for all types (to reflect forced changes)
-                    const typeKeys = ['enableRandom', 'enablePlate', 'enableColumn', 'enableParry'];
+                    const typeKeys = ['enableRandom', 'enablePlate', 'enableColumn', 'enableParry', 'enablePyramidal', 'enableOctahedral', 'enableCuboctahedral', 'enableLowitz'];
                     typeKeys.forEach(t => {
                         gui.__controllers.forEach(c => {
                             if (c.property === t) c.updateDisplay();
@@ -1902,21 +2294,33 @@ function animate(time) {
     let w1 = CONFIG.enablePlate ? 1.0 : 0.0;
     let w2 = CONFIG.enableColumn ? 1.0 : 0.0;
     let w3 = CONFIG.enableParry ? 1.0 : 0.0;
+    let w4 = CONFIG.enablePyramidal ? 1.0 : 0.0;
+    let w5 = CONFIG.enableOctahedral ? 1.0 : 0.0;
+    let w6 = CONFIG.enableCuboctahedral ? 1.0 : 0.0;
+    let w7 = CONFIG.enableLowitz ? 1.0 : 0.0;
     
-    let totalW = w0 + w1 + w2 + w3;
+    let totalW = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7;
     if (totalW <= 0.0) totalW = 1.0; // Prevent divide by zero
     
     w0 /= totalW;
     w1 /= totalW;
     w2 /= totalW;
-    // w3 is remainder
+    w3 /= totalW;
+    w4 /= totalW;
+    w5 /= totalW;
+    w6 /= totalW;
+    w7 /= totalW;
     
     material.uniforms.uTypeWeights.value.set(
         w0,
         w0 + w1,
         w0 + w1 + w2,
-        1.0 // End
+        w0 + w1 + w2 + w3 // Cumulative up to Parry
     );
+    material.uniforms.uPyramidalWeight.value = w0 + w1 + w2 + w3 + w4; // Cumulative including Pyramidal
+    material.uniforms.uOctahedralWeight.value = w0 + w1 + w2 + w3 + w4 + w5; // Cumulative including Octahedral
+    material.uniforms.uCuboctahedralWeight.value = w0 + w1 + w2 + w3 + w4 + w5 + w6; // Cumulative including Cuboctahedral
+    material.uniforms.uLowitzWeight.value = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7; // Cumulative including Lowitz
     
     // material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(CONFIG.crystalTilt); // Moved to Spring Loop
     // material.uniforms.uIOR.value = CONFIG.ior; // Moved to Spring Loop
