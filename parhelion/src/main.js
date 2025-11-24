@@ -4,14 +4,91 @@ import { GUI } from 'dat.gui';
 // --- Configuration ---
 const CONFIG = {
   particleCount: 400000, // Number of rays simulated per frame (approx)
-  sunElevation: 5, // degrees
+  sunElevation: 12, // degrees
   sunAzimuth: 0,
-  camElevation: 15, // 90 = Looking at Zenith, 0 = Looking at Horizon
-  crystalType: 'Plate', // Plate, Column, Random
-  crystalTilt: 45, // degrees, variance from ideal orientation
-  ior: 1.3,
-  exposure: 0.0005,
-  fadeFactor: 0.0 // 0 = Infinite accumulation, >0 = Fade out over time
+  camElevation: 0, // 90 = Looking at Zenith, 0 = Looking at Horizon
+  
+  // Crystal Populations (Toggles)
+  enableRandom: false,
+  enablePlate: true,
+  enableColumn: false,
+  enableParry: false,
+  
+  crystalTilt: 20, // degrees, variance from ideal orientation
+  ior: 1.31,
+  exposure: 0.0158, // 10^-1.8
+  fadeFactor: 0.05, // 1/10 of 0.5 range
+  saturation: 1.2, // Default slight bump
+  preset: 'Default'
+};
+
+// --- Presets ---
+const PRESETS = {
+    "Default": {
+        particleCount: 400000,
+        sunElevation: 12,
+        camElevation: 0,
+        enablePlate: true,
+        enableColumn: false,
+        enableParry: false,
+        enableRandom: false,
+        crystalTilt: 20,
+        ior: 1.31,
+        exposure: 0.0158,
+        fadeFactor: 0.05
+    },
+    "Eye 1": {
+        particleCount: 100000,
+        sunElevation: 34,
+        camElevation: -3,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: true,
+        crystalTilt: 1,
+        ior: 1.1,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.059
+    },
+    "Eye 2": {
+        particleCount: 100000,
+        sunElevation: 49,
+        camElevation: -3,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: true,
+        crystalTilt: 1,
+        ior: 1.1,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.059
+    },
+    "Eye 3": {
+        particleCount: 100000,
+        sunElevation: 28,
+        camElevation: 60,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: true,
+        crystalTilt: 1,
+        ior: 1.1,
+        exposure: 0.01, // 10^-2
+        fadeFactor: 0.059
+    },
+    "Eye 4": {
+        particleCount: 100000,
+        sunElevation: 0,
+        camElevation: -28,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: true,
+        crystalTilt: 2,
+        ior: 1.4,
+        exposure: 0.0031, // 10^-2.5
+        fadeFactor: 0.01
+    }
 };
 
 const CRYSTAL_TYPES = {
@@ -27,27 +104,88 @@ const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 // Use devicePixelRatio for Retina resolution
 const renderer = new THREE.WebGLRenderer({ 
     antialias: false, 
-    alpha: true, 
-    preserveDrawingBuffer: true,
+    alpha: false, // No alpha needed for HDR
+    preserveDrawingBuffer: false, // We use our own target
     powerPreference: "high-performance",
     precision: "highp"
 });
 renderer.setPixelRatio(window.devicePixelRatio); 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.autoClear = false; // Enable accumulation
+renderer.autoClear = false; // Handle manually
 document.body.appendChild(renderer.domElement);
 
-// Fade Plane (Full screen quad)
+// --- HDR Accumulation Setup ---
+// 1. Float32 Render Target (Accumulation Buffer)
+const accumTarget = new THREE.WebGLRenderTarget(
+    window.innerWidth * window.devicePixelRatio, 
+    window.innerHeight * window.devicePixelRatio, 
+    {
+        type: THREE.FloatType, // 32-bit Float for HDR
+        format: THREE.RGBAFormat,
+        minFilter: THREE.NearestFilter,
+        magFilter: THREE.NearestFilter,
+        generateMipmaps: false
+    }
+);
+
+// 2. Screen Output Quad (Tone Mapping)
+const screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const screenScene = new THREE.Scene();
+const screenMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+        tDiffuse: { value: accumTarget.texture },
+        uExposure: { value: 1.0 },
+        uSaturation: { value: 1.0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uExposure;
+        uniform float uSaturation;
+        varying vec2 vUv;
+        
+        // Saturation helper
+        vec3 adjustSaturation(vec3 color, float saturation) {
+            float gray = dot(color, vec3(0.299, 0.587, 0.114));
+            return mix(vec3(gray), color, saturation);
+        }
+        
+        void main() {
+            vec4 tex = texture2D(tDiffuse, vUv);
+            vec3 color = tex.rgb;
+            
+            // Saturation (Linear Space)
+            color = adjustSaturation(color, uSaturation);
+            
+            // Gamma Correction (2.2)
+            color = pow(color, vec3(1.0 / 2.2));
+            
+            gl_FragColor = vec4(color, 1.0);
+        }
+    `
+});
+const screenQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), screenMaterial);
+screenScene.add(screenQuad);
+
+// Fade Plane (Now renders into accumTarget)
 const fadeMaterial = new THREE.MeshBasicMaterial({
     color: 0x000000,
     transparent: true,
     opacity: 0.0,
-    blending: THREE.NormalBlending // Standard blending to "darken" the buffer
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.ZeroFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor // Multiplicative fade (Float precision!)
 });
 const fadePlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fadeMaterial);
-// Use a separate scene/camera for the fade pass
 const fadeScene = new THREE.Scene();
-const fadeCamera = new THREE.Camera(); // Simple camera
+const fadeCamera = new THREE.Camera(); 
 fadeScene.add(fadePlane);
 
 // --- Geometry (Points) ---
@@ -70,12 +208,13 @@ uniform float uTime;
 uniform vec2 uResolution;
 uniform vec3 uSunPos;
 uniform float uCamElevation; // degrees
-uniform int uCrystalType; // 0: Random, 1: Plate, 2: Column
+uniform vec4 uTypeWeights; // Cumulative probabilities: x=Random, y=Plate, z=Column, w=Parry
 uniform float uTiltVariance; // Radians
 uniform float uIOR;
 uniform float uAspect; // Crystal aspect ratio (width/length)
 
 varying vec3 vColor;
+varying float vSeed;
 
 // Constants
 const float PI = 3.14159265359;
@@ -138,8 +277,21 @@ mat3 angleAxis(float angle, vec3 axis) {
 mat3 getCrystalOrientation(float seed) {
     vec3 h = hash31(seed);
     mat3 rot = mat3(1.0);
-
-    if (uCrystalType == 0) { // Random (3D Uniform)
+    
+    // Determine Crystal Type for this ray based on weights
+    // uTypeWeights is cumulative: 
+    // if rnd < x -> Type 0 (Random)
+    // else if rnd < y -> Type 1 (Plate)
+    // else if rnd < z -> Type 2 (Column)
+    // else -> Type 3 (Parry)
+    
+    float rndType = hash11(seed + 999.9);
+    int type = 3;
+    if (rndType < uTypeWeights.x) type = 0;
+    else if (rndType < uTypeWeights.y) type = 1;
+    else if (rndType < uTypeWeights.z) type = 2;
+    
+    if (type == 0) { // Random (3D Uniform)
         // Standard uniform rotation
         float u1 = h.x;
         float u2 = h.y;
@@ -159,7 +311,7 @@ mat3 getCrystalOrientation(float seed) {
             2.0*qx*qz - 2.0*qy*qw,       2.0*qy*qz + 2.0*qx*qw,       1.0 - 2.0*qx*qx - 2.0*qy*qy
         );
 
-    } else if (uCrystalType == 1) { // Plate (C-axis vertical)
+    } else if (type == 1) { // Plate (C-axis vertical)
         // Main axis (C-axis) is Y (0,1,0) in local space.
         // In world space, we want it to be (0,1,0) (Up).
         // So we just rotate around Y for azimuth (random).
@@ -170,7 +322,22 @@ mat3 getCrystalOrientation(float seed) {
         // Box-Muller transform for normal distribution?
         // Or just uniform for simplicity first.
         float tiltScale = uTiltVariance; 
-        float tilt = (h.y * 2.0 - 1.0) * tiltScale; // Simple linear wobble
+        
+        // Uniform distribution:
+        // float tilt = (h.y * 2.0 - 1.0) * tiltScale; 
+        
+        // Gaussian Approximation (Box-Muller)
+        // u1 = h.y, u2 = h.z (we need two random numbers)
+        // We used h.z for tiltDir. Let's re-use h.y and h.z carefully.
+        // Let's grab a new hash for Gaussian.
+        vec2 hG = hash21(seed + 55.12);
+        float r = sqrt(-2.0 * log(hG.x + 0.0001)); // Radius
+        float theta = TWO_PI * hG.y; // Angle
+        float gaussian = r * cos(theta); // Standard Normal Dist (mean=0, sigma=1)
+        
+        // Apply tilt scale (sigma)
+        float tilt = gaussian * tiltScale;
+        
         float tiltDir = h.z * TWO_PI;
         
         mat3 rotAzimuth = angleAxis(azimuth, vec3(0.0, 1.0, 0.0));
@@ -178,7 +345,7 @@ mat3 getCrystalOrientation(float seed) {
         
         rot = rotTilt * rotAzimuth;
 
-    } else if (uCrystalType == 2) { // Column (C-axis horizontal)
+    } else if (type == 2 || type == 3) { // Column or Parry (C-axis horizontal)
         // C-axis is Y in local space. 
         // We want C-axis to be Horizontal in world space.
         // So rotate local Y to some random horizontal vector.
@@ -188,10 +355,38 @@ mat3 getCrystalOrientation(float seed) {
         vec3 worldC = vec3(cos(axisAzimuth), 0.0, sin(axisAzimuth));
         
         // 2. Rotate around this C-axis (spin)
-        float spin = h.y * TWO_PI;
+        float spin = h.y * TWO_PI; // Default random spin for Column
+        
+        // Parry adjustment: Constrained spin.
+        // Parry crystals have a pair of prism faces horizontal.
+        // Prism faces are at angles 0, 60, 120...
+        // We want Face normal to be Up (0,1,0).
+        // In local space, Face 1 normal is (0,1,0). But Face 1 is Basal (End cap).
+        // Wait, our geometry: Face 1,2 are Basal (Top/Bottom). Face 3-8 are Prism.
+        // Prism faces normals are in XZ plane.
+        // We aligned C-axis (Y) to World Horizontal.
+        // So Prism faces rotate around World Horizontal.
+        // We want one Prism face to be UP.
+        
+        if (type == 3) { // Parry
+             // Gaussian wobble around spin 0 (or whatever aligns a face up)
+             vec2 hP = hash21(seed + 33.44);
+             float rP = sqrt(-2.0 * log(hP.x + 0.0001));
+             float gP = rP * cos(TWO_PI * hP.y);
+             // Constrain spin to be near 0 (assuming that aligns a face)
+             // Or we might need to offset by 30 deg depending on mesh definition.
+             // Let's assume 0 aligns a face.
+             spin = gP * uTiltVariance; 
+        }
         
         // 3. Tilt (wobble the C-axis out of horizontal plane)
-        float tilt = (h.z * 2.0 - 1.0) * uTiltVariance;
+        // Use Gaussian distribution
+        vec2 hG = hash21(seed + 99.76);
+        float r = sqrt(-2.0 * log(hG.x + 0.0001));
+        float gaussian = r * cos(TWO_PI * hG.y);
+        
+        float tilt = gaussian * uTiltVariance;
+        
         // Tilt axis is perpendicular to worldC in horizontal plane
         vec3 tiltAxis = vec3(-worldC.z, 0.0, worldC.x);
         
@@ -224,6 +419,28 @@ mat3 getCrystalOrientation(float seed) {
         
         rot = tiltRot * azRot * spinRot * toHorizontal;
     }
+    
+    // Crystal Aspect Ratio:
+    // Plates: Aspect < 1 (e.g. 0.2)
+    // Columns: Aspect > 1 (e.g. 2.0)
+    // Random: usually compact (1.0)
+    // We have a problem: uAspect is a single uniform, but we have mixed populations.
+    // Ideally we calculate aspect in shader based on type.
+    float aspect = 1.0;
+    if (type == 1) aspect = 0.2; // Plate
+    else if (type == 2 || type == 3) aspect = 2.0; // Column/Parry
+    else aspect = 1.0; // Random
+    
+    // Length = uAspect * 2.0 ... wait, we need to use this local 'aspect' instead of uniform
+    // But the intersection logic is later in main().
+    // We need to output aspect? Or move intersection logic into a function?
+    // Or just assume one global aspect for now?
+    // User might want "Plates are flat" and "Columns are long" simultaneously.
+    // Let's assume uAspect is override, or we use hardcoded defaults based on type?
+    // Let's use the calculated 'aspect' and pass it out or use a varying?
+    // Cannot pass varying from helper function.
+    // Let's just stick to uniform for now to save complexity, or hacked "average".
+    // Actually, we can derive aspect from type in main().
     
     return rot;
 }
@@ -308,6 +525,18 @@ void main() {
     mat3 rot = getCrystalOrientation(seed);
     mat3 invRot = transpose(rot); // For rotation matrices, inverse = transpose
     
+    // Redetermine type for aspect ratio (duplicate logic, optimized out by compiler hopefully)
+    float rndType = hash11(seed + 999.9);
+    int type = 3;
+    if (rndType < uTypeWeights.x) type = 0;
+    else if (rndType < uTypeWeights.y) type = 1;
+    else if (rndType < uTypeWeights.z) type = 2;
+    
+    float localAspect = uAspect;
+    if (type == 1) localAspect = 0.2;
+    else if (type == 2 || type == 3) localAspect = 2.0;
+    else localAspect = 1.0;
+    
     // 2. Ray Direction (Sun -> Crystal)
     // Sun is at infinity, so all rays are parallel to uSunPos
     // We work in Local Crystal Space.
@@ -327,7 +556,7 @@ void main() {
     // Basal Face Area (Hex) = 2 * sqrt(3) * 1^2 = 3.464.
     
     float s = 1.1547;
-    float L = uAspect * 2.0; 
+    float L = localAspect * 2.0; 
     float areaPrism = s * L;
     float areaBasal = 3.464; 
     
@@ -465,7 +694,7 @@ void main() {
     // Face definition: dot(P, N) = D.
     // Prism faces: D = 1. Basal: D = uAspect (half-length?). Let's say L/2.
     
-    float h_len = uAspect; // Half length
+    float h_len = localAspect; // Half length
     float d_prism = 1.0; // Apothem
     
     for (int i=1; i<=8; i++) {
@@ -622,32 +851,45 @@ void main() {
     gl_Position = vec4(screenPos.x, screenPos.y, 0.0, 1.0);
     gl_PointSize = 2.5; // Soft splat size
     vColor = rayColor;
-    
-    // DEBUG OVERRIDE: REMOVED
+    vSeed = seed; // Pass seed to fragment
 }
 `;
 
 const fragmentShader = `
 precision highp float;
 varying vec3 vColor;
+varying float vSeed;
 uniform vec3 uColor; // Global exposure/tint
+
+// Hash for stochastic dithering
+float hash11(float p) {
+    p = fract(p * .1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
 
 void main() {
     // Soft Circular Splat
-    // Calculates gaussian falloff from center of point
     vec2 coord = gl_PointCoord - vec2(0.5);
     float distSq = dot(coord, coord);
-    
-    // Discard corners of the square to make it round
     if (distSq > 0.25) discard;
-    
-    // Gaussian falloff: exp(-dist^2 / sigma)
-    // distSq ranges 0 to 0.25.
-    // We want opacity to go from 1.0 to ~0.0.
     float alpha = exp(-distSq * 16.0); 
 
+    // Calculate intended linear energy
+    vec3 linearEnergy = vColor * uColor * alpha;
+    
+    // STOCHASTIC ACCUMULATION (Photon Mapping)
+    // Float32 Buffer: We don't need stochastic dithering for low values!
+    // Float32 can handle 1e-30.
+    // So we can just output the linear energy directly.
+    
+    // float maxVal = max(max(linearEnergy.r, linearEnergy.g), linearEnergy.b);
+    // const float QUANTUM = 0.01; 
+    // if (maxVal < QUANTUM && maxVal > 0.0) { ... }
+
     // Additive blending handles the accumulation
-    gl_FragColor = vec4(vColor * uColor * alpha, 1.0); 
+    gl_FragColor = vec4(linearEnergy, 1.0); 
 }
 `;
 
@@ -657,11 +899,13 @@ const material = new THREE.ShaderMaterial({
     uResolution: { value: new THREE.Vector2() },
     uSunPos: { value: new THREE.Vector3() },
     uCamElevation: { value: 90.0 },
+    uTypeWeights: { value: new THREE.Vector4() },
     uCrystalType: { value: CONFIG.crystalType === 'Random' ? 0 : 1 },
     uTiltVariance: { value: 0.0 },
     uIOR: { value: CONFIG.ior },
     uAspect: { value: 2.0 }, // Column length / width
-    uColor: { value: new THREE.Color(0xffffff) }
+    uColor: { value: new THREE.Color(0xffffff) },
+    uSaturation: { value: 1.0 } // New Saturation Uniform
   },
   vertexShader,
   fragmentShader,
@@ -677,30 +921,75 @@ scene.add(points);
 
 // --- Controls ---
 const gui = new GUI();
-    gui.add(CONFIG, 'particleCount', 10000, 10000000).step(10000).onChange(updateGeometry);
-    gui.add(CONFIG, 'sunElevation', 0, 90).name('Sun Elevation').onChange(() => renderer.clear());
-    gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(() => renderer.clear());
-    gui.add(CONFIG, 'crystalType', Object.keys(CRYSTAL_TYPES)).name('Crystal Type').onChange(() => renderer.clear());
-    gui.add(CONFIG, 'crystalTilt', 0, 45).name('Tilt (Deg)').onChange(() => renderer.clear());
-    gui.add(CONFIG, 'ior', 1.0, 1.5).name('IOR (Ice=1.31)').onChange(() => renderer.clear());
+
+// Preset Loader
+gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => {
+    const p = PRESETS[name];
+    if (!p) return;
     
-    // Use a proxy object for exponential exposure control
-    const exposureControl = { slider: Math.log10(CONFIG.exposure) };
+    // Update Config
+    Object.assign(CONFIG, p);
     
-    gui.add(exposureControl, 'slider', -6, -1).name('Log Exposure').onChange(v => {
-        const val = Math.pow(10, v);
-        material.uniforms.uColor.value.setScalar(val);
-        renderer.clear();
-    });
+    // Update GUI Controllers
+    const updateControllers = (folder) => {
+        folder.__controllers.forEach(c => c.updateDisplay());
+        if (folder.__folders) {
+            Object.values(folder.__folders).forEach(f => updateControllers(f));
+        }
+    };
+    updateControllers(gui);
     
-    gui.add(CONFIG, 'fadeFactor', 0, 0.5).name('Fade Out (Speed)').onChange(v => {
-        // v is roughly "opacity of black overlay per frame"
-        fadeMaterial.opacity = v;
-    });
+    // Special handling for Log Exposure Slider proxy
+    if (exposureControl) {
+        exposureControl.slider = Math.log10(CONFIG.exposure);
+        // Update the slider manually since it uses a proxy object
+        gui.__controllers.forEach(c => {
+            if (c.property === 'slider' && c.object === exposureControl) c.updateDisplay();
+        });
+    }
+    
+    // Special handling for Fade Material
+    fadeMaterial.opacity = CONFIG.fadeFactor;
+    
+    // Update Shader Uniforms immediately
+    material.uniforms.uColor.value.setScalar(CONFIG.exposure);
+    
+    // renderer.clear(); // DISABLED: Smooth transition
+    updateGeometry(); 
+});
+
+// gui.add(CONFIG, 'particleCount', 10000, 10000000).step(10000).onChange(updateGeometry);
+gui.add(CONFIG, 'sunElevation', 0, 90).name('Sun Elevation');
+gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch');
+
+const types = gui.addFolder('Crystal Types');
+types.open();
+types.add(CONFIG, 'enablePlate').name('Plates');
+types.add(CONFIG, 'enableColumn').name('Columns');
+types.add(CONFIG, 'enableParry').name('Parry');
+types.add(CONFIG, 'enableRandom').name('Random');
+
+gui.add(CONFIG, 'crystalTilt', 0, 45).step(0.01).name('Tilt (Deg)');
+gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.01).name('IOR (Ice=1.31)');
+
+// Use a proxy object for exponential exposure control
+const exposureControl = { slider: Math.log10(CONFIG.exposure) };
+
+// Initialize shader uniform immediately
+material.uniforms.uColor.value.setScalar(CONFIG.exposure);
+
+gui.add(exposureControl, 'slider', -6, -1).name('Log Exposure').onChange(v => {
+    const val = Math.pow(10, v);
+    material.uniforms.uColor.value.setScalar(val);
+});
+
+gui.add(CONFIG, 'fadeFactor', 0, 0.5).name('Fade Out (Speed)').step(0.001).onChange(v => {
+    // v is roughly "opacity of black overlay per frame"
+    fadeMaterial.opacity = v;
+});
 
 function updateGeometry() {
     // Recreate geometry if count changes
-    // For now, just ignore dynamic resize to keep it simple
     renderer.clear();
 }
 
@@ -709,38 +998,13 @@ function resize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     material.uniforms.uResolution.value.set(window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio);
-    renderer.clear();
+    renderer.clear(); // Resize usually requires clear to avoid stretching
 }
 window.addEventListener('resize', resize);
 resize();
 
 function updateSun() {
-    // Invert slider logic so 0 is top of screen (Horizon North?) and 90 is center (Zenith)
-    
     const rad = THREE.MathUtils.degToRad(CONFIG.sunElevation);
-    // Let's try Positive Cosine again but verify projection logic.
-    // Projection: vec2(worldDir.x, worldDir.z) / (1.0 + worldDir.y);
-    // If Z is positive, Screen Y is positive (Top).
-    // If Z is negative, Screen Y is negative (Bottom).
-    
-    // We want 0 deg = Bottom (Screen Y < 0). So we want Z < 0.
-    // cos(0) = 1. So we want -cos(0) = -1.
-    
-    // Wait, I just set it to -cos and you said it was at the TOP.
-    // That implies Z < 0 maps to TOP in this projection/coordinate system?
-    // Let's check THREE.js coordinates.
-    // Usually Y is Up. X is Right. Z is... Out of screen?
-    // But in my shader: screenPos = vec2(x, z).
-    // Standard GL: Y+ is Up.
-    // So if Z is mapped to Screen Y...
-    // If Z is negative, Screen Y is negative (Bottom).
-    
-    // Why did -cos result in Top?
-    // Maybe the camera is inverted? Or my projection formula.
-    
-    // Let's just brute force it to conform to user observation.
-    // User saw "Top" when I used -cos.
-    // So I should use +cos to get "Bottom".
     
     const y = Math.sin(rad); 
     const z = Math.cos(rad); 
@@ -756,7 +1020,28 @@ function animate(time) {
     // Update Uniforms from Config
     updateSun();
     material.uniforms.uCamElevation.value = CONFIG.camElevation;
-    material.uniforms.uCrystalType.value = CRYSTAL_TYPES[CONFIG.crystalType];
+    
+    // Calculate Type Weights
+    let w0 = CONFIG.enableRandom ? 1.0 : 0.0;
+    let w1 = CONFIG.enablePlate ? 1.0 : 0.0;
+    let w2 = CONFIG.enableColumn ? 1.0 : 0.0;
+    let w3 = CONFIG.enableParry ? 1.0 : 0.0;
+    
+    let totalW = w0 + w1 + w2 + w3;
+    if (totalW <= 0.0) totalW = 1.0; // Prevent divide by zero
+    
+    w0 /= totalW;
+    w1 /= totalW;
+    w2 /= totalW;
+    // w3 is remainder
+    
+    material.uniforms.uTypeWeights.value.set(
+        w0,
+        w0 + w1,
+        w0 + w1 + w2,
+        1.0 // End
+    );
+    
     material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(CONFIG.crystalTilt);
     material.uniforms.uIOR.value = CONFIG.ior;
     
@@ -769,25 +1054,21 @@ function animate(time) {
     else material.uniforms.uAspect.value = 2.0;
     
     // Draw Fade Pass (if needed)
+    renderer.setRenderTarget(accumTarget); // Draw to Float32 buffer
+    
     if (CONFIG.fadeFactor > 0.0) {
         fadeMaterial.opacity = CONFIG.fadeFactor;
-        // We need to draw the fade plane ON TOP of the existing buffer
-        // But since autoClear is false, rendering normally works?
-        // No, we want to render the fade plane, THEN add the new particles.
-        // Or Add particles, THEN fade? 
-        // Standard trails: Fade existing buffer slightly, then draw new stuff.
-        
-        // 1. Fade existing
         renderer.render(fadeScene, fadeCamera);
-        
-        // 2. Clear depth? No depth used.
     }
     
     renderer.render(scene, camera);
+    
+    // Output to Screen (Tone Map)
+    renderer.setRenderTarget(null);
+    renderer.render(screenScene, screenCamera);
 }
 
 // Debug log to ensure it started
 console.log("Parhelion simulation started. Particles:", CONFIG.particleCount);
 
 animate(0);
-
