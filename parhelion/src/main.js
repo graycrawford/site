@@ -19,8 +19,27 @@ const CONFIG = {
   exposure: 0.0158, // 10^-1.8
   fadeFactor: 0.05, // 1/10 of 0.5 range
   saturation: 1.2, // Default slight bump
+  lockSunCenter: false, // New Toggle: Keep Sun Centered
+  zoom: 1.0, // Field of View Zoom
+  
+  // Spring Physics for Sliders
+  enableSprings: true, // Toggle smooth slider movement
+  
   preset: 'Default'
 };
+
+// --- Smooth Interpolation State ---
+const targetState = { ...CONFIG }; // Stores the slider target values
+const currentState = { ...CONFIG }; // Stores the actual simulation values
+const springVelocity = {}; // Stores velocity for each property
+
+// Initialize velocity to 0
+Object.keys(CONFIG).forEach(k => springVelocity[k] = 0);
+
+// Spring constants
+const SPRING_STIFFNESS = 0.03;
+const SPRING_DAMPING = 0.4;
+const SPRING_SNAP_THRESHOLD = 0.0001;
 
 // --- Presets ---
 const PRESETS = {
@@ -35,7 +54,8 @@ const PRESETS = {
         crystalTilt: 20,
         ior: 1.31,
         exposure: 0.0158,
-        fadeFactor: 0.05
+        fadeFactor: 0.05,
+        saturation: 1.2
     },
     "Eye 1": {
         particleCount: 100000,
@@ -48,7 +68,8 @@ const PRESETS = {
         crystalTilt: 1,
         ior: 1.1,
         exposure: 0.0079, // 10^-2.1
-        fadeFactor: 0.059
+        fadeFactor: 0.059,
+        saturation: 2.8
     },
     "Eye 2": {
         particleCount: 100000,
@@ -61,7 +82,8 @@ const PRESETS = {
         crystalTilt: 1,
         ior: 1.1,
         exposure: 0.0079, // 10^-2.1
-        fadeFactor: 0.059
+        fadeFactor: 0.059,
+        saturation: 2.8
     },
     "Eye 3": {
         particleCount: 100000,
@@ -74,20 +96,39 @@ const PRESETS = {
         crystalTilt: 1,
         ior: 1.1,
         exposure: 0.01, // 10^-2
-        fadeFactor: 0.059
+        fadeFactor: 0.059,
+        saturation: 2.8
     },
-    "Eye 4": {
+    "Tunnel 1": {
         particleCount: 100000,
-        sunElevation: 0,
-        camElevation: -28,
+        sunElevation: -57,
+        camElevation: -57,
+        lockSunCenter: true,
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
-        enableRandom: true,
-        crystalTilt: 2,
-        ior: 1.4,
-        exposure: 0.0031, // 10^-2.5
-        fadeFactor: 0.01
+        enableRandom: false,
+        crystalTilt: 2.83,
+        ior: 1.3,
+        exposure: 0.0158, // 10^-1.8
+        fadeFactor: 0.037,
+        saturation: 2.8
+    },
+    "Tunnel 2": {
+        particleCount: 100000,
+        sunElevation: -46,
+        camElevation: -46,
+        lockSunCenter: true,
+        enablePlate: false,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: false,
+        crystalTilt: 2.83,
+        ior: 1.22,
+        exposure: 0.1, // 10^-1.0
+        fadeFactor: 0.156,
+        saturation: 2.2,
+        zoom: 1.0
     }
 };
 
@@ -208,6 +249,7 @@ uniform float uTime;
 uniform vec2 uResolution;
 uniform vec3 uSunPos;
 uniform float uCamElevation; // degrees
+uniform float uZoom; // FOV zoom factor
 uniform vec4 uTypeWeights; // Cumulative probabilities: x=Random, y=Plate, z=Column, w=Parry
 uniform float uTiltVariance; // Radians
 uniform float uIOR;
@@ -831,7 +873,7 @@ void main() {
     
     // Scale to fit in view
     // Horizon (y=0) is at radius 1.
-    screenPos *= 1.0; // Adjust FOV
+    screenPos *= 1.0 * uZoom; // Apply Zoom (Scale screen position)
     
     // Correct aspect ratio of render target
     float aspectInfo = uResolution.x / uResolution.y;
@@ -899,6 +941,7 @@ const material = new THREE.ShaderMaterial({
     uResolution: { value: new THREE.Vector2() },
     uSunPos: { value: new THREE.Vector3() },
     uCamElevation: { value: 90.0 },
+    uZoom: { value: 1.0 },
     uTypeWeights: { value: new THREE.Vector4() },
     uCrystalType: { value: CONFIG.crystalType === 'Random' ? 0 : 1 },
     uTiltVariance: { value: 0.0 },
@@ -927,10 +970,34 @@ gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => 
     const p = PRESETS[name];
     if (!p) return;
     
-    // Update Config
-    Object.assign(CONFIG, p);
+    // Update Target State instead of CONFIG directly for smooth props
+    // But booleans and non-smooth props update immediately
     
-    // Update GUI Controllers
+    // Props to smooth:
+    const smoothProps = ['sunElevation', 'camElevation', 'crystalTilt', 'ior', 'exposure', 'fadeFactor', 'zoom', 'saturation'];
+    
+    Object.keys(p).forEach(k => {
+        if (smoothProps.includes(k)) {
+            targetState[k] = p[k];
+            // Also update CONFIG so the sliders snap to the target value immediately
+            // This fixes the visual issue where sliders stayed at old values
+            CONFIG[k] = p[k]; 
+        } else {
+            CONFIG[k] = p[k]; // Immediate update for booleans
+            targetState[k] = p[k]; // Keep sync
+            currentState[k] = p[k];
+        }
+    });
+    
+    // Force spring physics to reset? No, smooth transition is desired.
+    // But updating CONFIG allows the GUI to updateDisplay() correctly.
+    
+    // Special handling for Log Exposure Slider proxy target
+    if (exposureControl) {
+        exposureControl.slider = Math.log10(targetState.exposure);
+    }
+    
+    // Update GUI Controllers to show target values
     const updateControllers = (folder) => {
         folder.__controllers.forEach(c => c.updateDisplay());
         if (folder.__folders) {
@@ -939,28 +1006,55 @@ gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => 
     };
     updateControllers(gui);
     
-    // Special handling for Log Exposure Slider proxy
-    if (exposureControl) {
-        exposureControl.slider = Math.log10(CONFIG.exposure);
-        // Update the slider manually since it uses a proxy object
-        gui.__controllers.forEach(c => {
-            if (c.property === 'slider' && c.object === exposureControl) c.updateDisplay();
-        });
-    }
+    // Manual Exposure proxy update
+    gui.__controllers.forEach(c => {
+        if (c.property === 'slider' && c.object === exposureControl) c.updateDisplay();
+    });
     
-    // Special handling for Fade Material
-    fadeMaterial.opacity = CONFIG.fadeFactor;
-    
-    // Update Shader Uniforms immediately
-    material.uniforms.uColor.value.setScalar(CONFIG.exposure);
-    
-    // renderer.clear(); // DISABLED: Smooth transition
     updateGeometry(); 
 });
 
-// gui.add(CONFIG, 'particleCount', 10000, 10000000).step(10000).onChange(updateGeometry);
-gui.add(CONFIG, 'sunElevation', 0, 90).name('Sun Elevation');
-gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch');
+// Modified onChange handlers to update targetState
+gui.add(CONFIG, 'sunElevation', -90, 90).name('Sun Elevation').onChange(v => {
+    targetState.sunElevation = v;
+    if (CONFIG.lockSunCenter) {
+        targetState.camElevation = v;
+        gui.__controllers.forEach(c => {
+            if (c.property === 'camElevation') {
+                c.object = targetState; // Hack to update display? No.
+                // We need to update the bound variable in CONFIG for the slider to move, 
+                // but we want the simulation to lag.
+                // Actually, dat.gui binds to CONFIG.
+                // If we change CONFIG, the slider moves.
+                // We want the slider to stay where user put it (target), but simulation (current) to lag.
+                // So we should separate the Binding Object from the Simulation Object.
+                
+                // For simplicity:
+                // GUI binds to CONFIG (Target).
+                // Simulation uses currentState (Spring).
+                // We copy CONFIG to targetState every frame? No, on change.
+                
+                // If Lock Center is on, we update the other CONFIG value too.
+                CONFIG.camElevation = v;
+                c.updateDisplay();
+            }
+        });
+    }
+});
+
+gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(v => {
+    targetState.camElevation = v;
+    if (CONFIG.lockSunCenter) {
+        targetState.sunElevation = v;
+        CONFIG.sunElevation = v;
+        gui.__controllers.forEach(c => {
+            if (c.property === 'sunElevation') c.updateDisplay();
+        });
+    }
+});
+
+gui.add(CONFIG, 'lockSunCenter').name('Lock Center');
+gui.add(CONFIG, 'zoom', 0.5, 5.0).name('Zoom').onChange(v => targetState.zoom = v);
 
 const types = gui.addFolder('Crystal Types');
 types.open();
@@ -969,23 +1063,26 @@ types.add(CONFIG, 'enableColumn').name('Columns');
 types.add(CONFIG, 'enableParry').name('Parry');
 types.add(CONFIG, 'enableRandom').name('Random');
 
-gui.add(CONFIG, 'crystalTilt', 0, 45).step(0.01).name('Tilt (Deg)');
-gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.01).name('IOR (Ice=1.31)');
+gui.add(CONFIG, 'crystalTilt', 0, 45).step(0.01).name('Tilt (Deg)').onChange(v => targetState.crystalTilt = v);
+gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.01).name('IOR (Ice=1.31)').onChange(v => targetState.ior = v);
 
 // Use a proxy object for exponential exposure control
 const exposureControl = { slider: Math.log10(CONFIG.exposure) };
 
 // Initialize shader uniform immediately
 material.uniforms.uColor.value.setScalar(CONFIG.exposure);
+currentState.exposure = CONFIG.exposure; // Init current state
 
 gui.add(exposureControl, 'slider', -6, -1).name('Log Exposure').onChange(v => {
     const val = Math.pow(10, v);
-    material.uniforms.uColor.value.setScalar(val);
+    // CONFIG.exposure = val; // GUI binding update? Not needed for proxy.
+    targetState.exposure = val;
 });
 
+gui.add(CONFIG, 'saturation', 0.0, 3.0).name('Saturation').onChange(v => targetState.saturation = v);
+
 gui.add(CONFIG, 'fadeFactor', 0, 0.5).name('Fade Out (Speed)').step(0.001).onChange(v => {
-    // v is roughly "opacity of black overlay per frame"
-    fadeMaterial.opacity = v;
+    targetState.fadeFactor = v;
 });
 
 function updateGeometry() {
@@ -1017,9 +1114,48 @@ function animate(time) {
     
     material.uniforms.uTime.value = time * 0.001;
     
-    // Update Uniforms from Config
-    updateSun();
-    material.uniforms.uCamElevation.value = CONFIG.camElevation;
+    // --- Spring Interpolation ---
+    if (CONFIG.enableSprings) {
+        const props = ['sunElevation', 'camElevation', 'crystalTilt', 'ior', 'exposure', 'fadeFactor', 'zoom', 'saturation'];
+        
+        props.forEach(k => {
+            // Ensure target is updated from CONFIG (in case user drags slider)
+            // We treat CONFIG as the "Target" (where the slider is).
+            // We treat currentState as the "Physics Value" (what the shader sees).
+            targetState[k] = CONFIG[k]; 
+            
+            // Spring Physics: acceleration = force / mass
+            // Force = (Target - Current) * Stiffness - Velocity * Damping
+            const dist = targetState[k] - currentState[k];
+            const force = dist * SPRING_STIFFNESS;
+            springVelocity[k] += force;
+            springVelocity[k] *= SPRING_DAMPING;
+            currentState[k] += springVelocity[k];
+            
+            // Snap to target if close
+            if (Math.abs(dist) < SPRING_SNAP_THRESHOLD && Math.abs(springVelocity[k]) < SPRING_SNAP_THRESHOLD) {
+                currentState[k] = targetState[k];
+                springVelocity[k] = 0;
+            }
+        });
+    } else {
+        // Direct mapping if springs disabled
+        Object.assign(currentState, CONFIG);
+    }
+    
+    // Update Uniforms from currentState (Smoothed)
+    const rad = THREE.MathUtils.degToRad(currentState.sunElevation);
+    const y = Math.sin(rad); 
+    const z = Math.cos(rad); 
+    material.uniforms.uSunPos.value.set(0, y, z).normalize();
+    
+    material.uniforms.uCamElevation.value = currentState.camElevation;
+    material.uniforms.uZoom.value = currentState.zoom;
+    material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(currentState.crystalTilt);
+    material.uniforms.uIOR.value = currentState.ior;
+    material.uniforms.uColor.value.setScalar(currentState.exposure);
+    screenMaterial.uniforms.uSaturation.value = currentState.saturation;
+    fadeMaterial.opacity = currentState.fadeFactor;
     
     // Calculate Type Weights
     let w0 = CONFIG.enableRandom ? 1.0 : 0.0;
@@ -1042,8 +1178,8 @@ function animate(time) {
         1.0 // End
     );
     
-    material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(CONFIG.crystalTilt);
-    material.uniforms.uIOR.value = CONFIG.ior;
+    // material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(CONFIG.crystalTilt); // Moved to Spring Loop
+    // material.uniforms.uIOR.value = CONFIG.ior; // Moved to Spring Loop
     
     // Crystal Aspect Ratio:
     // Plates: Aspect < 1 (e.g. 0.2)
@@ -1056,8 +1192,8 @@ function animate(time) {
     // Draw Fade Pass (if needed)
     renderer.setRenderTarget(accumTarget); // Draw to Float32 buffer
     
-    if (CONFIG.fadeFactor > 0.0) {
-        fadeMaterial.opacity = CONFIG.fadeFactor;
+    if (currentState.fadeFactor > 0.0) {
+        // fadeMaterial.opacity = CONFIG.fadeFactor; // Handled in Spring Loop
         renderer.render(fadeScene, fadeCamera);
     }
     
