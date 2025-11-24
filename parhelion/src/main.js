@@ -17,8 +17,10 @@ const CONFIG = {
   enableOctahedral: false,
   enableCuboctahedral: false,
   enableLowitz: false,
+  enableDodecahedral: false,
   
   crystalTilt: 20, // degrees, variance from ideal orientation
+  polyhedralSpin: 0, // degrees, vertical axis rotation for octahedral/cuboctahedral/dodecahedral
   ior: 1.31,
   exposure: 0.0158, // 10^-1.8
   fadeFactor: 0.05, // 1/10 of 0.5 range
@@ -61,6 +63,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: true,
         crystalTilt: 1,
         ior: 1.1,
@@ -80,6 +83,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: true,
         crystalTilt: 1,
         ior: 1.1,
@@ -100,6 +104,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 2.34,
         ior: 1.11,
@@ -120,6 +125,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 2.83,
         ior: 1.3,
@@ -139,6 +145,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 2.83,
         ior: 1.22,
@@ -160,6 +167,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: true,
         crystalTilt: 25.27,
         ior: 1.04,
@@ -180,6 +188,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 2.83,
         ior: 1.3,
@@ -200,6 +209,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 4.29,
         ior: 1.5,
@@ -220,6 +230,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 0.88,
         ior: 1.37,
@@ -240,6 +251,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 0,
         ior: 1.03,
@@ -260,6 +272,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 0.88,
         ior: 1.28,
@@ -280,6 +293,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: true,
         crystalTilt: 2.22,
         ior: 1.04,
@@ -300,6 +314,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 3.26,
         ior: 1.14,
@@ -320,6 +335,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: true,
         crystalTilt: 2.41,
         ior: 1.01,
@@ -340,6 +356,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: true,
         crystalTilt: 2.22,
         ior: 1.0,
@@ -360,6 +377,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: false,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 4.01,
         ior: 1.0,
@@ -380,6 +398,7 @@ const PRESETS = {
         enableOctahedral: false,
         enableCuboctahedral: true,
         enableLowitz: false,
+        enableDodecahedral: false,
         enableRandom: false,
         crystalTilt: 7.18,
         ior: 1.06,
@@ -397,7 +416,8 @@ const CRYSTAL_TYPES = {
   'Pyramidal': 4,
   'Octahedral': 5,
   'Cuboctahedral': 6,
-  'Lowitz': 7
+  'Lowitz': 7,
+  'Dodecahedral': 8
 };
 
 // --- Scene Setup ---
@@ -516,7 +536,9 @@ uniform float uPyramidalWeight; // Cumulative probability threshold for Pyramida
 uniform float uOctahedralWeight; // Cumulative probability threshold for Octahedral
 uniform float uCuboctahedralWeight; // Cumulative probability threshold for Cuboctahedral
 uniform float uLowitzWeight; // Cumulative probability threshold for Lowitz
+uniform float uDodecahedralWeight; // Cumulative probability threshold for Dodecahedral
 uniform float uTiltVariance; // Radians
+uniform float uPolyhedralSpin; // Radians, vertical axis rotation for octahedral/cuboctahedral/dodecahedral
 uniform float uIOR;
 uniform float uAspect; // Crystal aspect ratio (width/length)
 
@@ -594,10 +616,11 @@ mat3 getCrystalOrientation(float seed) {
     // else if rnd < uPyramidalWeight -> Type 4 (Pyramidal)
     // else if rnd < uOctahedralWeight -> Type 5 (Octahedral)
     // else if rnd < uCuboctahedralWeight -> Type 6 (Cuboctahedral)
-    // else -> Type 7 (Lowitz)
+    // else if rnd < uLowitzWeight -> Type 7 (Lowitz)
+    // else -> Type 8 (Dodecahedral)
     
     float rndType = hash11(seed + 999.9);
-    int type = 7; // Default to Lowitz (last type)
+    int type = 8; // Default to Dodecahedral (last type)
     if (rndType < uTypeWeights.x) type = 0;
     else if (rndType < uTypeWeights.y) type = 1;
     else if (rndType < uTypeWeights.z) type = 2;
@@ -605,7 +628,8 @@ mat3 getCrystalOrientation(float seed) {
     else if (rndType < uPyramidalWeight) type = 4;
     else if (rndType < uOctahedralWeight) type = 5;
     else if (rndType < uCuboctahedralWeight) type = 6;
-    else type = 7; // Lowitz
+    else if (rndType < uLowitzWeight) type = 7;
+    else type = 8; // Dodecahedral
     
     if (type == 0) { // Random (3D Uniform)
         // Standard uniform rotation
@@ -738,7 +762,8 @@ mat3 getCrystalOrientation(float seed) {
         // Start with a preferred orientation (e.g., one face up)
         // Then apply tilt variance
         
-        float azimuth = h.x * TWO_PI;
+        // Combine controlled spin with random azimuth for variety
+        float azimuth = uPolyhedralSpin + h.x * TWO_PI;
         
         // Gaussian tilt distribution
         vec2 hG = hash21(seed + 55.12);
@@ -751,6 +776,24 @@ mat3 getCrystalOrientation(float seed) {
         // Start with identity (or preferred orientation)
         // For octahedral/cuboctahedral, we can start with one face pointing up
         // Then apply tilt around a random axis
+        mat3 rotAzimuth = angleAxis(azimuth, vec3(0.0, 1.0, 0.0));
+        mat3 rotTilt = angleAxis(tilt, vec3(cos(tiltDir), 0.0, sin(tiltDir)));
+        
+        rot = rotTilt * rotAzimuth;
+    } else if (type == 8) { // Dodecahedral (tilt-influenced)
+        // Dodecahedron: 12 pentagonal faces
+        // Use tilt-influenced orientation similar to octahedral/cuboctahedral
+        // Combine controlled spin with random azimuth for variety
+        float azimuth = uPolyhedralSpin + h.x * TWO_PI;
+        
+        // Gaussian tilt distribution
+        vec2 hG = hash21(seed + 88.99);
+        float r = sqrt(-2.0 * log(hG.x + 0.0001));
+        float gaussian = r * cos(TWO_PI * hG.y);
+        float tilt = gaussian * uTiltVariance;
+        
+        float tiltDir = h.z * TWO_PI;
+        
         mat3 rotAzimuth = angleAxis(azimuth, vec3(0.0, 1.0, 0.0));
         mat3 rotTilt = angleAxis(tilt, vec3(cos(tiltDir), 0.0, sin(tiltDir)));
         
@@ -832,6 +875,33 @@ vec3 getOctahedralFaceNormal(int faceIdx) {
     return normalize(signs[faceIdx]);
 }
 
+// Dodecahedral Normals (12 pentagonal faces)
+// Regular dodecahedron: 12 pentagonal faces
+// Face normals point outward from center
+vec3 getDodecahedralFaceNormal(int faceIdx) {
+    // Golden ratio φ = (1+√5)/2 ≈ 1.618
+    float phi = 1.618033988749895;
+    float invPhi = 1.0 / phi; // ≈ 0.618
+    
+    // 12 face normals for a regular dodecahedron
+    // Using standard dodecahedron face normal directions
+    vec3 normals[12];
+    normals[0] = normalize(vec3(0.0, 1.0 / phi, phi));
+    normals[1] = normalize(vec3(0.0, -1.0 / phi, phi));
+    normals[2] = normalize(vec3(0.0, 1.0 / phi, -phi));
+    normals[3] = normalize(vec3(0.0, -1.0 / phi, -phi));
+    normals[4] = normalize(vec3(1.0 / phi, phi, 0.0));
+    normals[5] = normalize(vec3(-1.0 / phi, phi, 0.0));
+    normals[6] = normalize(vec3(1.0 / phi, -phi, 0.0));
+    normals[7] = normalize(vec3(-1.0 / phi, -phi, 0.0));
+    normals[8] = normalize(vec3(phi, 0.0, 1.0 / phi));
+    normals[9] = normalize(vec3(-phi, 0.0, 1.0 / phi));
+    normals[10] = normalize(vec3(phi, 0.0, -1.0 / phi));
+    normals[11] = normalize(vec3(-phi, 0.0, -1.0 / phi));
+    
+    return normals[faceIdx];
+}
+
 // Cuboctahedral Normals (14 faces: 8 triangular + 6 square)
 // Cuboctahedron: vertices at (±1,±1,0), (±1,0,±1), (0,±1,±1)
 // Triangular faces connect vertices sharing one coordinate
@@ -888,6 +958,14 @@ vec3 getFaceNormal(int faceIdx, int crystalType) {
     if (crystalType == 6) {
         if (faceIdx >= 1 && faceIdx <= 14) {
             return getCuboctahedralFaceNormal(faceIdx - 1);
+        }
+        return vec3(0.0, 1.0, 0.0);
+    }
+    
+    // Dodecahedral (12 faces)
+    if (crystalType == 8) {
+        if (faceIdx >= 1 && faceIdx <= 12) {
+            return getDodecahedralFaceNormal(faceIdx - 1);
         }
         return vec3(0.0, 1.0, 0.0);
     }
@@ -994,7 +1072,7 @@ void main() {
     
     // Redetermine type for aspect ratio (duplicate logic, optimized out by compiler hopefully)
     float rndType = hash11(seed + 999.9);
-    int type = 7; // Default to Lowitz
+    int type = 8; // Default to Dodecahedral
     if (rndType < uTypeWeights.x) type = 0;
     else if (rndType < uTypeWeights.y) type = 1;
     else if (rndType < uTypeWeights.z) type = 2;
@@ -1002,13 +1080,14 @@ void main() {
     else if (rndType < uPyramidalWeight) type = 4;
     else if (rndType < uOctahedralWeight) type = 5;
     else if (rndType < uCuboctahedralWeight) type = 6;
-    else type = 7; // Lowitz
+    else if (rndType < uLowitzWeight) type = 7;
+    else type = 8; // Dodecahedral
     
     float localAspect = uAspect;
     if (type == 1) localAspect = 0.2;  // Plate
     else if (type == 2 || type == 3) localAspect = 2.0; // Column/Parry
     else if (type == 4) localAspect = 2.0; // Pyramidal (similar to column)
-    else if (type == 5 || type == 6) localAspect = 1.0; // Octahedral/Cuboctahedral (spherical)
+    else if (type == 5 || type == 6 || type == 8) localAspect = 1.0; // Octahedral/Cuboctahedral/Dodecahedral (spherical)
     else if (type == 7) localAspect = 0.2; // Lowitz (plate-like)
     else localAspect = 1.0; // Random
     
@@ -1035,6 +1114,7 @@ void main() {
     if (type == 4) numFaces = 20; // Pyramidal has 20 faces
     else if (type == 5) numFaces = 8; // Octahedral has 8 faces
     else if (type == 6) numFaces = 14; // Cuboctahedral has 14 faces
+    else if (type == 8) numFaces = 12; // Dodecahedral has 12 faces
     
     // Compute dot products for all faces to see which are illuminated
     float totalWeight = 0.0;
@@ -1046,8 +1126,8 @@ void main() {
         float w = max(0.0, proj);
         
         // Area weighting based on crystal type
-        if (type == 5 || type == 6) {
-            // Octahedral/Cuboctahedral: all faces similar area
+        if (type == 5 || type == 6 || type == 8) {
+            // Octahedral/Cuboctahedral/Dodecahedral: all faces similar area
             w *= 1.0; // Uniform weighting
         } else if (i <= 2) {
             w *= areaBasal; // Basal faces
@@ -1193,6 +1273,11 @@ void main() {
             faceDist = 1.0; // Square faces
         }
         P0 = n * faceDist; // Place on face plane
+    } else if (type == 8) { // Dodecahedral
+        // Place entry point on the face plane
+        vec3 n = getFaceNormal(entryFace, type);
+        float faceDist = 0.7947; // Distance from center to face for regular dodecahedron
+        P0 = n * faceDist; // Place on face plane
     }
     
     // Now trace from P0 along rd.
@@ -1208,6 +1293,7 @@ void main() {
     if (type == 4) maxFace = 20; // Pyramidal
     else if (type == 5) maxFace = 8; // Octahedral
     else if (type == 6) maxFace = 14; // Cuboctahedral
+    else if (type == 8) maxFace = 12; // Dodecahedral
     
     for (int i=1; i<=maxFace; i++) {
         if (i == entryFace) continue;
@@ -1225,6 +1311,9 @@ void main() {
             } else {
                 dist = 1.0; // Square faces
             }
+        } else if (type == 8) {
+            // Dodecahedral: distance from center to face ≈ 0.7947
+            dist = 0.7947;
         } else if (i <= 2) {
             dist = h_len; // Basal faces
         } else if (i <= 8) {
@@ -1436,8 +1525,10 @@ const material = new THREE.ShaderMaterial({
     uOctahedralWeight: { value: 1.0 },
     uCuboctahedralWeight: { value: 1.0 },
     uLowitzWeight: { value: 1.0 },
+    uDodecahedralWeight: { value: 1.0 },
     uCrystalType: { value: CONFIG.crystalType === 'Random' ? 0 : 1 },
     uTiltVariance: { value: 0.0 },
+    uPolyhedralSpin: { value: 0.0 },
     uIOR: { value: CONFIG.ior },
     uAspect: { value: 2.0 }, // Column length / width
     uColor: { value: new THREE.Color(0xffffff) },
@@ -1620,9 +1711,11 @@ types.add(CONFIG, 'enablePyramidal').name('Pyramidal');
 types.add(CONFIG, 'enableOctahedral').name('Octahedral');
 types.add(CONFIG, 'enableCuboctahedral').name('Cuboctahedral');
 types.add(CONFIG, 'enableLowitz').name('Lowitz');
+types.add(CONFIG, 'enableDodecahedral').name('Dodecahedral');
 types.add(CONFIG, 'enableRandom').name('Random');
 
 gui.add(CONFIG, 'crystalTilt', 0, 45).step(0.01).name('Tilt (Deg)').onChange(v => targetState.crystalTilt = v);
+gui.add(CONFIG, 'polyhedralSpin', 0, 360).step(0.1).name('Polyhedral Spin (Deg)').onChange(v => targetState.polyhedralSpin = v);
 gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.01).name('IOR (Ice=1.31)').onChange(v => {
     targetState.ior = v;
     if (CONFIG.lockZoom) {
@@ -1840,14 +1933,14 @@ if (xyPad && xyPadKnob && xyPadBg) {
                     currentState[type] = newVal;
                     
                     // Force Parry if all off
-                    if (!CONFIG.enableRandom && !CONFIG.enablePlate && !CONFIG.enableColumn && !CONFIG.enableParry && !CONFIG.enablePyramidal && !CONFIG.enableOctahedral && !CONFIG.enableCuboctahedral && !CONFIG.enableLowitz) {
+                    if (!CONFIG.enableRandom && !CONFIG.enablePlate && !CONFIG.enableColumn && !CONFIG.enableParry && !CONFIG.enablePyramidal && !CONFIG.enableOctahedral && !CONFIG.enableCuboctahedral && !CONFIG.enableLowitz && !CONFIG.enableDodecahedral) {
                         CONFIG.enableParry = true;
                         targetState.enableParry = true;
                         currentState.enableParry = true;
                     }
                     
                     // Update GUI for all types (to reflect forced changes)
-                    const typeKeys = ['enableRandom', 'enablePlate', 'enableColumn', 'enableParry', 'enablePyramidal', 'enableOctahedral', 'enableCuboctahedral', 'enableLowitz'];
+                    const typeKeys = ['enableRandom', 'enablePlate', 'enableColumn', 'enableParry', 'enablePyramidal', 'enableOctahedral', 'enableCuboctahedral', 'enableLowitz', 'enableDodecahedral'];
                     typeKeys.forEach(t => {
                         gui.__controllers.forEach(c => {
                             if (c.property === t) c.updateDisplay();
@@ -2225,7 +2318,7 @@ function animate(time) {
     
     // --- Spring Interpolation ---
     if (CONFIG.enableSprings) {
-        const props = ['sunElevation', 'camElevation', 'crystalTilt', 'ior', 'exposure', 'fadeFactor', 'zoom', 'saturation'];
+        const props = ['sunElevation', 'camElevation', 'crystalTilt', 'polyhedralSpin', 'ior', 'exposure', 'fadeFactor', 'zoom', 'saturation'];
         
         props.forEach(k => {
             // Ensure target is updated from CONFIG (in case user drags slider)
@@ -2284,6 +2377,7 @@ function animate(time) {
     material.uniforms.uCamElevation.value = currentState.camElevation;
     material.uniforms.uZoom.value = currentState.zoom;
     material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(currentState.crystalTilt);
+    material.uniforms.uPolyhedralSpin.value = THREE.MathUtils.degToRad(currentState.polyhedralSpin);
     material.uniforms.uIOR.value = currentState.ior;
     material.uniforms.uColor.value.setScalar(currentState.exposure);
     screenMaterial.uniforms.uSaturation.value = currentState.saturation;
@@ -2298,8 +2392,9 @@ function animate(time) {
     let w5 = CONFIG.enableOctahedral ? 1.0 : 0.0;
     let w6 = CONFIG.enableCuboctahedral ? 1.0 : 0.0;
     let w7 = CONFIG.enableLowitz ? 1.0 : 0.0;
+    let w8 = CONFIG.enableDodecahedral ? 1.0 : 0.0;
     
-    let totalW = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7;
+    let totalW = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8;
     if (totalW <= 0.0) totalW = 1.0; // Prevent divide by zero
     
     w0 /= totalW;
@@ -2310,6 +2405,7 @@ function animate(time) {
     w5 /= totalW;
     w6 /= totalW;
     w7 /= totalW;
+    w8 /= totalW;
     
     material.uniforms.uTypeWeights.value.set(
         w0,
@@ -2321,6 +2417,7 @@ function animate(time) {
     material.uniforms.uOctahedralWeight.value = w0 + w1 + w2 + w3 + w4 + w5; // Cumulative including Octahedral
     material.uniforms.uCuboctahedralWeight.value = w0 + w1 + w2 + w3 + w4 + w5 + w6; // Cumulative including Cuboctahedral
     material.uniforms.uLowitzWeight.value = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7; // Cumulative including Lowitz
+    material.uniforms.uDodecahedralWeight.value = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8; // Cumulative including Dodecahedral
     
     // material.uniforms.uTiltVariance.value = THREE.MathUtils.degToRad(CONFIG.crystalTilt); // Moved to Spring Loop
     // material.uniforms.uIOR.value = CONFIG.ior; // Moved to Spring Loop
