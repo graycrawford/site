@@ -20,12 +20,13 @@ const CONFIG = {
   fadeFactor: 0.05, // 1/10 of 0.5 range
   saturation: 1.2, // Default slight bump
   lockSunCenter: false, // New Toggle: Keep Sun Centered
+  lockZoom: false, // New Toggle: Maintain Halo Size
   zoom: 1.0, // Field of View Zoom
   
   // Spring Physics for Sliders
   enableSprings: true, // Toggle smooth slider movement
   
-  preset: 'Default'
+  preset: 'Eye 1'
 };
 
 // --- Smooth Interpolation State ---
@@ -43,24 +44,12 @@ const SPRING_SNAP_THRESHOLD = 0.0001;
 
 // --- Presets ---
 const PRESETS = {
-    "Default": {
-        particleCount: 400000,
-        sunElevation: 12,
-        camElevation: 0,
-        enablePlate: true,
-        enableColumn: false,
-        enableParry: false,
-        enableRandom: false,
-        crystalTilt: 20,
-        ior: 1.31,
-        exposure: 0.0158,
-        fadeFactor: 0.05,
-        saturation: 1.2
-    },
     "Eye 1": {
         particleCount: 100000,
-        sunElevation: 34,
-        camElevation: -3,
+        sunElevation: 25,
+        camElevation: 25,
+        lockSunCenter: true,
+        zoom: 3.6,
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
@@ -71,10 +60,11 @@ const PRESETS = {
         fadeFactor: 0.059,
         saturation: 2.8
     },
-    "Eye 2": {
+    "Eye Cycle 1": {
         particleCount: 100000,
-        sunElevation: 49,
-        camElevation: -3,
+        sunElevation: 90,
+        camElevation: 90,
+        lockSunCenter: true,
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
@@ -83,21 +73,24 @@ const PRESETS = {
         ior: 1.1,
         exposure: 0.0079, // 10^-2.1
         fadeFactor: 0.059,
-        saturation: 2.8
+        saturation: 2.8,
+        zoom: 2.9
     },
-    "Eye 3": {
+    "Display 1": {
         particleCount: 100000,
-        sunElevation: 28,
-        camElevation: 60,
+        sunElevation: -14,
+        camElevation: -14,
+        lockSunCenter: true,
         enablePlate: true,
         enableColumn: true,
         enableParry: true,
-        enableRandom: true,
-        crystalTilt: 1,
-        ior: 1.1,
-        exposure: 0.01, // 10^-2
+        enableRandom: false,
+        crystalTilt: 2.34,
+        ior: 1.11,
+        exposure: 0.00079, // 10^-3.1
         fadeFactor: 0.059,
-        saturation: 2.8
+        saturation: 3.0,
+        zoom: 3.2
     },
     "Tunnel 1": {
         particleCount: 100000,
@@ -129,6 +122,118 @@ const PRESETS = {
         fadeFactor: 0.156,
         saturation: 2.2,
         zoom: 1.0
+    },
+    "Preset 1": {
+        particleCount: 100000,
+        sunElevation: 0,
+        camElevation: 0,
+        lockSunCenter: true,
+        zoom: 5,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: true,
+        crystalTilt: 25.27,
+        ior: 1.04,
+        exposure: 0.00001995, // 10^-4.7
+        fadeFactor: 0.037,
+        saturation: 2.8
+    },
+    "Preset 2": {
+        particleCount: 100000,
+        sunElevation: 31,
+        camElevation: 31,
+        lockSunCenter: true,
+        zoom: 1.7,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: false,
+        crystalTilt: 2.83,
+        ior: 1.3,
+        exposure: 0.0158, // 10^-1.8
+        fadeFactor: 0.037,
+        saturation: 2.8
+    },
+    "Preset 3": {
+        particleCount: 100000,
+        sunElevation: 31,
+        camElevation: 31,
+        lockSunCenter: true,
+        zoom: 1.1,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: false,
+        crystalTilt: 4.29,
+        ior: 1.5,
+        exposure: 0.0158, // 10^-1.8
+        fadeFactor: 0.016,
+        saturation: 2.8
+    },
+    "Preset 4": {
+        particleCount: 100000,
+        sunElevation: -12,
+        camElevation: -12,
+        lockSunCenter: true,
+        zoom: 1.8,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: false,
+        crystalTilt: 0.88,
+        ior: 1.37,
+        exposure: 0.0158, // 10^-1.8
+        fadeFactor: 0.01,
+        saturation: 3
+    },
+    "Preset 5": {
+        particleCount: 100000,
+        sunElevation: -16.87,
+        camElevation: -16.87,
+        lockSunCenter: true,
+        zoom: 5,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: false,
+        crystalTilt: 0,
+        ior: 1.03,
+        exposure: 0.000794, // 10^-3.1
+        fadeFactor: 0.059,
+        saturation: 3
+    },
+    "Preset 6": {
+        particleCount: 100000,
+        sunElevation: -38,
+        camElevation: -38,
+        lockSunCenter: true,
+        zoom: 1,
+        enablePlate: true,
+        enableColumn: false,
+        enableParry: false,
+        enableRandom: false,
+        crystalTilt: 0.88,
+        ior: 1.28,
+        exposure: 0.0025, // 10^-2.6
+        fadeFactor: 0.01,
+        saturation: 2.8
+    },
+    "Preset 7": {
+        particleCount: 100000,
+        sunElevation: 25,
+        camElevation: 25,
+        lockSunCenter: true,
+        zoom: 5,
+        enablePlate: true,
+        enableColumn: true,
+        enableParry: true,
+        enableRandom: true,
+        crystalTilt: 2.22,
+        ior: 1.04,
+        exposure: 0.0079, // 10^-2.1
+        fadeFactor: 0.275,
+        saturation: 2.8
     }
 };
 
@@ -965,8 +1070,27 @@ scene.add(points);
 // --- Controls ---
 const gui = new GUI();
 
-// Preset Loader
-gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => {
+// Helper functions for Zoom Lock (Physics based)
+function getHaloAngle(n) {
+    // Minimum deviation for 60 degree prism
+    // theta = 2 * asin(n * sin(A/2)) - A
+    // A = 60 deg = PI/3
+    // sin(30) = 0.5
+    // Result in radians
+    // Clamp n to avoid NaN if n > 2 (not possible here but good practice)
+    const val = Math.min(1.0, n * 0.5);
+    return 2.0 * Math.asin(val) - (Math.PI / 3.0);
+}
+
+function getIORFromHaloAngle(angle) {
+    // Reverse: n = 2 * sin((theta + A)/2)
+    return 2.0 * Math.sin((angle + Math.PI / 3.0) * 0.5);
+}
+
+let lockZoomConstant = 0; // Stores tan(theta) * zoom
+
+// Preset Loader Function
+function loadPreset(name) {
     const p = PRESETS[name];
     if (!p) return;
     
@@ -1011,7 +1135,17 @@ gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => 
         if (c.property === 'slider' && c.object === exposureControl) c.updateDisplay();
     });
     
-    updateGeometry(); 
+    updateGeometry();
+}
+
+// Preset Dropdown
+gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => {
+    loadPreset(name);
+    // Update native picker if it exists
+    const presetPicker = document.getElementById('preset-picker');
+    if (presetPicker) {
+        presetPicker.value = name;
+    }
 });
 
 // Modified onChange handlers to update targetState
@@ -1054,7 +1188,40 @@ gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(v => {
 });
 
 gui.add(CONFIG, 'lockSunCenter').name('Lock Center');
-gui.add(CONFIG, 'zoom', 0.5, 5.0).name('Zoom').onChange(v => targetState.zoom = v);
+
+// Zoom Lock Logic
+gui.add(CONFIG, 'lockZoom').name('Lock Zoom').onChange(enabled => {
+    if (enabled) {
+        // Capture current relationship: C = Zoom * tan(theta)
+        const angle = getHaloAngle(CONFIG.ior);
+        // Ensure angle is positive enough to avoid 0 or negative division issues
+        // 22 deg is ~0.38 rad. tan(0.38) ~ 0.4.
+        // At IOR=1.0, angle=0.
+        const tanTheta = Math.tan(Math.max(0.001, angle));
+        lockZoomConstant = CONFIG.zoom * tanTheta;
+    }
+});
+
+gui.add(CONFIG, 'zoom', 0.5, 20.0).name('Zoom').onChange(v => {
+    targetState.zoom = v;
+    if (CONFIG.lockZoom) {
+        // Update IOR to match Zoom
+        // C = Zoom * tan(theta) -> tan(theta) = C / Zoom
+        const targetTan = lockZoomConstant / v;
+        const angle = Math.atan(targetTan);
+        let newIOR = getIORFromHaloAngle(angle);
+        
+        // Clamp IOR
+        newIOR = Math.max(1.0, Math.min(1.5, newIOR));
+        
+        CONFIG.ior = newIOR;
+        targetState.ior = newIOR;
+        
+        gui.__controllers.forEach(c => {
+            if (c.property === 'ior') c.updateDisplay();
+        });
+    }
+});
 
 const types = gui.addFolder('Crystal Types');
 types.open();
@@ -1064,7 +1231,26 @@ types.add(CONFIG, 'enableParry').name('Parry');
 types.add(CONFIG, 'enableRandom').name('Random');
 
 gui.add(CONFIG, 'crystalTilt', 0, 45).step(0.01).name('Tilt (Deg)').onChange(v => targetState.crystalTilt = v);
-gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.01).name('IOR (Ice=1.31)').onChange(v => targetState.ior = v);
+gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.01).name('IOR (Ice=1.31)').onChange(v => {
+    targetState.ior = v;
+    if (CONFIG.lockZoom) {
+        // Update Zoom to match IOR
+        // Zoom = C / tan(theta)
+        const angle = getHaloAngle(v);
+        const tanTheta = Math.tan(Math.max(0.001, angle));
+        let newZoom = lockZoomConstant / tanTheta;
+        
+        // Clamp Zoom
+        newZoom = Math.max(0.5, Math.min(5.0, newZoom));
+        
+        CONFIG.zoom = newZoom;
+        targetState.zoom = newZoom;
+        
+        gui.__controllers.forEach(c => {
+            if (c.property === 'zoom') c.updateDisplay();
+        });
+    }
+});
 
 // Use a proxy object for exponential exposure control
 const exposureControl = { slider: Math.log10(CONFIG.exposure) };
@@ -1075,15 +1261,115 @@ currentState.exposure = CONFIG.exposure; // Init current state
 
 gui.add(exposureControl, 'slider', -6, -1).name('Log Exposure').onChange(v => {
     const val = Math.pow(10, v);
-    // CONFIG.exposure = val; // GUI binding update? Not needed for proxy.
+    CONFIG.exposure = val; // Update CONFIG so it persists in the animate loop
     targetState.exposure = val;
+    // Update XY pad exposure slider position
+    if (window.xyPadUpdateSliders) {
+        window.xyPadUpdateSliders();
+    }
 });
 
 gui.add(CONFIG, 'saturation', 0.0, 3.0).name('Saturation').onChange(v => targetState.saturation = v);
 
 gui.add(CONFIG, 'fadeFactor', 0, 0.5).name('Fade Out (Speed)').step(0.001).onChange(v => {
     targetState.fadeFactor = v;
+    // Update XY pad fade slider position
+    if (window.xyPadUpdateSliders) {
+        window.xyPadUpdateSliders();
+    }
 });
+
+// Load initial preset
+loadPreset(CONFIG.preset);
+
+// GUI Toggle Button
+const guiToggle = document.getElementById('gui-toggle');
+const iconGear = document.getElementById('icon-gear');
+const iconMinus = document.getElementById('icon-minus');
+
+if (guiToggle && iconGear && iconMinus) {
+    // Default to closed (hidden)
+    gui.hide();
+    iconGear.style.display = 'block';
+    iconMinus.style.display = 'none';
+    guiToggle.classList.remove('open');
+    
+    guiToggle.addEventListener('click', () => {
+        // Check if GUI is currently visible
+        const isVisible = gui.domElement.style.display !== 'none' && 
+                         gui.domElement.offsetParent !== null;
+        
+        if (isVisible) {
+            gui.hide();
+            iconGear.style.display = 'block';
+            iconMinus.style.display = 'none';
+            guiToggle.classList.remove('open');
+        } else {
+            gui.show();
+            iconGear.style.display = 'none';
+            iconMinus.style.display = 'block';
+            guiToggle.classList.add('open');
+        }
+    });
+}
+
+// Native Preset Picker
+const presetToggle = document.getElementById('preset-toggle');
+const presetPicker = document.getElementById('preset-picker');
+
+if (presetToggle && presetPicker) {
+    // Position the select element over the preset-toggle button
+    const toggleRect = presetToggle.getBoundingClientRect();
+    const padRect = presetToggle.closest('#xy-pad').getBoundingClientRect();
+    const relativeTop = toggleRect.top - padRect.top;
+    const relativeLeft = toggleRect.left - padRect.left;
+    
+    presetPicker.style.position = 'absolute';
+    presetPicker.style.top = `${relativeTop}px`;
+    presetPicker.style.left = `${relativeLeft}px`;
+    presetPicker.style.width = '20px';
+    presetPicker.style.height = '20px';
+    presetPicker.style.opacity = '0';
+    presetPicker.style.cursor = 'pointer';
+    presetPicker.style.zIndex = '10';
+    presetPicker.style.pointerEvents = 'auto';
+    
+    // Populate the select with preset names
+    Object.keys(PRESETS).forEach(presetName => {
+        const option = document.createElement('option');
+        option.value = presetName;
+        option.textContent = presetName;
+        presetPicker.appendChild(option);
+    });
+    
+    // Set current preset
+    presetPicker.value = CONFIG.preset;
+    
+    // Handle preset selection
+    presetPicker.addEventListener('change', (e) => {
+        const selectedPreset = e.target.value;
+        if (selectedPreset && PRESETS[selectedPreset]) {
+            loadPreset(selectedPreset);
+            CONFIG.preset = selectedPreset;
+            // Update GUI preset controller
+            gui.__controllers.forEach(c => {
+                if (c.property === 'preset') c.updateDisplay();
+            });
+        }
+    });
+    
+    // Make preset-toggle click trigger the select
+    presetToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        presetPicker.focus();
+        presetPicker.click();
+    });
+    
+    // Also allow direct clicks on the select
+    presetPicker.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+    });
+}
 
 function updateGeometry() {
     // Recreate geometry if count changes
@@ -1107,6 +1393,437 @@ function updateSun() {
     const z = Math.cos(rad); 
     
     material.uniforms.uSunPos.value.set(0, y, z).normalize();
+}
+
+// --- XY Pad Control ---
+const xyPad = document.getElementById('xy-pad');
+const xyPadKnob = document.getElementById('xy-pad-knob');
+const xyPadBg = document.getElementById('xy-pad-background');
+const xyPadXSlider = document.getElementById('xy-pad-x-slider');
+const xyPadYSlider = document.getElementById('xy-pad-y-slider');
+const xyPadZoomSlider = document.getElementById('xy-pad-zoom-slider');
+const xyPadFadeSlider = document.getElementById('xy-pad-fade-slider');
+const xyPadExposureSlider = document.getElementById('xy-pad-exposure-slider');
+const xyPadTiltSlider = document.getElementById('xy-pad-tilt-slider');
+const crystalToggles = document.querySelectorAll('.crystal-toggle');
+
+if (xyPad && xyPadKnob && xyPadBg) {
+    // Value ranges
+    const IOR_MIN = 1.0;
+    const IOR_MAX = 1.5;
+    const SUN_ELEV_MIN = -90;
+    const SUN_ELEV_MAX = 90;
+    const TILT_MIN = 0;
+    const TILT_MAX = 45;
+    const ZOOM_MIN = 20.0;
+    const ZOOM_MAX = 0.5;
+    const FADE_MIN = 0.0;
+    const FADE_MAX = 0.5;
+    const EXPOSURE_LOG_MIN = -6;
+    const EXPOSURE_LOG_MAX = -1;
+
+    // Crystal Toggles Logic
+    function updateToggleVisuals() {
+        if (!crystalToggles) return;
+        crystalToggles.forEach(toggle => {
+            const type = toggle.dataset.type;
+            if (CONFIG[type]) {
+                toggle.classList.add('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+        });
+    }
+
+    if (crystalToggles) {
+        crystalToggles.forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent dragging background
+                const type = toggle.dataset.type;
+                if (CONFIG.hasOwnProperty(type)) {
+                    // Toggle
+                    const newVal = !CONFIG[type];
+                    CONFIG[type] = newVal;
+                    targetState[type] = newVal;
+                    currentState[type] = newVal;
+                    
+                    // Force Parry if all off
+                    if (!CONFIG.enableRandom && !CONFIG.enablePlate && !CONFIG.enableColumn && !CONFIG.enableParry) {
+                        CONFIG.enableParry = true;
+                        targetState.enableParry = true;
+                        currentState.enableParry = true;
+                    }
+                    
+                    // Update GUI for all types (to reflect forced changes)
+                    const typeKeys = ['enableRandom', 'enablePlate', 'enableColumn', 'enableParry'];
+                    typeKeys.forEach(t => {
+                        gui.__controllers.forEach(c => {
+                            if (c.property === t) c.updateDisplay();
+                        });
+                        if (typeof types !== 'undefined') {
+                            types.__controllers.forEach(c => {
+                                 if (c.property === t) c.updateDisplay();
+                            });
+                        }
+                    });
+
+                    updateToggleVisuals();
+                }
+            });
+            // Prevent drag on mousedown/touchstart
+            toggle.addEventListener('mousedown', (e) => e.stopPropagation());
+            toggle.addEventListener('touchstart', (e) => e.stopPropagation());
+        });
+        
+        updateToggleVisuals();
+    }
+
+    // Convert value to normalized position (0-1)
+    function valueToX(ior) {
+        return (ior - IOR_MIN) / (IOR_MAX - IOR_MIN);
+    }
+
+    function valueToY(sunElev) {
+        // XY pad Y: top (90) = 1, bottom (-90) = 0
+        return (sunElev - SUN_ELEV_MIN) / (SUN_ELEV_MAX - SUN_ELEV_MIN);
+    }
+
+    function valueToTilt(tilt) {
+        // Power curve for Tilt: t = (Tilt/Max)^(1/Power)
+        // Allows finer control at low angles
+        const normalized = (tilt - TILT_MIN) / (TILT_MAX - TILT_MIN);
+        return Math.pow(normalized, 1.0/2.5);
+    }
+
+    function valueToZoom(zoom) {
+        // Invert Y: top (max) = 0, bottom (min) = 1
+        return 1.0 - (zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
+    }
+
+    function valueToFade(fade) {
+        // Invert Y: top (max) = 0, bottom (min) = 1
+        return 1.0 - (fade - FADE_MIN) / (FADE_MAX - FADE_MIN);
+    }
+
+    function valueToExposure(exposure) {
+        // Convert exposure to log scale, then normalize to 0-1
+        // exposure is linear, but we want log scale: log10(exposure)
+        // Invert Y: top (max) = 0, bottom (min) = 1
+        const logExp = Math.log10(exposure);
+        return 1.0 - (logExp - EXPOSURE_LOG_MIN) / (EXPOSURE_LOG_MAX - EXPOSURE_LOG_MIN);
+    }
+
+    // Convert normalized position (0-1) to value
+    function xToValue(x) {
+        return IOR_MIN + x * (IOR_MAX - IOR_MIN);
+    }
+
+    function yToValue(y) {
+        // Y: top (1) = 90, bottom (0) = -90
+        return SUN_ELEV_MIN + y * (SUN_ELEV_MAX - SUN_ELEV_MIN);
+    }
+
+    function tiltToValue(t) {
+        // Power curve for Tilt: Tilt = Max * t^Power
+        const normalized = Math.pow(t, 2.5);
+        return TILT_MIN + normalized * (TILT_MAX - TILT_MIN);
+    }
+
+    function zoomToValue(z) {
+        // Invert Y: top (0) = max, bottom (1) = min
+        return ZOOM_MIN + (1.0 - z) * (ZOOM_MAX - ZOOM_MIN);
+    }
+
+    function fadeToValue(f) {
+        // Invert Y: top (0) = max, bottom (1) = min
+        return FADE_MIN + (1.0 - f) * (FADE_MAX - FADE_MIN);
+    }
+
+    function exposureToValue(e) {
+        // Convert normalized 0-1 back to log scale, then to linear exposure
+        // Invert Y: top (0) = max, bottom (1) = min
+        const logExp = EXPOSURE_LOG_MIN + (1.0 - e) * (EXPOSURE_LOG_MAX - EXPOSURE_LOG_MIN);
+        return Math.pow(10, logExp);
+    }
+
+    // Update knob position from CONFIG values
+    function updateKnobPosition() {
+        // Get normalized parameters (0-1)
+        const paramX = valueToX(CONFIG.ior);
+        const paramY = valueToY(CONFIG.sunElevation);
+        
+        // Map to Visual Position (0.1 - 0.9) to match slider thumb constraints
+        const visualX = 0.1 + 0.8 * paramX;
+        const visualY = 0.1 + 0.8 * paramY;
+        
+        xyPadKnob.style.left = `${visualX * 100}%`;
+        xyPadKnob.style.top = `${visualY * 100}%`;
+    }
+
+    // Update CONFIG values from Visual Knob Position (0-1)
+    function updateValuesFromKnob(visualX, visualY) {
+        // Constrain visual position to interior (0.1 - 0.9)
+        const constrainedX = Math.max(0.1, Math.min(0.9, visualX));
+        const constrainedY = Math.max(0.1, Math.min(0.9, visualY));
+        
+        // Update knob visual position immediately
+        xyPadKnob.style.left = `${constrainedX * 100}%`;
+        xyPadKnob.style.top = `${constrainedY * 100}%`;
+        
+        // Convert Visual Position to Normalized Parameter (0-1)
+        const paramX = (constrainedX - 0.1) / 0.8;
+        const paramY = (constrainedY - 0.1) / 0.8;
+        
+        // Update Sliders
+        // X Slider: 0-100 -> Param 0-1
+        if (xyPadXSlider) xyPadXSlider.value = paramX * 100;
+        
+        // Y Slider: inverted (Top=90=paramY 1.0 -> Slider 0, Bottom=-90=paramY 0.0 -> Slider 100)
+        if (xyPadYSlider) {
+            xyPadYSlider.value = (1.0 - paramY) * 100;
+        }
+
+        const ior = xToValue(paramX);
+        const sunElev = yToValue(paramY);
+        
+        // Clamp to valid ranges
+        const clampedIor = Math.max(IOR_MIN, Math.min(IOR_MAX, ior));
+        const clampedSunElev = Math.max(SUN_ELEV_MIN, Math.min(SUN_ELEV_MAX, sunElev));
+        
+        // Update CONFIG and targetState
+        CONFIG.ior = clampedIor;
+        CONFIG.sunElevation = clampedSunElev;
+        targetState.ior = clampedIor;
+        targetState.sunElevation = clampedSunElev;
+        
+        // Handle lock center
+        if (CONFIG.lockSunCenter) {
+            CONFIG.camElevation = clampedSunElev;
+            targetState.camElevation = clampedSunElev;
+            gui.__controllers.forEach(c => {
+                if (c.property === 'camElevation') c.updateDisplay();
+            });
+        }
+        
+        gui.__controllers.forEach(c => {
+            if (c.property === 'ior' || c.property === 'sunElevation') c.updateDisplay();
+        });
+    }
+
+    // Get position from event (mouse or touch)
+    function getEventPosition(e) {
+        const rect = xyPad.getBoundingClientRect();
+        let clientX, clientY;
+        
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        const x = (clientX - rect.left) / rect.width;
+        const y = (clientY - rect.top) / rect.height;
+        
+        return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+    }
+
+    // Drag handlers
+    let isDragging = false;
+
+    function startDrag(e) {
+        e.preventDefault();
+        isDragging = true;
+        const pos = getEventPosition(e);
+        updateValuesFromKnob(pos.x, pos.y);
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const pos = getEventPosition(e);
+        updateValuesFromKnob(pos.x, pos.y);
+    }
+
+    function endDrag(e) {
+        isDragging = false;
+    }
+
+    // Mouse events
+    xyPadKnob.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', endDrag);
+
+    // Touch events
+    xyPadKnob.addEventListener('touchstart', startDrag, { passive: false });
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', endDrag);
+
+    // Also allow dragging from the background
+    xyPadBg.addEventListener('mousedown', startDrag);
+    xyPadBg.addEventListener('touchstart', startDrag, { passive: false });
+
+    // Update slider positions from CONFIG values
+    function updateSliderPositions() {
+        // Get normalized params (0-1)
+        const paramX = valueToX(CONFIG.ior);
+        const paramY = valueToY(CONFIG.sunElevation);
+        
+        // Sliders match parameter 0-1 mapped to 0-100
+        if (xyPadXSlider) xyPadXSlider.value = paramX * 100;
+        // Y Slider inverted: Top (90, paramY 1.0) -> Slider 0, Bottom (-90, paramY 0.0) -> Slider 100
+        if (xyPadYSlider) xyPadYSlider.value = (1.0 - paramY) * 100;
+        if (xyPadZoomSlider) xyPadZoomSlider.value = valueToZoom(CONFIG.zoom) * 100;
+        if (xyPadTiltSlider) xyPadTiltSlider.value = valueToTilt(CONFIG.crystalTilt) * 100;
+        if (xyPadFadeSlider) xyPadFadeSlider.value = valueToFade(CONFIG.fadeFactor) * 100;
+        if (xyPadExposureSlider) xyPadExposureSlider.value = valueToExposure(CONFIG.exposure) * 100;
+    }
+
+    // Slider event handlers
+    if (xyPadXSlider) {
+        xyPadXSlider.addEventListener('input', (e) => {
+            const param = e.target.value / 100;
+            // Convert Param to Visual Position
+            const visualX = 0.1 + 0.8 * param;
+            const visualY = 0.1 + 0.8 * valueToY(CONFIG.sunElevation);
+            updateValuesFromKnob(visualX, visualY);
+        });
+    }
+
+    if (xyPadYSlider) {
+        xyPadYSlider.addEventListener('input', (e) => {
+            const val = e.target.value / 100;
+            // Y Slider is inverted: value 0 (top) = param 1.0 (90), value 100 (bottom) = param 0.0 (-90)
+            const param = 1.0 - val; 
+            const visualY = 0.1 + 0.8 * param;
+            const visualX = 0.1 + 0.8 * valueToX(CONFIG.ior);
+            updateValuesFromKnob(visualX, visualY);
+        });
+    }
+
+    if (xyPadZoomSlider) {
+        xyPadZoomSlider.addEventListener('input', (e) => {
+            const z = e.target.value / 100;
+            const zoom = zoomToValue(z);
+            CONFIG.zoom = zoom;
+            targetState.zoom = zoom;
+            gui.__controllers.forEach(c => {
+                if (c.property === 'zoom') c.updateDisplay();
+            });
+        });
+    }
+
+    if (xyPadTiltSlider) {
+        xyPadTiltSlider.addEventListener('input', (e) => {
+            const t = e.target.value / 100;
+            const tilt = tiltToValue(t);
+            CONFIG.crystalTilt = tilt;
+            targetState.crystalTilt = tilt;
+            gui.__controllers.forEach(c => {
+                if (c.property === 'crystalTilt') c.updateDisplay();
+            });
+        });
+    }
+
+    if (xyPadFadeSlider) {
+        xyPadFadeSlider.addEventListener('input', (e) => {
+            const f = e.target.value / 100;
+            const fade = fadeToValue(f);
+            CONFIG.fadeFactor = fade;
+            targetState.fadeFactor = fade;
+            gui.__controllers.forEach(c => {
+                if (c.property === 'fadeFactor') c.updateDisplay();
+            });
+        });
+    }
+
+    if (xyPadExposureSlider) {
+        xyPadExposureSlider.addEventListener('input', (e) => {
+            const e_val = e.target.value / 100;
+            const exposure = exposureToValue(e_val);
+            CONFIG.exposure = exposure;
+            targetState.exposure = exposure;
+            // Update the exposureControl proxy for GUI
+            if (exposureControl) {
+                exposureControl.slider = Math.log10(exposure);
+            }
+            gui.__controllers.forEach(c => {
+                if (c.property === 'slider' && c.object === exposureControl) c.updateDisplay();
+            });
+        });
+    }
+
+    // Initialize knob and slider positions
+    updateKnobPosition();
+    updateSliderPositions();
+    
+    // Create preset markers
+    function createPresetMarkers() {
+        Object.keys(PRESETS).forEach(presetName => {
+            const preset = PRESETS[presetName];
+            if (preset.ior !== undefined && preset.sunElevation !== undefined) {
+                // Convert to normalized parameters (0-1)
+                const paramX = valueToX(preset.ior);
+                const paramY = valueToY(preset.sunElevation);
+                
+                // Map to Visual Position (0.1 - 0.9) to account for knob radius
+                const visualX = 0.1 + 0.8 * paramX;
+                const visualY = 0.1 + 0.8 * paramY;
+                
+                // Create marker element
+                const marker = document.createElement('div');
+                marker.className = 'preset-marker';
+                marker.style.left = `${visualX * 100}%`;
+                marker.style.top = `${visualY * 100}%`;
+                marker.title = presetName;
+                
+                // Add to XY pad (before knob so knob appears on top)
+                xyPad.insertBefore(marker, xyPadKnob);
+            }
+        });
+    }
+    
+    createPresetMarkers();
+
+    // Sync knob position when CONFIG changes (polling in animate loop)
+    let lastIor = CONFIG.ior;
+    let lastSunElev = CONFIG.sunElevation;
+    let lastZoom = CONFIG.zoom;
+    let lastTilt = CONFIG.crystalTilt;
+    let lastFade = CONFIG.fadeFactor;
+    
+    // Store references for animate loop
+    window.xyPadUpdateKnob = updateKnobPosition;
+    window.xyPadUpdateSliders = updateSliderPositions;
+    window.xyPadIsDragging = () => isDragging;
+    window.xyPadLastIor = () => lastIor;
+    window.xyPadLastSunElev = () => lastSunElev;
+    window.xyPadLastZoom = () => lastZoom;
+    window.xyPadLastTilt = () => lastTilt;
+    window.xyPadLastFade = () => lastFade;
+    window.xyPadSetLastIor = (v) => { lastIor = v; };
+    window.xyPadSetLastSunElev = (v) => { lastSunElev = v; };
+    window.xyPadSetLastZoom = (v) => { lastZoom = v; };
+    window.xyPadSetLastTilt = (v) => { lastTilt = v; };
+    window.xyPadSetLastFade = (v) => { lastFade = v; };
+    window.updateCrystalToggles = updateToggleVisuals;
+} else {
+    // Dummy functions if XY pad doesn't exist
+    window.xyPadUpdateKnob = () => {};
+    window.xyPadUpdateSliders = () => {};
+    window.xyPadIsDragging = () => false;
+    window.xyPadLastIor = () => CONFIG.ior;
+    window.xyPadLastSunElev = () => CONFIG.sunElevation;
+    window.xyPadLastZoom = () => CONFIG.zoom;
+    window.xyPadLastTilt = () => CONFIG.crystalTilt;
+    window.xyPadSetLastIor = () => {};
+    window.xyPadSetLastSunElev = () => {};
+    window.xyPadSetLastZoom = () => {};
+    window.xyPadSetLastTilt = () => {};
+    window.xyPadLastFade = () => CONFIG.fadeFactor;
+    window.xyPadSetLastFade = () => {};
+    window.updateCrystalToggles = () => {};
 }
 
 function animate(time) {
@@ -1141,6 +1858,29 @@ function animate(time) {
     } else {
         // Direct mapping if springs disabled
         Object.assign(currentState, CONFIG);
+    }
+    
+    // Sync XY Pad knob and slider positions when CONFIG changes (if not dragging)
+    if (!window.xyPadIsDragging()) {
+        window.updateCrystalToggles();
+        const lastIor = window.xyPadLastIor();
+        const lastSunElev = window.xyPadLastSunElev();
+        const lastZoom = window.xyPadLastZoom();
+        const lastTilt = window.xyPadLastTilt();
+        const lastFade = window.xyPadLastFade ? window.xyPadLastFade() : CONFIG.fadeFactor;
+        if (Math.abs(CONFIG.ior - lastIor) > 0.001 || 
+            Math.abs(CONFIG.sunElevation - lastSunElev) > 0.001 ||
+            Math.abs(CONFIG.zoom - lastZoom) > 0.001 ||
+            Math.abs(CONFIG.crystalTilt - lastTilt) > 0.001 ||
+            Math.abs(CONFIG.fadeFactor - lastFade) > 0.001) {
+            window.xyPadUpdateKnob();
+            window.xyPadUpdateSliders();
+            window.xyPadSetLastIor(CONFIG.ior);
+            window.xyPadSetLastSunElev(CONFIG.sunElevation);
+            window.xyPadSetLastZoom(CONFIG.zoom);
+            window.xyPadSetLastTilt(CONFIG.crystalTilt);
+            if (window.xyPadSetLastFade) window.xyPadSetLastFade(CONFIG.fadeFactor);
+        }
     }
     
     // Update Uniforms from currentState (Smoothed)

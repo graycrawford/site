@@ -22,6 +22,246 @@
         color: rgba(255, 255, 255, 0.7);
         pointer-events: none;
       }
+      #xy-pad {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        width: 100px;
+        height: 100px;
+        pointer-events: auto;
+        touch-action: none;
+      }
+      #xy-pad-background {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.05);
+        mix-blend-mode: plus-lighter;
+        border-radius: 10px;
+      }
+      /* Consistent corner radius for all capsules */
+      .xy-pad-capsule {
+        border-radius: 4px;
+      }
+      #xy-pad-knob {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        cursor: grab;
+        touch-action: none;
+      }
+      #xy-pad-knob:active {
+        cursor: grabbing;
+      }
+      /* Preset markers */
+      .preset-marker {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 1;
+      }
+      .xy-pad-row-slider {
+        position: absolute;
+        width: 100px;
+        height: 20px;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        cursor: pointer;
+        touch-action: none;
+      }
+      .xy-pad-row-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        cursor: grab;
+        border: none;
+      }
+      .xy-pad-row-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        cursor: grab;
+        border: none;
+      }
+      .xy-pad-row-slider::-webkit-slider-runnable-track {
+        height: 20px;
+        background: transparent;
+        border-radius: 10px;
+      }
+      .xy-pad-row-slider::-moz-range-track {
+        height: 20px;
+        background: transparent;
+        border-radius: 10px;
+      }
+      #xy-pad-x-slider {
+        top: -24px;
+        left: 0;
+      }
+      #xy-pad-tilt-slider {
+        top: -54px;
+        left: 0;
+      }
+      /* Vertical sliders - same as horizontal, just rotated */
+      #xy-pad-y-slider {
+        bottom: 0px;
+        left: 124px;
+        transform: rotate(-90deg);
+        transform-origin: bottom left;
+      }
+      #xy-pad-zoom-slider {
+        bottom: 0px;
+        left: 154px;
+        transform: rotate(-90deg);
+        transform-origin: bottom left;
+      }
+      /* Fade Slider */
+      #xy-pad-fade-slider {
+        bottom: 0px;
+        left: 184px;
+        transform: rotate(-90deg);
+        transform-origin: bottom left;
+      }
+      /* Log Exposure Slider */
+      #xy-pad-exposure-slider {
+        bottom: 0px;
+        left: 214px;
+        transform: rotate(-90deg);
+        transform-origin: bottom left;
+      }
+      
+      #crystal-toggles {
+        position: absolute;
+        top: -184px; /* Much higher above tilt slider (-54px) and X slider (-24px) */
+        left: 0;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 4px;
+      }
+      .crystal-toggle {
+        width: 20px;
+        height: 20px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: rgba(255, 255, 255, 0.1);
+        font-size: 8px;
+        font-weight: normal;
+        user-select: none;
+        transition: all 0.2s ease;
+        border: none;
+        text-transform: uppercase;
+      }
+      .crystal-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      .crystal-toggle.active {
+        background-color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.5);
+        box-shadow: none;
+      }
+      
+      /* Preset Menu */
+      #preset-toggle {
+        width: 20px;
+        height: 20px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 12px;
+        transition: all 0.2s ease;
+        margin-top: 4px;
+      }
+      #preset-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+      #preset-menu {
+        position: absolute;
+        bottom: 30px;
+        left: 250px;
+        background-color: rgba(0, 0, 0, 0.8);
+        border-radius: 4px;
+        padding: 5px;
+        display: none;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 100;
+        min-width: 100px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      #preset-menu.visible {
+        display: flex;
+      }
+      .preset-item {
+        padding: 4px 8px;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 12px;
+        cursor: pointer;
+        border-radius: 2px;
+        white-space: nowrap;
+      }
+      .preset-item:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+      
+      /* Custom GUI Toggle */
+      #gui-toggle {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        background-color: rgba(255, 255, 255, 0.1); /* 40% -> 0.4? user said 40% opacity icon */
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        pointer-events: auto;
+        transition: background-color 0.2s;
+      }
+      #gui-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      #gui-toggle svg {
+        width: 12px;
+        height: 12px;
+        fill: rgba(255, 255, 255, 0.4); /* 40% opacity icon */
+      }
+      #gui-toggle.open svg {
+        /* Minus sign styling handled by SVG content replacement */
+        fill: rgba(255, 255, 255, 0.8);
+      }
+      
+      /* Hide default close button */
+      .dg .close-button {
+        display: none !important;
+      }
     </style>
     <script type="importmap">
         {
@@ -35,6 +275,40 @@
   <body>
     <div id="info">
     </div>
+    <div id="xy-pad">
+      <div id="xy-pad-background"></div>
+      <div id="xy-pad-knob"></div>
+      <input type="range" id="xy-pad-x-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <input type="range" id="xy-pad-y-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <input type="range" id="xy-pad-zoom-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <input type="range" id="xy-pad-fade-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <input type="range" id="xy-pad-exposure-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <input type="range" id="xy-pad-tilt-slider" class="xy-pad-row-slider" min="0" max="100" value="0">
+      <div id="crystal-toggles">
+        <div id="preset-toggle" title="Presets">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+        <div class="crystal-toggle" data-type="enableRandom" title="Random">R</div>
+        <div class="crystal-toggle" data-type="enablePlate" title="Plate">Pl</div>
+        <div class="crystal-toggle" data-type="enableColumn" title="Column">Col</div>
+        <div class="crystal-toggle" data-type="enableParry" title="Parry">Pa</div>
+      </div>
+      <!-- Native preset picker (positioned dynamically over preset-toggle button) -->
+      <select id="preset-picker"></select>
+    </div>
+    
+    <!-- Custom GUI Toggle -->
+    <div id="gui-toggle">
+        <!-- Gear Icon -->
+        <svg viewBox="0 0 24 24" id="icon-gear">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.47l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+        </svg>
+        <!-- Minus Icon (Hidden by default) -->
+        <svg viewBox="0 0 24 24" id="icon-minus" style="display: none;">
+            <path d="M19,13H5c-0.55,0-1-0.45-1-1v0c0-0.55,0.45-1,1-1h14c0.55,0,1,0.45,1,1v0C20,12.55,19.55,13,19,13z"/>
+        </svg>
+    </div>
+    
     <!-- Relative path for same-folder execution -->
     <script type="module" src="./main.js"></script>
   </body>

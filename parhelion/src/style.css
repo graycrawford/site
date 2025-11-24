@@ -55,13 +55,14 @@ h1 {
 
 .dg li.cr {
     background-color: transparent !important;
-    border-left: 3px solid rgba(255, 255, 255, 0.2) !important;
+    border-left: none !important; /* Remove the accent bar */
 }
 
 .dg .property-name {
     color: white !important;
     background-color: transparent !important;
     text-shadow: none !important;
+    width: 40% !important; /* Adjust label width */
 }
 
 .dg .c .slider {
@@ -80,6 +81,26 @@ h1 {
     border: none;
     border-radius: 4px;
     margin-top: 2px;
+    width: 100% !important; /* Full width for text boxes */
+}
+
+/* Remove default gray borders/backgrounds */
+.dg ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.dg.main .close-button {
+    background-color: transparent !important;
+}
+
+.dg li:not(.folder) {
+    cursor: auto;
+    height: auto !important;
+    line-height: normal !important;
+    padding: 4px 4px 4px 5px !important;
+    overflow: hidden;
 }
 
 /* Folder Headers */
