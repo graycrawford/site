@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Selected work, performances, presentations, projects, and experience by Gray Crawford.">
+  <title>CV — Gray Crawford</title>
+  <style>
+    :root {
+      --background: #fff;
+      --font-color: #000;
+      --link-color: #110563;
+      --accent: #7e5566;
+      --good-ease: cubic-bezier(.15, .02, 0, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      background: var(--background);
+      color: var(--font-color);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.4;
+      overflow: hidden;
+    }
+
+    a {
+      color: var(--link-color);
+      filter: blur(.65px);
+      mix-blend-mode: plus-darker;
+      text-decoration: none;
+      transition: color .6s var(--good-ease), filter .6s var(--good-ease);
+    }
+
+    a:hover,
+    a:focus-visible {
+      color: #0400ff;
+      filter: blur(2.5px);
+    }
+
+    .cv {
+      display: flex;
+      gap: 20px;
+      height: 100vh;
+      overflow-x: auto;
+      padding: 0 20px;
+      scrollbar-width: none;
+    }
+
+    .cv::-webkit-scrollbar,
+    .panel::-webkit-scrollbar {
+      display: none;
+    }
+
+    .identity,
+    .panel {
+      flex: 0 0 370px;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 28px 20px 56px;
+      scrollbar-width: none;
+    }
+
+    .identity {
+      flex-basis: 220px;
+      padding-left: 28px;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: linear-gradient(90deg, #fff 88%, rgba(255,255,255,0));
+    }
+
+    .name,
+    .year {
+      color: var(--font-color);
+      filter: blur(2px);
+      font-size: 1.5rem;
+      font-weight: 600;
+      line-height: 1.15;
+      mix-blend-mode: plus-darker;
+      opacity: .6;
+      transition: filter .6s var(--good-ease);
+    }
+
+    .name:hover,
+    .year:hover {
+      filter: blur(3.6px);
+    }
+
+    .lastname {
+      filter: blur(2.2px);
+      transition: filter .6s var(--good-ease);
+    }
+
+    .lastname:hover {
+      filter: blur(6.5px);
+    }
+
+    .nav {
+      margin-top: 14px;
+    }
+
+    .nav a + a {
+      margin-left: 5px;
+    }
+
+    .intro {
+      color: var(--font-color);
+      filter: blur(.75px);
+      margin-top: 54px;
+      mix-blend-mode: plus-darker;
+      opacity: .6;
+      transition: filter .6s var(--good-ease);
+    }
+
+    .intro:hover {
+      filter: blur(1.4px);
+    }
+
+    .panel::before {
+      content: "";
+      display: block;
+      height: 12px;
+    }
+
+    .year {
+      margin-bottom: 30px;
+    }
+
+    .entry {
+      color: var(--font-color);
+      filter: blur(.65px);
+      margin-bottom: 22px;
+      mix-blend-mode: plus-darker;
+      opacity: .65;
+      transition: filter .6s var(--good-ease), opacity .6s var(--good-ease);
+    }
+
+    .entry:hover {
+      filter: blur(0);
+      opacity: .8;
+    }
+
+    .type {
+      color: var(--accent);
+      filter: none;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .075em;
+      text-transform: uppercase;
+    }
+
+    .entry-title {
+      font-weight: 650;
+    }
+
+    .place {
+      display: block;
+      margin-top: 2px;
+    }
+
+    .details {
+      display: block;
+      font-size: .86rem;
+      margin-top: 5px;
+      opacity: .72;
+    }
+
+    .ongoing {
+      font-variant-numeric: tabular-nums;
+      opacity: .55;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        overflow: auto;
+      }
+
+      .cv {
+        display: block;
+        height: auto;
+        overflow: visible;
+        padding: 0 24px 60px;
+      }
+
+      .identity,
+      .panel {
+        height: auto;
+        overflow: visible;
+        padding: 28px 0 30px;
+        width: 100%;
+      }
+
+      .identity {
+        background: var(--background);
+        min-height: 44vh;
+        position: static;
+      }
+
+      .intro {
+        max-width: 32rem;
+      }
+
+      .panel {
+        border-top: 1px solid rgba(0, 0, 0, .08);
+      }
+
+      .year {
+        margin-bottom: 24px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="cv">
+    <header class="identity">
+      <a href="/index.html"><h1 class="name">Gray <span class="lastname">Crawford</span></h1></a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="https://twitter.com/graycrawford">tw</a>
+        <a href="https://www.instagram.com/graycrawford/">ig</a>
+        <strong><a href="/cv.html" aria-current="page">cv</a></strong>
+        <a href="/thesis.html">thesis</a>
+      </nav>
+      <p class="intro">Interaction designer and artist working across generative media, spatial interfaces, simulated physics, sound, and live visuals.</p>
+    </header>
+
+    <section class="panel" aria-labelledby="y2026">
+      <h2 class="year" id="y2026">2026</h2>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Luma Agents</span>
+        <span class="place">Luma AI — March</span>
+        <span class="details">A multimodal creative workspace for developing work from brief through delivery.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Project / Presentation</span><br>
+        <span class="entry-title">Neophon</span>
+        <span class="place">South Park Commons Demo Night — February 12</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <a class="entry-title" href="https://demos.club/">Generating New Sounds with Neophon</a>
+        <span class="place">Demos &amp; Chill #15, San Francisco</span>
+      </article>
+      <article class="entry">
+        <span class="type">Performance</span><br>
+        <span class="entry-title">Neophon — Code with Claude</span>
+        <span class="place">Anthropic, San Francisco — May 6–7</span>
+        <span class="details">Live performance alongside Kyt’s <em>Sleepwalker Realtime</em>.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Arca</span>
+        <span class="place">C2C Festival, New York — May 8</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Moritz von Oswald &amp; Azu Tiwaline</span>
+        <span class="place">Parameter, Gray Area, San Francisco — May 14</span>
+        <span class="details">Joint visuals with Subset.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Ray3.2</span>
+        <span class="place">Luma AI — June 9</span>
+        <span class="details">Modify, multi-keyframe direction, and frame-level creative control.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Timeline</span>
+        <span class="place">Luma AI</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="y2025">
+      <h2 class="year" id="y2025">2025</h2>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Ray2</span>
+        <span class="place">Luma AI — January 15</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <a class="entry-title" href="https://www.tiat.place/">Latent Space Image Variation</a>
+        <span class="place">TIAT #10, Internet Archive, San Francisco — February 23</span>
+        <span class="details">Live AI image and video manipulation.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Modify Video</span>
+        <span class="place">Luma AI — June</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Arca</span>
+        <span class="place">Palomosa Festival, Montréal — September 6</span>
+      </article>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Ray3</span>
+        <span class="place">Luma AI — September 18</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Arca</span>
+        <span class="place">Portola Festival, San Francisco — September 21</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Arca</span>
+        <span class="place">Heineken No Lineup Festival, Fábrica de Impressões, São Paulo — October 25</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Hesaitix</span>
+        <span class="place">Recombinant Festival, Gray Area, San Francisco — December 5</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="y2024">
+      <h2 class="year" id="y2024">2024</h2>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Dream Machine</span>
+        <span class="place">Luma AI — June</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <a class="entry-title" href="https://demos.club/">Envisioning Generative OSs</a>
+        <span class="place">Demos &amp; Chill #7, San Francisco</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <span class="entry-title">New Behaviors</span>
+        <span class="place">San Francisco — October 1</span>
+      </article>
+      <article class="entry">
+        <span class="type">Performance</span><br>
+        <span class="entry-title">Optia — Hexcode Halloween Algorave</span>
+        <span class="place">Gray Area, San Francisco — October 31</span>
+      </article>
+      <article class="entry">
+        <span class="type">Performance</span><br>
+        <span class="entry-title">Optia — HydeFM × The Lab</span>
+        <span class="place">The Lab, San Francisco — November 8</span>
+        <span class="details">With Croatian Amor and ZZ/Elias.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Product</span><br>
+        <span class="entry-title">Dream Machine Canvas</span>
+        <span class="place">Luma AI — November 20</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Arca</span>
+        <span class="place">Live Night, CAP UCLA, Los Angeles — December 7</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="y2023">
+      <h2 class="year" id="y2023">2023</h2>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <span class="entry-title">Superwide Interfaces</span>
+        <span class="place">Demos &amp; Chill #1, San Francisco</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <span class="entry-title">Growing Branches through Latent Space</span>
+        <span class="place">Show &amp; Tell: AI &amp; Design — March 25</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <span class="entry-title">Superwide Interfaces 2</span>
+        <span class="place">Demos &amp; Chill #5, San Francisco</span>
+      </article>
+      <article class="entry">
+        <span class="type">Presentation</span><br>
+        <span class="entry-title">Wide Views</span>
+        <span class="place">TIAT #2, San Francisco</span>
+      </article>
+      <article class="entry">
+        <span class="type">Project</span><br>
+        <span class="entry-title">Waft Locomotion</span>
+        <span class="place">Ultraleap</span>
+        <span class="details">Velocity-based hand locomotion for spatial computing.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Group Show</span><br>
+        <span class="entry-title">Altar Ego</span>
+        <span class="place">Wilson Zhao, kk.Shucko, and others</span>
+      </article>
+      <article class="entry">
+        <span class="type">Career</span><br>
+        <span class="entry-title">Interaction Design Engineer</span>
+        <span class="place">Ultraleap <span class="ongoing">2019–2023</span></span>
+        <span class="details">Spatial interaction prototyping in Tracking and Interaction R&amp;D.</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="y2022">
+      <h2 class="year" id="y2022">2022</h2>
+      <article class="entry">
+        <span class="type">Performance</span><br>
+        <a class="entry-title" href="https://grayarea.org/event/hexcode-halloween-algorave/">Optia — Hexcode Halloween Algorave</a>
+        <span class="place">Gray Area, San Francisco — October 27</span>
+      </article>
+      <article class="entry">
+        <span class="type">Live Visuals</span><br>
+        <span class="entry-title">Throw Your Phone in a Lake 2</span>
+        <span class="place">With Clearcast and others, San Francisco</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="y2019">
+      <h2 class="year" id="y2019">2019</h2>
+      <article class="entry">
+        <span class="type">Exhibition</span><br>
+        <a class="entry-title" href="https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/">Xoromancy</a>
+        <span class="place">With Aman Tiwari, FRAME Gallery, Carnegie Mellon University — February 22–24</span>
+      </article>
+      <article class="entry">
+        <span class="type">Exhibition</span><br>
+        <span class="entry-title">Xoromancy — Live Ideas</span>
+        <span class="place">New York Live Arts — May 8–22</span>
+      </article>
+      <article class="entry">
+        <span class="type">Publication / Presentation</span><br>
+        <span class="entry-title">Xoromancy: Image Creation via Gestural Control of High-Dimensional Spaces</span>
+        <span class="place">IEEE Games, Entertainment &amp; Media, Yale University — June 19–22</span>
+      </article>
+      <article class="entry">
+        <span class="type">Project / Showcase</span><br>
+        <span class="entry-title">Filament</span>
+        <span class="place">Oculus Connect 6, San Jose — September</span>
+        <span class="details">A virtual-reality granular particle instrument and composition.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Showcase</span><br>
+        <span class="entry-title">Filament</span>
+        <span class="place">Audiovisual group show, San Francisco — December</span>
+      </article>
+      <article class="entry">
+        <span class="type">Education</span><br>
+        <a class="entry-title" href="/thesis.html">MDes in Design for Interactions</a>
+        <span class="place">Carnegie Mellon University</span>
+        <span class="details"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em>.</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="y2018">
+      <h2 class="year" id="y2018">2018</h2>
+      <article class="entry">
+        <span class="type">Installation / Performance</span><br>
+        <a class="entry-title" href="https://ideate.cmu.edu/news-and-announcements/2018/December/subsurface-festival.html">PROP → Mach 1</a>
+        <span class="place">SubSurface, Brady’s Bend limestone mine, Pennsylvania — December 1</span>
+        <span class="details">Sound propagation synchronized with a tunnel-length chain of lights.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Project</span><br>
+        <span class="entry-title">STRATA</span>
+        <span class="place">Virtual-reality cloth-physics instrument and composition.</span>
+      </article>
+      <article class="entry">
+        <span class="type">Career</span><br>
+        <span class="entry-title">AR Design Prototyping Intern</span>
+        <span class="place">NASA Jet Propulsion Laboratory</span>
+        <span class="details">Bimanual, hand-anchored interfaces for ProtoSpace; Leap Motion hand tracking for HoloLens.</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="earlier">
+      <h2 class="year" id="earlier">Earlier</h2>
+      <article class="entry">
+        <span class="type">Education</span><br>
+        <span class="entry-title">MA in Design for Interactions</span>
+        <span class="place">Carnegie Mellon University <span class="ongoing">2016–2017</span></span>
+      </article>
+      <article class="entry">
+        <span class="type">Education</span><br>
+        <span class="entry-title">BA in Liberal Arts</span>
+        <span class="place">St. John’s College, Santa Fe <span class="ongoing">2011–2015</span></span>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

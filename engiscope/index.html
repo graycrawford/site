@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engiscope — ocular PSF bench</title>
+<style>
+  /* ============================================================
+     design system ported from parhelion
+     opacity ladder .05 field / .1 idle / .15 knob / .2 hover
+                    .4 active / .5 active-text / .7 info
+     units 20px control · 100px track · 17.32px row offset
+     radii 50% knob · 10px field · 4px capsule
+     no labels — title= tooltips only
+     ============================================================ */
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;overflow:hidden;background-color:#000;font-family:sans-serif;color:rgba(255,255,255,.7);
+       -webkit-font-smoothing:antialiased}
+  canvas{display:block}
+
+  #psf{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+       width:min(100vh,100vw);height:min(100vh,100vw)}
+
+  #info{position:absolute;top:10px;left:10px;color:rgba(255,255,255,.35);pointer-events:none;
+        font:400 11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}
+  #info span{color:rgba(255,255,255,.55)}
+  #busy{position:absolute;top:10px;right:10px;font:400 10px/1 ui-monospace,Menlo,monospace;
+        color:rgba(255,255,255,.3);opacity:0;transition:opacity .15s;pointer-events:none}
+  #busy.on{opacity:1}
+  #scratch{display:none}
+  .hidden{display:none!important}
+  .disabled{opacity:.3;pointer-events:none}
+  .dim{opacity:.3;pointer-events:none}
+
+  /* corner diagnostics — aperture + wavefront */
+  #stack-tr{position:absolute;top:34px;left:10px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+  #aptInset canvas{display:block;width:150px;height:150px}
+  #inset{width:150px;height:150px;border-radius:10px;overflow:hidden;opacity:.55}
+  #inset canvas{width:100%;height:100%;display:block}
+
+  /* ---------- primary cluster (bottom-left) ---------- */
+  #xy-pad{position:absolute;bottom:20px;left:20px;width:100px;height:100px;pointer-events:auto;touch-action:none}
+  #xy-pad-background{position:absolute;width:100%;height:100%;background-color:rgba(255,255,255,.05);
+                     mix-blend-mode:plus-lighter;border-radius:10px}
+  #xy-pad-knob{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.15);
+               border-radius:50%;transform:translate(-50%,-50%);cursor:grab;touch-action:none;z-index:2}
+  #xy-pad-knob:active{cursor:grabbing}
+  .preset-marker{position:absolute;width:5px;height:5px;background-color:rgba(255,255,255,.1);
+                 border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:1}
+
+  .slot{position:absolute;width:100px;height:20px}
+  .slot.v{transform:rotate(-90deg);transform-origin:bottom left}
+  .xy-pad-row-slider{position:absolute;inset:0;width:100px;height:20px;margin:0;padding:0;
+    -webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;touch-action:none}
+  .xy-pad-row-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;
+    background:rgba(255,255,255,.15);border-radius:50%;cursor:grab;border:none}
+  .xy-pad-row-slider::-moz-range-thumb{width:20px;height:20px;background:rgba(255,255,255,.15);
+    border-radius:50%;cursor:grab;border:none}
+  .xy-pad-row-slider::-webkit-slider-runnable-track{height:20px;background:transparent;border-radius:10px}
+  .xy-pad-row-slider::-moz-range-track{height:20px;background:transparent;border-radius:10px}
+
+  #toggles{position:absolute;bottom:0;left:244px;width:auto;height:auto}
+  .tog{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.1);border-radius:50%;
+       cursor:pointer;display:flex;justify-content:center;align-items:center;color:rgba(255,255,255,.1);
+       font-size:8px;font-weight:normal;user-select:none;transition:all .2s ease;border:none;text-transform:uppercase}
+  .tog:hover{background-color:rgba(255,255,255,.2)}
+  .tog[aria-pressed=true]{background-color:rgba(255,255,255,.4);color:rgba(255,255,255,.5)}
+  #preset-toggle{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.1);
+    border-radius:50%;cursor:pointer;display:flex;justify-content:center;align-items:center;
+    color:rgba(255,255,255,.3);font-size:12px;transition:all .2s ease}
+  #preset-toggle:hover{background-color:rgba(255,255,255,.2);color:#fff}
+  #preset-picker{position:absolute;opacity:0;pointer-events:none;width:20px;height:20px;left:0;bottom:17.32px}
+
+  /* ---------- gear + panel ---------- */
+  #gui-toggle{position:absolute;bottom:10px;right:10px;width:20px;height:20px;
+    background-color:rgba(255,255,255,.1);border-radius:50%;cursor:pointer;display:flex;
+    justify-content:center;align-items:center;z-index:1000;transition:background-color .2s}
+  #gui-toggle:hover{background-color:rgba(255,255,255,.2)}
+  #gui-toggle svg{width:12px;height:12px;fill:rgba(255,255,255,.4)}
+  #gui-toggle.open svg{fill:rgba(255,255,255,.8)}
+
+  #panel{position:absolute;bottom:40px;right:10px;width:236px;max-height:calc(100vh - 60px);
+         overflow-y:auto;display:none;z-index:900;padding:2px 8px 8px 2px;scrollbar-width:thin;
+         scrollbar-color:rgba(255,255,255,.15) transparent}
+  #panel.open{display:block}
+  #panel::-webkit-scrollbar{width:6px}
+  #panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+  #panel::-webkit-scrollbar-track{background:transparent}
+
+  .card{margin-bottom:16px}
+  .card>h2{margin:0 0 8px;font:400 8px/1 sans-serif;text-transform:uppercase;letter-spacing:.18em;
+           color:rgba(255,255,255,.25);cursor:pointer;user-select:none}
+  .card>h2:hover{color:rgba(255,255,255,.45)}
+  .card .chev,.card .hint{display:none}
+  .card.collapsed .body{display:none}
+  .card>h2{cursor:grab}
+  .card.dragging{opacity:.5;cursor:grabbing}
+  .card.dragging{opacity:.4}
+  .body{padding:0 0 0 10px}
+
+  .ctrl{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .ctrl .row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0;flex:1;min-width:0;overflow:hidden}
+  .ctrl label{font:400 8px/1 sans-serif;letter-spacing:.09em;color:rgba(255,255,255,.22);text-transform:uppercase;white-space:nowrap}
+  .ctrl .sub{display:none}
+  .ctrl .num{display:inline;font:400 8px/1 sans-serif;letter-spacing:.06em;
+             color:rgba(255,255,255,.42);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ctrl input[type=range]{width:100px;flex:none}
+  input[type=range]{width:100px;height:20px;margin:0;-webkit-appearance:none;appearance:none;
+    background:transparent;cursor:pointer;touch-action:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;
+    background:rgba(255,255,255,.15);border-radius:50%;border:none;cursor:grab}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;background:rgba(255,255,255,.15);
+    border-radius:50%;border:none;cursor:grab}
+  input[type=range]::-webkit-slider-runnable-track{height:20px;background:rgba(255,255,255,.05);border-radius:10px}
+  input[type=range]::-moz-range-track{height:20px;background:rgba(255,255,255,.05);border-radius:10px}
+
+  .zgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .xypad{position:relative;touch-action:none}
+  .xyfield{position:relative;aspect-ratio:1/1;background-color:rgba(255,255,255,.05);
+           mix-blend-mode:plus-lighter;border-radius:10px;touch-action:none;cursor:crosshair;overflow:hidden}
+  .xypad.round .xyfield{border-radius:50%;overflow:visible}
+  .xytitle{font:400 8px/1.2 sans-serif;letter-spacing:.09em;margin:0 0 4px 2px;
+           text-transform:uppercase;color:rgba(255,255,255,.22);pointer-events:none}
+  .xyval{display:none}
+  .xydot{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.15);
+         border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+
+  .toggle-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;
+              font:400 8px/1 sans-serif;letter-spacing:.09em;color:rgba(255,255,255,.22);text-transform:uppercase}
+  .sw{width:20px;height:20px;border-radius:50%;background-color:rgba(255,255,255,.1);cursor:pointer;
+      flex:none;transition:background-color .2s;position:relative}
+  .sw:hover{background-color:rgba(255,255,255,.2)}
+  .sw[aria-pressed=true]{background-color:rgba(255,255,255,.4)}
+  .sw::after{display:none}
+
+  .seg{display:flex;gap:4px}
+  .seg button{flex:1;font:400 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;
+    color:rgba(255,255,255,.3);background-color:rgba(255,255,255,.1);border:none;border-radius:4px;
+    height:20px;padding:0;cursor:pointer;transition:all .2s ease}
+  .seg button:hover{background-color:rgba(255,255,255,.2)}
+  .seg button[aria-pressed=true]{background-color:rgba(255,255,255,.4);color:rgba(255,255,255,.6)}
+
+  .presets{display:flex;flex-wrap:wrap;gap:4px}
+  .presets button{font:400 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;
+    color:rgba(255,255,255,.3);background-color:rgba(255,255,255,.1);
+    border:none;border-radius:4px;height:20px;padding:0 8px;cursor:pointer;transition:all .2s ease}
+  .presets button:hover{background-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)}
+  .roadmap{font:400 8px/1.5 sans-serif;letter-spacing:.06em;color:rgba(255,255,255,.18);text-transform:uppercase}
+  .card>h2{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px}
+  .xyorigin{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.05);
+            border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+  #perfCv{width:100px;height:28px;display:block}
+  .perflbl{font:400 8px/1.4 sans-serif;letter-spacing:.09em;color:rgba(255,255,255,.22);
+           text-transform:uppercase;margin-top:4px}
+  #pNameRow{margin-top:6px}
+  #pName{width:100%;box-sizing:border-box;height:20px;border:none;border-radius:4px;
+         background-color:rgba(255,255,255,.1);color:rgba(255,255,255,.6);outline:none;
+         font:400 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;padding:0 8px}
+</style>
+</head>
+<body>
+<canvas id="psf"></canvas>
+
+<div id="info"><span id="rStrehl">1.000</span> &nbsp;<span id="rRms">0.000</span> &nbsp;<span id="cScale">—</span></div>
+<span id="busy">computing</span>
+
+<div id="stack-tr">
+  <div class="aptpanel hidden" id="aptInset"><canvas id="apt"></canvas></div>
+  <div class="inset hidden" id="inset"><canvas id="wf" width="128" height="128"></canvas></div>
+</div>
+
+<!-- primary cluster: pad = defocus x spherical, flanking sliders, toggle ring -->
+<div id="xy-pad">
+  <div id="xy-pad-background"></div>
+  <div id="xy-pad-knob" title="defocus / spherical"></div>
+
+  <span class="slot" style="top:-24px;left:0"><input type="range" class="xy-pad-row-slider" id="D" min="1.5" max="8" step="0.01" value="4" title="pupil diameter"></span>
+  <span class="slot" style="top:-54px;left:0"><input type="range" class="xy-pad-row-slider" id="exp" min="-3" max="14" step="0.02" value="0" title="exposure (stops)"></span>
+
+  <span class="slot v" style="bottom:0;left:124px"><input type="range" class="xy-pad-row-slider" id="zoom" min="0.2" max="8" step="0.01" value="1" title="zoom"></span>
+  <span class="slot v" style="bottom:0;left:154px"><input type="range" class="xy-pad-row-slider" id="gamma" min="1" max="5" step="0.01" value="1" title="tone lift"></span>
+  <span class="slot v" id="sampCtrl" style="bottom:0;left:184px"><input type="range" class="xy-pad-row-slider" id="specSamples" min="3" max="25" step="1" value="14" title="spectral samples"></span>
+  <span class="slot v" id="lamCtrl" style="bottom:0;left:214px"><input type="range" class="xy-pad-row-slider" id="lambda" min="400" max="700" step="1" value="550" title="wavelength"></span>
+
+  <div id="toggles">
+    <div id="preset-toggle" title="presets" style="left:0;bottom:17.32px">
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+    </div>
+    <div class="tog" id="swLash"  role="button" aria-pressed="false" tabindex="0" title="eyelashes"     style="left:20px;bottom:0">la</div>
+    <div class="tog" id="swLid"   role="button" aria-pressed="false" tabindex="0" title="eyelids"       style="left:40px;bottom:0">li</div>
+    <div class="tog" id="swSpec"  role="button" aria-pressed="true"  tabindex="0" title="polychromatic" style="left:60px;bottom:0">sp</div>
+    <div class="tog" id="swScene" role="button" aria-pressed="false" tabindex="0" title="scene glare"   style="left:80px;bottom:0">sc</div>
+    <div class="tog" id="swGpu"   role="button" aria-pressed="true"  tabindex="0" title="gpu fft"       style="left:100px;bottom:0">gp</div>
+    <div class="tog" id="swWf"    role="button" aria-pressed="false" tabindex="0" title="wavefront map" style="left:30px;bottom:17.32px">wf</div>
+    <div class="tog" id="swApt"   role="button" aria-pressed="true"  tabindex="0" title="aperture map"  style="left:50px;bottom:17.32px">ap</div>
+    <div class="tog" id="swAiry"  role="button" aria-pressed="false" tabindex="0" title="airy ring"     style="left:70px;bottom:17.32px">ai</div>
+    <div class="tog" id="swTint"  role="button" aria-pressed="false" tabindex="0" title="tint to wavelength" style="left:90px;bottom:17.32px">tn</div>
+  </div>
+  <select id="preset-picker"></select>
+</div>
+
+<div id="gui-toggle" title="controls">
+  <svg viewBox="0 0 24 24" id="icon-gear"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.47l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+  <svg viewBox="0 0 24 24" id="icon-minus" style="display:none"><path d="M19,13H5c-0.55,0-1-0.45-1-1v0c0-0.55,0.45-1,1-1h14c0.55,0,1,0.45,1,1v0C20,12.55,19.55,13,19,13z"/></svg>
+</div>
+
+<div id="panel">
+  <div class="controls" id="controls">
+
+    <div class="card" data-card="aberration">
+      <h2><span class="chev">▾</span><span class="ttl">aberration</span><span class="hint"></span></h2>
+      <div class="body"><div class="zgrid" id="zgrid"></div></div>
+    </div>
+
+    <div class="card" data-card="lashes">
+      <h2><span class="chev">▾</span><span class="ttl">lashes</span><span class="hint" id="lashHint"></span></h2>
+      <div class="body"><div id="lashBody" class="body dim"><div class="zgrid" id="lashpads"></div><div class="ctrl"><div class="row"><label>thickness</label></div><input type="range" id="lashThick" min="0.02" max="1.2" step="0.005" value="0.46" title="lash thickness"></div></div></div>
+    </div>
+
+    <div class="card" data-card="lids">
+      <h2><span class="chev">▾</span><span class="ttl">lids</span><span class="hint" id="lidHint"></span></h2>
+      <div class="body"><div id="lidBody" class="body dim">
+        <div class="ctrl"><div class="row"><label>blink</label></div><input type="range" id="lidClose" min="0" max="1" step="0.001" value="0" title="lid closure — both lids toward centre"></div>
+      </div></div>
+    </div>
+
+    <div class="card" data-card="spectral">
+      <h2><span class="chev">▾</span><span class="ttl">spectral</span><span class="hint" id="specHint"></span></h2>
+      <div class="body">
+        <div class="toggle-row" id="lcaRow"><span>chromatic aberration</span><div class="sw" id="swLca" role="button" aria-pressed="false" tabindex="0"></div></div>
+        <div class="ctrl" id="lcaCtrl"><div class="row"><label>lca</label><span class="num" id="lcaSval"></span></div><input type="range" id="lcaS" min="0" max="2" step="0.01" value="1" title="lca strength"></div>
+      </div>
+    </div>
+
+    <div class="card" data-card="display">
+      <h2><span class="chev">▾</span><span class="ttl">grid</span><span class="hint" id="fillHint"></span></h2>
+      <div class="body">
+        <div class="ctrl"><div class="row"><label>size</label><span class="num" id="n_gridN"></span></div><input type="range" id="gridN" min="0" max="8" step="1" value="3" title="grid size (5-smooth)"></div>
+        <div class="ctrl"><div class="row"><label>window</label><span class="num" id="n_win"></span></div><input type="range" id="win" min="6" max="32" step="0.5" value="16" title="pupil-plane window (mm)"></div>
+      </div>
+    </div>
+
+    <div class="card" data-card="scene">
+      <h2><span class="chev">▾</span><span class="ttl">scene</span><span class="hint" id="sceneHint"></span></h2>
+      <div class="body">
+        <div id="sceneBody" class="body dim">
+          <div class="seg" id="srcSeg" style="margin-bottom:9px">
+            <button data-src="night" aria-pressed="true">night</button>
+            <button data-src="fetch">exr</button>
+            <button data-src="upload">file</button>
+          </div>
+          <div class="roadmap" id="sceneStatus" style="margin-bottom:9px">night</div>
+          <input type="file" id="hdriFile" accept=".hdr,.exr,.jpg,.jpeg,.png" style="display:none">
+          <div class="toggle-row"><span>psf glare</span><div class="sw" id="swGlare" role="button" aria-pressed="true" tabindex="0"></div></div>
+          <div class="ctrl"><div class="row"><label>fov</label><span class="num" id="n_sceneFov"></span></div><input type="range" id="sceneFov" min="2" max="60" step="0.5" value="12" title="field of view"></div>
+          <div class="ctrl"><div class="row"><label>yaw</label><span class="num" id="n_sceneYaw"></span></div><input type="range" id="sceneYaw" min="-180" max="180" step="0.5" value="0" title="yaw"></div>
+          <div class="ctrl"><div class="row"><label>pitch</label><span class="num" id="n_scenePitch"></span></div><input type="range" id="scenePitch" min="-85" max="85" step="0.5" value="0" title="pitch"></div>
+          <div class="ctrl"><div class="row"><label>exposure</label><span class="num" id="n_sceneExp"></span></div><input type="range" id="sceneExp" min="-4" max="10" step="0.05" value="0" title="scene exposure"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card collapsed" data-card="camera">
+      <h2><span class="chev">▾</span><span class="ttl">camera</span><span class="hint" id="camHint">off</span><div class="sw" id="swCam" role="button" aria-pressed="false" tabindex="0"></div></h2>
+      <div class="body"><div id="camBody" class="body dim">
+        <div class="ctrl"><div class="row"><label>threshold</label></div><input type="range" id="camThresh" min="0" max="1" step="0.005" value="0.5" title="luminance threshold"></div>
+        <div class="ctrl"><div class="row"><label>edge</label></div><input type="range" id="camSoft" min="0.002" max="0.4" step="0.002" value="0.05" title="threshold softness"></div>
+        <div class="ctrl"><div class="row"><label>detail</label></div><input type="range" id="camRes" min="128" max="1024" step="64" value="512" title="max camera sampling resolution"></div>
+        <div class="toggle-row"><span>invert</span><div class="sw" id="swCamInv" role="button" aria-pressed="false" tabindex="0"></div></div>
+        <div class="toggle-row"><span>replace pupil</span><div class="sw" id="swCamPupil" role="button" aria-pressed="false" tabindex="0"></div></div>
+      </div></div>
+    </div>
+
+    <div class="card collapsed" data-card="presets">
+      <h2><span class="chev">▾</span><span class="ttl">presets</span><span class="hint" id="pHint"></span></h2>
+      <div class="body"><div class="presets" id="presets"></div>
+        <div class="presets" id="presetbar" style="margin-top:6px">
+          <button id="pAdd" title="save current settings">+</button>
+          <button id="pExp" title="export presets as json">export</button>
+          <button id="pImp" title="import presets from json">import</button>
+        </div>
+        <div id="pNameRow" style="display:none"><input type="text" id="pName" placeholder="name" autocomplete="off" spellcheck="false"></div>
+        <input type="file" id="pFile" accept="application/json,.json" style="display:none">
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="scratch">
+  <span id="rAiry"></span><span id="rDiopt"></span><span id="cFov"></span><span id="cZoom"></span>
+  <span id="lamval"></span><span id="lamSub"></span><span id="gval"></span><span id="eval"></span><span id="zval"></span>
+  <span id="n_specSamples"></span><span id="gpuSub"></span><span id="tintRow"></span>
+  <div class="sw" id="swAbs" role="button" aria-pressed="false" tabindex="0"></div>
+</div>
+
+<script>
+"use strict";
+let L_WIN=16.0;
+const ARCSEC=206264.806, LMIN=400, LMAX=700, LREF=550;
+const S3=Math.sqrt(3),S5=Math.sqrt(5),S6=Math.sqrt(6),S8=Math.sqrt(8);
+const ZMODES=[{id:"defocus",label:"Defocus",nm:"Z₂⁰"},{id:"sph",label:"Spherical",nm:"Z₄⁰"},
+  {id:"astig0",label:"Astig 0°",nm:"Z₂²"},{id:"astig45",label:"Astig 45°",nm:"Z₂⁻²"},
+  {id:"comaX",label:"Coma horiz.",nm:"Z₃¹"},{id:"comaY",label:"Coma vert.",nm:"Z₃⁻¹"},
+  {id:"trefX",label:"Trefoil 0°",nm:"Z₃³"},{id:"trefY",label:"Trefoil 30°",nm:"Z₃⁻³"}];
+const PRESETS={"Diffraction-limited":{},"Defocus":{defocus:0.60},"Astigmatism":{astig0:0.60},"Coma":{comaY:0.50},
+  "Trefoil":{trefX:0.50},"Spherical":{sph:0.50},"Keratoconus":{comaY:0.42,trefX:0.30,astig0:0.28,defocus:0.18},"Typical eye":{sph:0.10,astig0:0.08,comaY:0.05}};
+
+const state={ N:256,Nreq:256,D:3.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camRes:512,lambda:550,coeff:{},rot:0,
+  spectral:true,specSamples:14,lca:false,lcaStrength:1.0,
+  lashOn:false,lashPos:2,lashCount:30,lashSpacing:0.86,lashThick:0.46,lashAngle:90,lashAngleJit:6,lashSpaceJit:0.3,lashIncursion:2.7,depth:0,
+  lidOn:false,lidAngle:0,lidUpper:0,lidLower:0,
+  gamma:1,exposure:1,zoom:1,absExp:false,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
+  sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:0,sceneExp:0,sceneGlare:true,gpu:true };
+ZMODES.forEach(m=>state.coeff[m.id]=0);
+
+let dx, gr=null, zb=null, fbin=null, re=null, im=null, psf=null;
+let antMask=null, antSpecRe=null, antSpecIm=null;
+let accX=null, accY=null, accZ=null;
+let sumA=0, peak=1, peakY=1, peakYdl=1, strehl=1, basisDirty=false, antDirty=true, throughput=1;
+let EC={};
+function rotc(c,s,ang){const m=Math.hypot(c,s),t=Math.atan2(s,c)+ang;return [m*Math.cos(t),m*Math.sin(t)];}
+function computeEC(){const a=state.rot*Math.PI/180,c=state.coeff;EC={defocus:c.defocus,sph:c.sph,comaX:c.comaX,comaY:c.comaY,trefX:c.trefX,trefY:c.trefY};
+  const p2=rotc(c.astig0,c.astig45,2*a);EC.astig0=p2[0];EC.astig45=p2[1];}
+
+/* scene/HDRI state */
+const NC=512;                       // scene + convolution grid
+let hdri=null, hdriStatus='built-in night', hdriDirty=true, kernDirty=true, viewDirty=true;
+let sceneR=null,sceneG=null,sceneB=null, blurR=null,blurG=null,blurB=null;
+let KreR=null,KimR=null,KreG=null,KimG=null,KreB=null,KimB=null, sRe=null,sIm=null;
+
+/* ---- FFT (verified) ---------------------------------------------------- */
+function fft1d(reA,imA){const n=reA.length;
+  for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){const t=reA[i];reA[i]=reA[j];reA[j]=t;const u=imA[i];imA[i]=imA[j];imA[j]=u;}}
+  for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wRe=Math.cos(ang),wIm=Math.sin(ang),half=len>>1;
+    for(let i=0;i<n;i+=len){let cRe=1,cIm=0;for(let k=0;k<half;k++){const a=i+k,b=i+k+half;
+      const vRe=reA[b]*cRe-imA[b]*cIm,vIm=reA[b]*cIm+imA[b]*cRe;reA[b]=reA[a]-vRe;imA[b]=imA[a]-vIm;reA[a]+=vRe;imA[a]+=vIm;
+      const nRe=cRe*wRe-cIm*wIm;cIm=cRe*wIm+cIm*wRe;cRe=nRe;}}}}
+/* ---- mixed-radix FFT (2,3,4,5) -----------------------------------------
+   Power-of-two n keeps the fast radix-2 path above. Any 5-smooth n
+   (2^a·3^b·5^c) goes through a recursive decimation-in-time decomposition:
+     n = r·m → r sub-DFTs of length m, then r-point butterflies with
+     twiddle W_n^{qk}. One shared cos/sin table per n; the r-element
+     scratch is safe because all recursion completes before the combine. */
+const MRPLANS=new Map(), _mtr=new Float64Array(5), _mti=new Float64Array(5);
+const MR3C=-0.5, MR3S=-Math.sqrt(3)/2;
+const MR5=(function(){const c=new Float64Array(25),s=new Float64Array(25);
+  for(let q=0;q<5;q++)for(let u=0;u<5;u++){const a=-2*Math.PI*((q*u)%5)/5;c[q*5+u]=Math.cos(a);s[q*5+u]=Math.sin(a);}
+  return {c,s};})();
+function mrFactors(n){let m=n;const f=[];
+  while(m%4===0){f.push(4);m/=4;} while(m%2===0){f.push(2);m/=2;}
+  while(m%3===0){f.push(3);m/=3;} while(m%5===0){f.push(5);m/=5;}
+  return m===1?f:null;}
+function mrPlan(n){let p=MRPLANS.get(n);if(p!==undefined)return p;
+  if(mrFactors(n)===null){MRPLANS.set(n,null);return null;}
+  const cs=new Float64Array(n),sn=new Float64Array(n);
+  for(let t=0;t<n;t++){const a=-2*Math.PI*t/n;cs[t]=Math.cos(a);sn[t]=Math.sin(a);}
+  p={n,cs,sn,tr:new Float64Array(n),ti:new Float64Array(n)};MRPLANS.set(n,p);return p;}
+function mrRec(oR,oI,oo,iR,iI,io,stride,n,P,step){
+  if(n===1){oR[oo]=iR[io];oI[oo]=iI[io];return;}
+  const r=(n%4===0)?4:(n%2===0)?2:(n%3===0)?3:5, m=n/r;
+  for(let q=0;q<r;q++)mrRec(oR,oI,oo+q*m,iR,iI,io+q*stride,stride*r,m,P,step*r);
+  const cs=P.cs,sn=P.sn,kstep=step;
+  /* twiddle index q*k*step is always < n*step = N, so no modulo is needed */
+  for(let k=0;k<m;k++){
+    const i0=oo+k;
+    /* gather r values, each pre-twiddled by W_n^{qk}; q=0 needs no rotation */
+    _mtr[0]=oR[i0];_mti[0]=oI[i0];
+    let ti=0;
+    for(let q=1;q<r;q++){ti+=k*kstep;const idx=i0+q*m,c=cs[ti],s=sn[ti];
+      const xr=oR[idx],xi=oI[idx];_mtr[q]=xr*c-xi*s;_mti[q]=xr*s+xi*c;}
+    if(r===2){const ar=_mtr[0],ai=_mti[0],br=_mtr[1],bi=_mti[1];
+      oR[i0]=ar+br;oI[i0]=ai+bi;oR[i0+m]=ar-br;oI[i0+m]=ai-bi;}
+    else if(r===4){
+      const ar=_mtr[0]+_mtr[2],ai=_mti[0]+_mti[2],br=_mtr[0]-_mtr[2],bi=_mti[0]-_mti[2];
+      const cr=_mtr[1]+_mtr[3],ci=_mti[1]+_mti[3],dr=_mtr[1]-_mtr[3],di=_mti[1]-_mti[3];
+      oR[i0]=ar+cr;oI[i0]=ai+ci;
+      oR[i0+m]=br+di;oI[i0+m]=bi-dr;
+      oR[i0+2*m]=ar-cr;oI[i0+2*m]=ai-ci;
+      oR[i0+3*m]=br-di;oI[i0+3*m]=bi+dr;}
+    else if(r===3){
+      const zr=_mtr[1]+_mtr[2],zi=_mti[1]+_mti[2],dr=_mtr[1]-_mtr[2],di=_mti[1]-_mti[2];
+      oR[i0]=_mtr[0]+zr;oI[i0]=_mti[0]+zi;
+      const br=_mtr[0]+MR3C*zr,bi=_mti[0]+MR3C*zi;
+      oR[i0+m]=br-MR3S*di;oI[i0+m]=bi+MR3S*dr;
+      oR[i0+2*m]=br+MR3S*di;oI[i0+2*m]=bi-MR3S*dr;}
+    else{const c5=MR5.c,s5=MR5.s;
+      for(let u=0;u<5;u++){let sr=0,si=0;
+        for(let q=0;q<5;q++){const c=c5[q*5+u],s=s5[q*5+u];
+          sr+=_mtr[q]*c-_mti[q]*s;si+=_mtr[q]*s+_mti[q]*c;}
+        oR[i0+u*m]=sr;oI[i0+u*m]=si;}}}}
+function fft1dAny(reA,imA){const n=reA.length;
+  if((n&(n-1))===0){fft1d(reA,imA);return;}
+  const P=mrPlan(n);if(!P){fft1d(reA,imA);return;}
+  mrRec(P.tr,P.ti,0,reA,imA,0,1,n,P,1);reA.set(P.tr);imA.set(P.ti);}
+function gridSizeOK(n){return (n&(n-1))===0 || mrFactors(n)!==null;}
+
+let _row=null,_col=null;
+function fft2d(reA,imA,n){if(!_row||_row.re.length!==n){_row={re:new Float64Array(n),im:new Float64Array(n)};_col={re:new Float64Array(n),im:new Float64Array(n)};}
+  for(let y=0;y<n;y++){const o=y*n;for(let x=0;x<n;x++){_row.re[x]=reA[o+x];_row.im[x]=imA[o+x];}fft1dAny(_row.re,_row.im);for(let x=0;x<n;x++){reA[o+x]=_row.re[x];imA[o+x]=_row.im[x];}}
+  for(let x=0;x<n;x++){for(let y=0;y<n;y++){_col.re[y]=reA[y*n+x];_col.im[y]=imA[y*n+x];}fft1dAny(_col.re,_col.im);for(let y=0;y<n;y++){reA[y*n+x]=_col.re[y];imA[y*n+x]=_col.im[y];}}}
+function ifft2d(reA,imA,n){for(let i=0;i<n*n;i++)imA[i]=-imA[i];fft2d(reA,imA,n);const s=1/(n*n);for(let i=0;i<n*n;i++){reA[i]*=s;imA[i]=-imA[i]*s;}}
+
+/* ---- grid -------------------------------------------------------------- */
+function setupGrid(N){state.N=N;dx=L_WIN/N;const len=N*N;
+  gr={r:new Float32Array(len),r2:new Float32Array(len),r3:new Float32Array(len),r4:new Float32Array(len),
+    c1:new Float32Array(len),s1:new Float32Array(len),c2:new Float32Array(len),s2:new Float32Array(len),c3:new Float32Array(len),s3:new Float32Array(len)};
+  re=new Float64Array(len);im=new Float64Array(len);psf=new Float32Array(len);
+  accX=new Float32Array(len);accY=new Float32Array(len);accZ=new Float32Array(len);
+  antMask=new Float64Array(len);antSpecRe=new Float64Array(len);antSpecIm=new Float64Array(len);
+  zb=[];for(let k=0;k<ZMODES.length;k++)zb.push(new Float32Array(len));
+  fbin=new Float32Array(N);for(let k=0;k<N;k++)fbin[k]=((k<N/2?k:k-N))/(N*dx); // cycles/mm
+  const c=N/2;
+  for(let iy=0;iy<N;iy++)for(let ix=0;ix<N;ix++){const i=iy*N+ix,x=(ix-c)*dx,y=(iy-c)*dx,r=Math.sqrt(x*x+y*y),th=Math.atan2(y,x);
+    gr.r[i]=r;gr.r2[i]=r*r;gr.r3[i]=r*r*r;gr.r4[i]=r*r*r*r;gr.c1[i]=Math.cos(th);gr.s1[i]=Math.sin(th);
+    gr.c2[i]=Math.cos(2*th);gr.s2[i]=Math.sin(2*th);gr.c3[i]=Math.cos(3*th);gr.s3[i]=Math.sin(3*th);}
+  buildBasis();}
+function buildBasis(){const len=state.N*state.N,R=state.D/2,a=2/state.D,a2=a*a,a3=a2*a,a4=a3*a;let cnt=0;
+  for(let i=0;i<len;i++){if(gr.r[i]<=R){const rho=a*gr.r[i],rho2=a2*gr.r2[i],rho3=a3*gr.r3[i],rho4=a4*gr.r4[i];
+    zb[0][i]=S3*(2*rho2-1);zb[1][i]=S5*(6*rho4-6*rho2+1);zb[2][i]=S6*rho2*gr.c2[i];zb[3][i]=S6*rho2*gr.s2[i];
+    const cc=(3*rho3-2*rho);zb[4][i]=S8*cc*gr.c1[i];zb[5][i]=S8*cc*gr.s1[i];zb[6][i]=S8*rho3*gr.c3[i];zb[7][i]=S8*rho3*gr.s3[i];cnt++;}
+    else{for(let k=0;k<zb.length;k++)zb[k][i]=0;}}
+  sumA=cnt;}
+
+/* ---- anterior occluder mask (lashes + lids) ---------------------------- */
+function ss(x){return x<=0?0:x>=1?1:x*x*(3-2*x);}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+function applyLids(){const N=state.N,c=N/2,R=state.D/2,b=state.lidAngle*Math.PI/180,sb=Math.sin(b),cb=Math.cos(b);
+  const tU=R-state.lidUpper*R, tL=-R+state.lidLower*R, soft=2*dx;
+  for(let iy=0;iy<N;iy++)for(let ix=0;ix<N;ix++){const x=(ix-c)*dx,y=(iy-c)*dx,t=-x*sb+y*cb;
+    const m=ss((tU-t)/soft)*ss((t-tL)/soft); antMask[iy*N+ix]*=m;}}
+function lashSegments(){const cnt=state.lashCount,sp=state.lashSpacing,len=state.lashIncursion,y0=state.lashPos,th0=state.lashAngle*Math.PI/180;
+  const rng=mulberry32(1337),seg=[];
+  for(let i=0;i<cnt;i++){const ja=(rng()*2-1)*state.lashAngleJit*Math.PI/180,js=(rng()*2-1)*state.lashSpaceJit*sp,jl=0.8+rng()*0.4;
+    const rx=(i-(cnt-1)/2)*sp+js,th=th0+ja,L=len*jl;
+    seg.push({ax:rx,ay:y0,bx:rx+L*Math.cos(th),by:y0-L*Math.sin(th)});}
+  return seg;}
+function applyLashes(){const N=state.N,c=N/2,r=state.lashThick/2,soft=1.2*dx;
+  /* the mask is a product over segments, so each capsule can be stamped into
+     its own bounding box instead of testing every lash at every pixel —
+     cost becomes proportional to covered area, not count x N^2. */
+  const seg=lashSegments(),pad=r+3*soft;
+  for(let k=0;k<seg.length;k++){const s=seg[k];
+    const ex=s.bx-s.ax,ey=s.by-s.ay,L2=ex*ex+ey*ey;
+    const ix0=Math.max(0,Math.floor(c+(Math.min(s.ax,s.bx)-pad)/dx));
+    const ix1=Math.min(N-1,Math.ceil(c+(Math.max(s.ax,s.bx)+pad)/dx));
+    const iy0=Math.max(0,Math.floor(c+(Math.min(s.ay,s.by)-pad)/dx));
+    const iy1=Math.min(N-1,Math.ceil(c+(Math.max(s.ay,s.by)+pad)/dx));
+    if(ix1<ix0||iy1<iy0)continue;
+    for(let iy=iy0;iy<=iy1;iy++){const row=iy*N,y=(iy-c)*dx;
+      for(let ix=ix0;ix<=ix1;ix++){const x=(ix-c)*dx;
+        let t=L2>0?((x-s.ax)*ex+(y-s.ay)*ey)/L2:0;t=t<0?0:t>1?1:t;
+        const qx=x-(s.ax+t*ex),qy=y-(s.ay+t*ey);
+        const m=ss(((Math.sqrt(qx*qx+qy*qy)-r)/soft)+0.5);
+        if(m<1)antMask[row+ix]*=m;}}}}
+function buildAnterior(){state.occ=state.lashOn||state.lidOn||CAM.on;if(!state.occ)return;
+  const len=state.N*state.N;for(let i=0;i<len;i++)antMask[i]=1;
+  if(state.lidOn)applyLids(); if(state.lashOn)applyLashes(); if(CAM.on)applyCam();
+  if(state.depth>0){ for(let i=0;i<len;i++){antSpecRe[i]=antMask[i];antSpecIm[i]=0;} fft2d(antSpecRe,antSpecIm,state.N); }}
+
+/* ---- field at pupil ---------------------------------------------------- */
+function applyFresnel(lambdaNm,d){const N=state.N,lam=lambdaNm*1e-6; // mm
+  for(let ky=0;ky<N;ky++){const fy=fbin[ky];for(let kx=0;kx<N;kx++){const fx=fbin[kx],i=ky*N+kx;
+    const ph=-Math.PI*lam*d*(fx*fx+fy*fy),Hre=Math.cos(ph),Him=Math.sin(ph);
+    const ar=antSpecRe[i],ai=antSpecIm[i];re[i]=ar*Hre-ai*Him;im[i]=ar*Him+ai*Hre;}}
+  ifft2d(re,im,N);}
+function fieldAtPupil(lambdaNm,cDeff){const N=state.N,len=N*N,k0=2*Math.PI/(lambdaNm/1000),c=EC,R=state.D/2;
+  const openAll=state.camPupil&&CAM.on;   /* aperture = camera mask over the whole window */
+  const cS=c.sph,cA0=c.astig0,cA45=c.astig45,cCx=c.comaX,cCy=c.comaY,cTx=c.trefX,cTy=c.trefY;
+  if(state.occ){ if(state.depth>0)applyFresnel(lambdaNm,state.depth); else {for(let i=0;i<len;i++){re[i]=antMask[i];im[i]=0;}} }
+  for(let i=0;i<len;i++){
+    if(gr.r[i]<=R||openAll){const W=cDeff*zb[0][i]+cS*zb[1][i]+cA0*zb[2][i]+cA45*zb[3][i]+cCx*zb[4][i]+cCy*zb[5][i]+cTx*zb[6][i]+cTy*zb[7][i];
+      const ph=k0*W,cph=Math.cos(ph),sph=Math.sin(ph);
+      if(state.occ){const ar=re[i],ai=im[i];re[i]=ar*cph-ai*sph;im[i]=ar*sph+ai*cph;}else{re[i]=cph;im[i]=sph;}}
+    else{re[i]=0;im[i]=0;}}}
+function shiftIntensity(){const N=state.N,h=N>>1;let pk=0;
+  for(let ky=0;ky<N;ky++){const sy=(ky+h)%N;for(let kx=0;kx<N;kx++){const sx=(kx+h)%N;const o=ky*N+kx;const p=re[o]*re[o]+im[o]*im[o];psf[sy*N+sx]=p;if(p>pk)pk=p;}}return pk;}
+
+function dLCA(l){return 1.68524-633.46/(l-214.102);}
+function gG(x,m,s1,s2){const t=(x-m)*(x<m?s1:s2);return Math.exp(-0.5*t*t);}
+function xbar(l){return 1.056*gG(l,599.8,.0264,.0323)+0.362*gG(l,442,.0624,.0374)-0.065*gG(l,501.1,.049,.0382);}
+function ybar(l){return 0.821*gG(l,568.8,.0213,.0247)+0.286*gG(l,530.9,.0613,.0322);}
+function zbar(l){return 1.217*gG(l,437,.0845,.0278)+0.681*gG(l,459,.0385,.0725);}
+
+function recomputeMono(){fieldAtPupil(state.lambda,EC.defocus);fft2d(re,im,state.N);peak=shiftIntensity();strehl=sumA>0?Math.min(1,peak/(sumA*sumA)):0;
+  let s=0;const N=state.N;for(let i=0;i<N*N;i++)s+=psf[i];throughput=sumA>0?s/(N*N*sumA):1;}
+/* draft mode: while a control is in motion the polychromatic sum is the
+   dominant cost (one full 2D FFT per wavelength), so drop to a few samples
+   for interactive frames and re-run at full quality once things settle. */
+let draft=false, draftT=0;
+function touchDraft(){draft=true;clearTimeout(draftT);
+  draftT=setTimeout(()=>{draft=false;requestCompute();},200);}
+const DRAFT_MS=90;   /* if a full-quality pass fits in this, never degrade */
+/* Spectral fidelity is never traded away -- polychromatic structure is the
+   point of the image. While a control is in motion the GRID drops instead:
+   above DRAFT_ABOVE, draft frames run on a DRAFT_N grid at the full sample
+   count, and the requested grid returns once things settle. */
+const DRAFT_N=256, DRAFT_ABOVE=420;
+function effSamples(){return state.specSamples;}
+function effN(){return (draft&&state.Nreq>DRAFT_ABOVE)?DRAFT_N:state.Nreq;}
+function recomputeSpectral(){const N=state.N,len=N*N,R=state.D/2,ns=effSamples(),h=N>>1;
+  accX.fill(0);accY.fill(0);accZ.fill(0);let ybSum=0;
+  for(let s=0;s<ns;s++){const l=LMIN+(s+0.5)*(LMAX-LMIN)/ns;
+    const cDeff=EC.defocus+(state.lca?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
+    fieldAtPupil(l,cDeff);fft2d(re,im,N);shiftIntensity();
+    const wx=xbar(l),wy=ybar(l),wz=zbar(l);ybSum+=wy;const sc=LREF/l;
+    for(let iy=0;iy<N;iy++){const sy=h+(iy-h)*sc,y0=Math.floor(sy),fy=sy-y0,y1=y0+1,yIn=(y0>=0&&y1<N);
+      for(let ix=0;ix<N;ix++){const sx=h+(ix-h)*sc,x0=Math.floor(sx),fx=sx-x0,x1=x0+1;let v=0;
+        if(yIn&&x0>=0&&x1<N){const p00=psf[y0*N+x0],p10=psf[y0*N+x1],p01=psf[y1*N+x0],p11=psf[y1*N+x1];v=(p00*(1-fx)+p10*fx)*(1-fy)+(p01*(1-fx)+p11*fx)*fy;}
+        const i=iy*N+ix;accX[i]+=wx*v;accY[i]+=wy*v;accZ[i]+=wz*v;}}}
+  peakY=0;for(let i=0;i<len;i++)if(accY[i]>peakY)peakY=accY[i];
+  peakYdl=sumA*sumA*ybSum;                 /* diffraction-limited luminance peak */
+  strehl=sumA>0?Math.min(1,peakY/(sumA*sumA*ybSum)):0;
+  let sY=0;for(let i=0;i<len;i++)sY+=accY[i];throughput=(sumA>0&&ybSum>0)?sY/(N*N*sumA*ybSum):1;}
+
+function wlRGB(wl){let R=0,G=0,B=0;
+  if(wl<440){R=-(wl-440)/60;B=1;}else if(wl<490){G=(wl-440)/50;B=1;}else if(wl<510){G=1;B=-(wl-510)/20;}
+  else if(wl<580){R=(wl-510)/70;G=1;}else if(wl<645){R=1;G=-(wl-645)/65;}else{R=1;}
+  let f=1;if(wl<420)f=.3+.7*(wl-380)/40;else if(wl>700)f=.3+.7*(780-wl)/80;const g=.8;
+  return [Math.round(255*Math.pow(Math.max(0,R)*f,g)),Math.round(255*Math.pow(Math.max(0,G)*f,g)),Math.round(255*Math.pow(Math.max(0,B)*f,g))];}
+
+/* ---- rendering --------------------------------------------------------- */
+const psfCanvas=document.getElementById("psf"),pctx=psfCanvas.getContext("2d");
+const wfCanvas=document.getElementById("wf"),wfctx=wfCanvas.getContext("2d");
+let off=document.createElement("canvas"),offctx=off.getContext("2d"),offImg=null,dispPx=520;
+function dpr_(){return Math.min(2,window.devicePixelRatio||1);}
+function sizeCanvases(){const w=psfCanvas.clientWidth||520;dispPx=Math.round(w*dpr_());psfCanvas.width=dispPx;psfCanvas.height=dispPx;}
+function ensureOff(){const N=state.N;if(!off.width||off.width!==N){off.width=N;off.height=N;offImg=offctx.createImageData(N,N);}}
+function drawMono(){ensureOff();const N=state.N,data=offImg.data,invG=1/state.gamma,E=state.exposure;
+  /* relative: normalize to this frame's own peak (shape only).
+     absolute: normalize to the diffraction-limited peak (sumA^2), so aberration
+     spread AND occlusion throughput both show up as real dimming. */
+  const ip=state.absExp?(sumA>0?1/(sumA*sumA):1):1/peak;
+  let tr=255,tg=255,tb=255;if(state.tint){const c=wlRGB(state.lambda);tr=c[0];tg=c[1];tb=c[2];}
+  for(let i=0;i<N*N;i++){let v=psf[i]*ip;v=Math.pow(v,invG)*E;if(v>1)v=1;if(v<0)v=0;const o=i<<2;data[o]=v*tr;data[o+1]=v*tg;data[o+2]=v*tb;data[o+3]=255;}
+  offctx.putImageData(offImg,0,0);blit();}
+function drawColor(){ensureOff();const N=state.N,data=offImg.data,invG=1/state.gamma,E=state.exposure,ipY=state.absExp?(peakYdl>0?1/peakYdl:1):(peakY>0?1/peakY:1);
+  for(let i=0;i<N*N;i++){const X=accX[i],Y=accY[i],Z=accZ[i];
+    let r=3.2406*X-1.5372*Y-0.4986*Z,g2=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;
+    if(r<0)r=0;if(g2<0)g2=0;if(b<0)b=0;const t=Math.pow(Math.min(1,Math.max(0,Y*ipY*E)),invG);const f=t/(Y>1e-12?Y:1e-12);
+    r*=f;g2*=f;b*=f;if(r>1)r=1;if(g2>1)g2=1;if(b>1)b=1;
+    r=r<=0.0031308?12.92*r:1.055*Math.pow(r,1/2.4)-0.055;g2=g2<=0.0031308?12.92*g2:1.055*Math.pow(g2,1/2.4)-0.055;b=b<=0.0031308?12.92*b:1.055*Math.pow(b,1/2.4)-0.055;
+    const o=i<<2;data[o]=r*255;data[o+1]=g2*255;data[o+2]=b*255;data[o+3]=255;}
+  offctx.putImageData(offImg,0,0);blit();}
+/* ---- draft -> full crossfade ---------------------------------------------
+   When a settled recompute raises the spectral sample count, the new frame is
+   eased in over the old one instead of popping. FADE.cv holds the frame that
+   was on screen when the recompute started. */
+const FADE={on:false,t0:0,dur:240,cv:null};
+function fadeCapture(){if(state.sceneOn)return;
+  if(!FADE.cv)FADE.cv=document.createElement('canvas');
+  const c=FADE.cv;
+  if(c.width!==psfCanvas.width||c.height!==psfCanvas.height){c.width=psfCanvas.width;c.height=psfCanvas.height;}
+  if(c.width>0)c.getContext('2d').drawImage(psfCanvas,0,0);}
+function fadeOverlay(){const now=(performance||Date).now();
+  let a=(now-FADE.t0)/FADE.dur; if(a>=1){FADE.on=false;return;}
+  if(a<0)a=0; const e=a*a*(3-2*a);                    /* smoothstep ease in-out */
+  pctx.save();pctx.globalAlpha=1-e;pctx.drawImage(FADE.cv,0,0,dispPx,dispPx);pctx.restore();}
+function blit(skipAux){const N=state.N,z=state.zoom;
+  pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);
+  let scale;
+  if(z>=1){const src=N/z,s0=(N-src)/2;pctx.drawImage(off,s0,s0,src,src,0,0,dispPx,dispPx);scale=dispPx/src;}
+  else{const d=dispPx*z,o=(dispPx-d)/2;pctx.drawImage(off,0,0,N,N,o,o,d,d);scale=d/N;}
+  if(state.airyRing){const airySrcPx=1.22*L_WIN/state.D,rr=airySrcPx*scale;
+    if(rr>1&&rr<dispPx*0.72){const cx=dispPx/2;pctx.save();pctx.strokeStyle="rgba(255,255,255,.30)";pctx.lineWidth=Math.max(1,dpr_());
+      pctx.setLineDash([4*dpr_(),4*dpr_()]);pctx.beginPath();pctx.arc(cx,cx,rr,0,2*Math.PI);pctx.stroke();pctx.restore();}}
+  if(FADE.on&&FADE.cv)fadeOverlay();
+  if(!skipAux){if(state.showWf)renderWavefront();renderAperture();updateReadouts();}}
+function draw(){if(state.sceneOn){drawScene();return;} if(state.spectral)drawColor();else drawMono();}
+function renderWavefront(){const dprW=Math.min(window.devicePixelRatio||1,3),M=Math.round(Math.min(112*dprW,336));
+  if(wfCanvas.width!==M||wfCanvas.height!==M){wfCanvas.width=M;wfCanvas.height=M;}
+  const img=wfctx.createImageData(M,M),d=img.data,c=EC;
+  const probe=(rho,th)=>{const r2=rho*rho,r3=r2*rho,r4=r3*rho;return c.defocus*S3*(2*r2-1)+c.sph*S5*(6*r4-6*r2+1)+c.astig0*S6*r2*Math.cos(2*th)+c.astig45*S6*r2*Math.sin(2*th)+c.comaX*S8*(3*r3-2*rho)*Math.cos(th)+c.comaY*S8*(3*r3-2*rho)*Math.sin(th)+c.trefX*S8*r3*Math.cos(3*th)+c.trefY*S8*r3*Math.sin(3*th);};
+  const cc=(M-1)/2;let wmax=1e-6;const vals=new Float32Array(M*M),inside=new Uint8Array(M*M);
+  for(let y=0;y<M;y++)for(let x=0;x<M;x++){const nx=(x-cc)/cc,ny=(y-cc)/cc,rho=Math.hypot(nx,ny),i=y*M+x;if(rho<=1){const w=probe(rho,Math.atan2(ny,nx));vals[i]=w;inside[i]=1;const aw=Math.abs(w);if(aw>wmax)wmax=aw;}}
+  for(let i=0;i<M*M;i++){const o=i<<2;if(inside[i]){const t=Math.max(-1,Math.min(1,vals[i]/wmax));let R,G,B;if(t>=0){R=40+t*200;G=46+t*120;B=58-t*10;}else{const a=-t;R=40+a*10;G=46+a*120;B=58+a*190;}d[o]=R;d[o+1]=G;d[o+2]=B;d[o+3]=255;}else{d[o]=10;d[o+1]=14;d[o+2]=18;d[o+3]=255;}}
+  wfctx.putImageData(img,0,0);}
+const aptCanvas=document.getElementById("apt"),aptctx=aptCanvas.getContext("2d");
+function renderAperture(){const inset=document.getElementById("aptInset");
+  if(!state.occ||!state.showApt){inset.classList.add("hidden");return;}
+  inset.classList.remove("hidden");
+  /* rendered analytically at display resolution — independent of sim grid N */
+  const cssPx=150,dpr=Math.min(window.devicePixelRatio||1,3),M=Math.round(Math.min(cssPx*dpr,450));
+  if(aptCanvas.width!==M||aptCanvas.height!==M){aptCanvas.width=M;aptCanvas.height=M;}
+  const openAll=state.camPupil&&CAM.on;
+  const R=state.D/2,W=openAll?L_WIN/2:Math.max(R+1.5,Math.abs(state.lashPos)+1),cc=(M-1)/2,mmPerPx=W/cc;
+  const soft=1.2*mmPerPx,softL=2*mmPerPx;
+  const seg=state.lashOn?lashSegments():null,r=state.lashThick/2,cnt=state.lashCount;
+  const b=state.lidAngle*Math.PI/180,sb=Math.sin(b),cb=Math.cos(b);
+  const tU=R-state.lidUpper*R,tL=-R+state.lidLower*R;
+  /* per-segment bounds for early rejection */
+  let bb=null;
+  if(seg){bb=seg.map(s=>({x0:Math.min(s.ax,s.bx)-r-soft*3,x1:Math.max(s.ax,s.bx)+r+soft*3,
+                          y0:Math.min(s.ay,s.by)-r-soft*3,y1:Math.max(s.ay,s.by)+r+soft*3}));}
+  const img=aptctx.createImageData(M,M),d=img.data;
+  for(let y=0;y<M;y++)for(let x=0;x<M;x++){const mx=(x-cc)*mmPerPx,my=-(y-cc)*mmPerPx,o=(y*M+x)<<2;
+    const rr2=mx*mx+my*my,rlim=R+2*mmPerPx;
+    if(!openAll&&rr2>rlim*rlim){d[o+3]=0;continue;}
+    const edge=openAll?1:ss((R-Math.sqrt(rr2))/mmPerPx+0.5);   /* AA'd disc edge */
+    if(edge<=0){d[o+3]=0;continue;}
+    let m=1;
+    if(CAM.on&&CAM.lum){
+      let cm=ss((camSampleN(mx/L_WIN+0.5,-my/L_WIN+0.5)-state.camThresh)
+                /(2*Math.max(2e-3,state.camSoft))+0.5);
+      if(state.camInvert)cm=1-cm;m*=cm;}
+    if(state.lidOn){const t=-mx*sb+my*cb;m*=ss((tU-t)/softL)*ss((t-tL)/softL);}
+    if(seg&&m>0.002)for(let k=0;k<cnt;k++){const B=bb[k];
+      if(mx<B.x0||mx>B.x1||my<B.y0||my>B.y1)continue;
+      const s=seg[k],ex=s.bx-s.ax,ey=s.by-s.ay,L2=ex*ex+ey*ey;
+      let t=L2>0?((mx-s.ax)*ex+(my-s.ay)*ey)/L2:0;t=t<0?0:t>1?1:t;
+      const qx=mx-(s.ax+t*ex),qy=my-(s.ay+t*ey),dist=Math.sqrt(qx*qx+qy*qy);
+      m*=ss(((dist-r)/soft)+0.5);if(m<=0.002)break;}
+    d[o]=255;d[o+1]=255;d[o+2]=255;d[o+3]=m*edge*72;}
+  aptctx.clearRect(0,0,M,M);aptctx.putImageData(img,0,0);
+  aptctx.strokeStyle="rgba(255,255,255,.08)";aptctx.lineWidth=Math.max(1,dpr*0.75);
+  aptctx.beginPath();aptctx.arc(cc,cc,R/W*cc,0,2*Math.PI);aptctx.stroke();}
+function updateReadouts(){const lam=state.spectral?LREF:state.lambda;
+  const dAlpha=(lam*1e-9)/(L_WIN*1e-3),arcsecPerPx=dAlpha*ARCSEC,fovArcmin=state.N*arcsecPerPx/60,airyArcmin=1.22*(lam*1e-9)/(state.D*1e-3)*ARCSEC/60;
+  const rmsW=Math.sqrt(ZMODES.reduce((s,m)=>s+state.coeff[m.id]**2,0)),Rmm=state.D/2,diopt=4*S3*state.coeff.defocus/(Rmm*Rmm);
+  document.getElementById("rStrehl").textContent=strehl.toFixed(3);
+  document.getElementById("rRms").innerHTML=rmsW.toFixed(3)+' <small>µm · '+(rmsW/(lam/1000)).toFixed(2)+'λ</small>';
+  document.getElementById("rAiry").innerHTML=airyArcmin.toFixed(2)+' <small>′'+(state.spectral?' @550':'')+'</small>';
+  document.getElementById("rDiopt").innerHTML=(diopt>=0?'+':'')+diopt.toFixed(2)+' <small>D</small>';
+  document.getElementById("cScale").textContent=arcsecPerPx.toFixed(1)+' ″/px';
+  document.getElementById("cFov").textContent='FOV '+fovArcmin.toFixed(1)+'′';
+  document.getElementById("cZoom").textContent='×'+state.zoom.toFixed(1);
+  const pupilPx=state.D/dx,fh=document.getElementById("fillHint");fh.textContent=pupilPx<14?'pupil '+pupilPx.toFixed(0)+' px — raise grid':'pupil '+pupilPx.toFixed(0)+' px';}
+
+function applyAccent(){document.documentElement.style.setProperty('--spec','rgba(255,255,255,.55)');document.documentElement.style.setProperty('--spec-dim','rgba(255,255,255,.1)');}
+
+/* ---- GPU spectral PSF (WebGL2) ------------------------------------------
+   Same computation as recomputeSpectral: for each sampled wavelength build the
+   complex pupil A*exp(i*phi) at that lambda, 2D FFT, |.|^2, resample by LREF/l,
+   and accumulate weighted by the CIE bar functions. Everything except the FFT
+   and the resample is identical to the CPU path (CIE weights, LCA, ybSum), so
+   the polychromatic result matches to float precision.
+
+   The FFT here is the same decimation shader used for the scene convolution;
+   the win is that N^2 log N butterflies + the per-wavelength |.|^2 run on the
+   GPU in parallel, and only the final XYZ target is read back once. */
+const gs={ready:false,dead:false,N:0};
+function gsInit(N){
+  if(gs.ready&&gs.N===N)return true;
+  if(gs.dead)return false;                      /* context creation already failed */
+  gs.ready=false;
+  try{
+    /* One context and one set of programs for the whole page. Only the textures
+       depend on N, so switching between the draft grid and the full grid must
+       NOT allocate a new WebGL context each time -- browsers cap live contexts
+       at roughly 16 and silently drop the oldest once you exceed that. */
+    const reuse=!!gs.gl;
+    if(reuse){const g=gs.gl;
+      [gs.A,gs.B,gs.acc,gs.pwTex].forEach(t=>{if(t)g.deleteTexture(t);});
+      [gs.fA,gs.fB,gs.fAcc].forEach(f=>{if(f)g.deleteFramebuffer(f);});
+      gs.A=gs.B=gs.acc=gs.pwTex=gs.fA=gs.fB=gs.fAcc=null;
+      gs.cv.width=N;gs.cv.height=N;}
+    if(!window.WebGL2RenderingContext)throw new Error('no webgl2');
+    const cv=reuse?gs.cv:document.createElement('canvas');
+    if(!reuse){cv.width=N;cv.height=N;}
+    const gl=reuse?gs.gl:cv.getContext('webgl2',{antialias:false,preserveDrawingBuffer:false});
+    if(!gl)throw new Error('no webgl2');
+    if(!reuse&&!gl.getExtension('EXT_color_buffer_float'))throw new Error('no float render');
+    gs.gl=gl;gs.cv=cv;gs.N=N;
+    if(!reuse){const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+      const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);}
+    const tex=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,N,N,0,gl.RGBA,gl.FLOAT,null);return t;};
+    const fbo=t=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return f;};
+    gs.A=tex();gs.B=tex();gs.acc=tex();gs.fA=fbo(gs.A);gs.fB=fbo(gs.B);gs.fAcc=fbo(gs.acc);
+    // decimation FFT stage (same math as scene FFT shader)
+    const FFT='#version 300 es\nprecision highp float;precision highp int;\nuniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec2 x=texelFetch(src,c0,0).rg;vec2 y=texelFetch(src,c1,0).rg;float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec2 t=vec2(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x);o=vec4(x+bs*t,0.0,0.0);}';
+    // build pupil A*exp(i*phi) from a packed input texture: rg = (mask, W_microns)
+    const PUP='#version 300 es\nprecision highp float;uniform sampler2D pw;uniform float k0;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);vec2 d=texelFetch(pw,fc,0).rg;float ph=k0*d.y;o=vec4(d.x*cos(ph),d.x*sin(ph),0.0,0.0);}';
+    // |.|^2 with fftshift, resample by scale about centre, add CIE-weighted into acc
+    const ACC='#version 300 es\nprecision highp float;precision highp int;\nuniform sampler2D fftT;uniform sampler2D accT;uniform int N;uniform float scl;uniform vec3 cie;uniform int first;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int h=N/2;\n// current pixel maps back into the (already shifted) intensity of this wavelength\nfloat sx=float(h)+(float(fc.x)-float(h))*scl;float sy=float(h)+(float(fc.y)-float(h))*scl;\nint x0=int(floor(sx));int y0=int(floor(sy));float fx=sx-float(x0);float fy=sy-float(y0);\nfloat v=0.0;\nif(x0>=0&&x0+1<N&&y0>=0&&y0+1<N){\n  // fftshift lookup: intensity at frequency coord = |FFT[(coord+h)%N]|^2\n  ivec2 s00=ivec2((x0+h)%N,(y0+h)%N);ivec2 s10=ivec2((x0+1+h)%N,(y0+h)%N);\n  ivec2 s01=ivec2((x0+h)%N,(y0+1+h)%N);ivec2 s11=ivec2((x0+1+h)%N,(y0+1+h)%N);\n  vec2 a00=texelFetch(fftT,s00,0).rg;vec2 a10=texelFetch(fftT,s10,0).rg;vec2 a01=texelFetch(fftT,s01,0).rg;vec2 a11=texelFetch(fftT,s11,0).rg;\n  float p00=dot(a00,a00),p10=dot(a10,a10),p01=dot(a01,a01),p11=dot(a11,a11);\n  v=(p00*(1.0-fx)+p10*fx)*(1.0-fy)+(p01*(1.0-fx)+p11*fx)*fy;}\nvec3 prev=(first==1)?vec3(0.0):texelFetch(accT,fc,0).rgb;\no=vec4(prev+cie*v,1.0);}';
+    const VS='#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+    const mk=(fsSrc)=>{const c=(t,src)=>{const sh=gl.createShader(t);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
+      const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,VS));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fsSrc));gl.bindAttribLocation(pr,0,'p');gl.linkProgram(pr);
+      if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));return pr;};
+    if(!reuse){gs.pFFT=mk(FFT);gs.pPUP=mk(PUP);gs.pACC=mk(ACC);}
+    gs.pwTex=tex();gs.pack=new Float32Array(N*N*4);gs.readXYZ=new Float32Array(N*N*4);
+    gs.LOG2N=Math.round(Math.log2(N));
+    gs.ready=(1<<gs.LOG2N)===N;   // GPU FFT stage is radix-2 only
+  }catch(e){console.warn('GPU spectral init failed:',e.message);gs.ready=false;if(!gs.gl)gs.dead=true;}
+  return gs.ready;}
+function gsFFT(fromA,sign){const gl=gs.gl,n=gs.N;gl.useProgram(gs.pFFT);gl.viewport(0,0,n,n);
+  gl.uniform1i(gl.getUniformLocation(gs.pFFT,'N'),n);gl.uniform1i(gl.getUniformLocation(gs.pFFT,'src'),0);
+  gl.uniform1f(gl.getUniformLocation(gs.pFFT,'sgn'),sign);
+  const uL=gl.getUniformLocation(gs.pFFT,'L'),uAx=gl.getUniformLocation(gs.pFFT,'axis');
+  let srcA=fromA;
+  for(let axis=0;axis<2;axis++){gl.uniform1i(uAx,axis);
+    for(let L=1;L<n;L<<=1){gl.uniform1i(uL,L);
+      const srcT=srcA?gs.A:gs.B,dstF=srcA?gs.fB:gs.fA;
+      gl.bindFramebuffer(gl.FRAMEBUFFER,dstF);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,srcT);
+      gl.drawArrays(gl.TRIANGLES,0,3);srcA=!srcA;}}
+  return srcA; // true => result currently in A
+}
+function gpuSpectral(){const N=state.N;
+  if(!gsInit(N))return false;
+  try{
+    const gl=gs.gl,len=N*N,R=state.D/2,ns=effSamples(),h=N>>1,c=EC;
+    // if occluders present we need the (possibly Fresnel-propagated) mask; reuse CPU antMask
+    const haveOcc=state.occ, openAll=state.camPupil&&CAM.on;
+    // precompute static wavefront W(microns) per pixel (lambda-independent part)
+    // NOTE: LCA adds a lambda-dependent defocus, handled per-sample below.
+    let ybSum=0;
+    const pack=gs.pack;
+    // clear accumulator
+    gl.bindFramebuffer(gl.FRAMEBUFFER,gs.fAcc);gl.viewport(0,0,N,N);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
+    for(let s=0;s<ns;s++){const l=LMIN+(s+0.5)*(LMAX-LMIN)/ns;
+      const cDeff=c.defocus+(state.lca?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
+      const k0=2*Math.PI/(l/1000);
+      // pack (mask, W) into pwTex
+      for(let i=0;i<len;i++){const o=i*4;
+        if(gr.r[i]<=R||openAll){const W=cDeff*zb[0][i]+c.sph*zb[1][i]+c.astig0*zb[2][i]+c.astig45*zb[3][i]+c.comaX*zb[4][i]+c.comaY*zb[5][i]+c.trefX*zb[6][i]+c.trefY*zb[7][i];
+          pack[o]=haveOcc?antMask[i]:1;pack[o+1]=W;}
+        else{pack[o]=0;pack[o+1]=0;}
+        pack[o+2]=0;pack[o+3]=0;}
+      gl.bindTexture(gl.TEXTURE_2D,gs.pwTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,N,N,0,gl.RGBA,gl.FLOAT,pack);
+      // build pupil field -> A
+      gl.useProgram(gs.pPUP);gl.bindFramebuffer(gl.FRAMEBUFFER,gs.fA);gl.viewport(0,0,N,N);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gs.pwTex);
+      gl.uniform1i(gl.getUniformLocation(gs.pPUP,'pw'),0);gl.uniform1f(gl.getUniformLocation(gs.pPUP,'k0'),k0);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+      // FFT (forward). result in A or B
+      const inA=gsFFT(true,-1.0);
+      // accumulate weighted intensity into acc (ping via a temp read of acc)
+      const wx=xbar(l),wy=ybar(l),wz=zbar(l);ybSum+=wy;const scl=LREF/l;
+      gl.useProgram(gs.pACC);
+      // render into the *other* acc? we accumulate in-place by reading accT and writing to a temp, then swap.
+      // simpler: read acc into B-less temp not available; use ping-pong: draw to fA2? Instead read+write same is UB.
+      // Use gs.B/gs.A whichever is free as scratch target, then copy. We render to fAcc reading acc is UB,
+      // so bounce through gs.fB (free after FFT result in A) -> then copy to acc.
+      const fftTex=inA?gs.A:gs.B, freeF=inA?gs.fB:gs.fA, freeTex=inA?gs.B:gs.A;
+      gl.bindFramebuffer(gl.FRAMEBUFFER,freeF);gl.viewport(0,0,N,N);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,fftTex);gl.uniform1i(gl.getUniformLocation(gs.pACC,'fftT'),0);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,gs.acc);gl.uniform1i(gl.getUniformLocation(gs.pACC,'accT'),1);
+      gl.uniform1i(gl.getUniformLocation(gs.pACC,'N'),N);gl.uniform1f(gl.getUniformLocation(gs.pACC,'scl'),scl);
+      gl.uniform3f(gl.getUniformLocation(gs.pACC,'cie'),wx,wy,wz);gl.uniform1i(gl.getUniformLocation(gs.pACC,'first'),s===0?1:0);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+      // copy freeTex -> acc via blit
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER,freeF);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,gs.fAcc);
+      gl.blitFramebuffer(0,0,N,N,0,0,N,N,gl.COLOR_BUFFER_BIT,gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    }
+    // read back XYZ
+    gl.bindFramebuffer(gl.FRAMEBUFFER,gs.fAcc);gl.readPixels(0,0,N,N,gl.RGBA,gl.FLOAT,gs.readXYZ);
+    let pkY=0;for(let i=0;i<len;i++){const X=gs.readXYZ[i*4],Y=gs.readXYZ[i*4+1],Z=gs.readXYZ[i*4+2];
+      accX[i]=X;accY[i]=Y;accZ[i]=Z;if(Y>pkY)pkY=Y;}
+    peakY=pkY;peakYdl=sumA*sumA*ybSum;
+    strehl=sumA>0?Math.min(1,peakY/(sumA*sumA*ybSum)):0;
+    let sY=0;for(let i=0;i<len;i++)sY+=accY[i];throughput=(sumA>0&&ybSum>0)?sY/(N*N*sumA*ybSum):1;
+    return true;
+  }catch(e){console.warn('GPU spectral failed, CPU fallback:',e.message);gs.ready=false;return false;}
+}
+
+/* ---- scheduler --------------------------------------------------------- */
+let rafC=0,pend=0;
+function isHeavy(){const N=effN();return N>=1024 || state.sceneOn || (state.spectral&&(N>=512||state.specSamples>=15)) || (state.occ&&state.depth>0&&(state.spectral||N>=512));}
+function setBusy(on){document.getElementById("busy").classList.toggle("on",on);}
+function runCompute(){
+  const wantN=effN();
+  if(state.N!==wantN){setupGrid(wantN);basisDirty=true;antDirty=true;kernDirty=true;}
+  if(basisDirty){buildBasis();basisDirty=false;} if(antDirty){buildAnterior();antDirty=false;}
+  computeEC();
+  if(state.spectral){ if(!(state.gpu&&gpuSpectral()))recomputeSpectral(); }
+  else recomputeMono();
+  kernDirty=true;
+  if(state.sceneOn)sceneCompute();else draw();}
+function requestCompute(){
+  /* The debounce exists so a dragged slider does not fire an expensive compute
+     per tick. A live camera produces frames forever, so the timer would be
+     cleared before it ever fired and nothing would recompute at all -- with a
+     continuous source, coalesce on rAF instead and let the rate float up to
+     whatever the machine actually sustains. */
+  if(isHeavy()&&!CAM.on){setBusy(true);clearTimeout(pend);pend=setTimeout(()=>{runCompute();setBusy(false);},140);}
+  else{if(rafC)return;rafC=requestAnimationFrame(()=>{rafC=0;runCompute();});}}
+
+/* ---- spring layer -------------------------------------------------------
+   Controls set a SETPOINT; the value the model sees springs toward it.
+   Same integrator as parhelion (vel += dist*K; vel *= damp; cur += vel).
+   parhelion uses K=.03/damp=.4 (settles ~7.5s) — right when each frame is
+   just a shader pass. Here each frame is an FFT, so we keep the curve shape
+   but shorten it: K=.15/damp=.45 → 95% in 0.35s, settled in ~1s, no overshoot. */
+const SPRING_K=0.15, SPRING_DAMP=0.45, SPRING_SNAP=1e-4;
+let springs=[], springOn=true;
+function springReg(store,k,kind){const s={store,k,tgt:store[k],vel:0,kind:kind||''};springs.push(s);return s;}
+function springOf(store,k){for(let i=0;i<springs.length;i++)if(springs[i].store===store&&springs[i].k===k)return springs[i];return null;}
+function springTarget(store,k,v){const s=springOf(store,k);if(s){s.tgt=v;if(!springOn){store[k]=v;markKind(s.kind);}}else store[k]=v;}
+function markKind(kind){if(kind==='ant')antDirty=true;else if(kind==='basis'){basisDirty=true;antDirty=true;}}
+function springTick(){let compute=false,redraw=false;
+  for(let i=0;i<springs.length;i++){const s=springs[i],cur=s.store[s.k],dist=s.tgt-cur;
+    if(dist===0&&s.vel===0)continue;
+    s.vel+=dist*SPRING_K;s.vel*=SPRING_DAMP;s.store[s.k]=cur+s.vel;
+    if(Math.abs(dist)<SPRING_SNAP&&Math.abs(s.vel)<SPRING_SNAP){s.store[s.k]=s.tgt;s.vel=0;}
+    markKind(s.kind);if(s.kind==='draw')redraw=true;else{compute=true;touchDraft();}}
+  if(compute)requestCompute();else if(redraw)draw();
+  requestAnimationFrame(springTick);}
+requestAnimationFrame(springTick);
+function slider(id,key,fmt,opts){const inp=document.getElementById(id),num=document.getElementById("n_"+id)||document.getElementById(id+"val");
+  const sp=(opts&&opts.spring)?springReg(state,key,opts.basis?'basis':(opts.ant?'ant':(opts.draw?'draw':''))):null;
+  inp.addEventListener('input',()=>{const v=parseFloat(inp.value);if(sp)sp.tgt=v;else state[key]=v;
+    if(num)num.textContent=fmt(v);if(opts&&opts.basis)basisDirty=true;if(opts&&opts.ant)antDirty=true;
+    if(opts&&opts.before)opts.before();requestCompute();});}
+
+const zgrid=document.getElementById("zgrid");
+/* Pad radius warp. The circular pad is a Poincare-like chart of the value disc:
+   screen radius r maps to value radius atanh(r*tanh(K))/K -- zero at zero and
+   exactly 1 at the rim, but devoting more screen area to the centre, so small
+   central movements stay small while the rim still reaches the full range. */
+const PAD_K=1.35, PAD_T=Math.tanh(PAD_K);
+const padWarp  =r=>Math.atanh(Math.min(1,Math.max(0,r))*PAD_T)/PAD_K;   /* screen -> value */
+const padUnwarp=v=>Math.tanh(Math.min(1,Math.max(0,v))*PAD_K)/PAD_T;    /* value  -> screen */
+
+function buildPad(container,spec){
+  const pad=document.createElement("div");pad.className="xypad"+(spec.round?" round":"");
+  pad.innerHTML='<div class="xytitle">'+spec.title+'</div>'+
+    '<div class="xyfield"><div class="xyorigin"></div><div class="xydot"></div></div>';
+  container.appendChild(pad);
+  const field=pad.querySelector('.xyfield'),dot=pad.querySelector('.xydot'),
+        org=pad.querySelector('.xyorigin'),S=spec.store,X=spec.x,Y=spec.y;
+  const kind=spec.ant?'ant':'';
+  const sx=X.spring===false?null:springReg(S,X.k,kind), sy=Y.spring===false?null:springReg(S,Y.k,kind);
+  const getX=()=>sx?sx.tgt:S[X.k], getY=()=>sy?sy.tgt:S[Y.k];
+  const defX=getX(), defY=getY();          /* captured before any interaction */
+  pad.title=spec.title;
+  const midX=(X.min+X.max)/2, halfX=(X.max-X.min)/2;
+  const midY=(Y.min+Y.max)/2, halfY=(Y.max-Y.min)/2;
+  const nX=v=>{const n=(v-midX)/halfX;return X.flip?-n:n;};
+  const nY=v=>{const n=(v-midY)/halfY;return Y.flip?-n:n;};
+  const vX=n=>midX+(X.flip?-n:n)*halfX,  vY=n=>midY+(Y.flip?-n:n)*halfY;
+  const place=(el,a,b)=>{el.style.left=((a+1)/2*100)+'%';el.style.top=((1-b)/2*100)+'%';};
+  place(org, nX((X.min<=0&&X.max>=0)?0:midX), nY((Y.min<=0&&Y.max>=0)?0:midY));
+  spec.paint=function(){let ax=nX(getX()),ay=nY(getY());
+    if(spec.round){const r=Math.hypot(ax,ay);
+      if(r>1e-9){const g=padUnwarp(Math.min(r,1))/r;ax*=g;ay*=g;}}
+    else{ax=Math.max(-1,Math.min(1,ax));ay=Math.max(-1,Math.min(1,ay));}
+    place(dot,ax,ay);};
+  spec.paint();let active=false;
+  const snap=(v,a)=>{v=Math.max(a.min,Math.min(a.max,v));if(a.step&&a.spring===false)v=Math.round(v/a.step)*a.step;return v;};
+  function commit(ax,ay){const vx=snap(vX(ax),X), vy=snap(vY(ay),Y);
+    if(sx)sx.tgt=vx;else S[X.k]=vx;
+    if(sy)sy.tgt=vy;else S[Y.k]=vy;
+    spec.paint();if(spec.ant)antDirty=true;touchDraft();requestCompute();}
+  function setFromEvent(e){const r=field.getBoundingClientRect();
+    let ax=(e.clientX-r.left)/r.width*2-1, ay=1-(e.clientY-r.top)/r.height*2;
+    if(spec.round){let rad=Math.hypot(ax,ay);
+      if(rad>1){ax/=rad;ay/=rad;rad=1;}                 /* dot stays inside the disc */
+      const g=rad>1e-9?padWarp(rad)/rad:0;ax*=g;ay*=g;}
+    else{ax=Math.max(-1,Math.min(1,ax));ay=Math.max(-1,Math.min(1,ay));}
+    commit(ax,ay);}
+  field.addEventListener('pointerdown',e=>{if(e.detail>1)return;
+    active=true;field.setPointerCapture(e.pointerId);setFromEvent(e);e.preventDefault();});
+  field.addEventListener('pointermove',e=>{if(active)setFromEvent(e);});
+  field.addEventListener('pointerup',()=>{active=false;});
+  field.addEventListener('pointercancel',()=>{active=false;});
+  field.addEventListener('dblclick',e=>{e.preventDefault();active=false;
+    if(sx)sx.tgt=defX;else S[X.k]=defX;
+    if(sy)sy.tgt=defY;else S[Y.k]=defY;
+    spec.paint();if(spec.ant)antDirty=true;requestCompute();});
+  return spec;}
+const Zf=v=>(v>=0?'+':'')+v.toFixed(2),I0=v=>v.toFixed(0),F2=v=>v.toFixed(2),F1=v=>v.toFixed(1),za={min:-1,max:1,step:0.01,fmt:Zf};
+const ALLPADS=[
+  buildPad(zgrid,{title:"Defocus · Spherical",round:true,store:state.coeff,x:{k:"defocus",...za,lbl:"def"},y:{k:"sph",...za,lbl:"sph"}}),
+  buildPad(zgrid,{title:"Astigmatism",round:true,store:state.coeff,x:{k:"astig0",...za,lbl:"0°"},y:{k:"astig45",...za,lbl:"45°",flip:true}}),
+  buildPad(zgrid,{title:"Coma",round:true,store:state.coeff,x:{k:"comaX",...za,lbl:"h",flip:true},y:{k:"comaY",...za,lbl:"v"}}),
+  buildPad(zgrid,{title:"Trefoil",round:true,store:state.coeff,x:{k:"trefX",...za,lbl:"0°"},y:{k:"trefY",...za,lbl:"30°",flip:true}})];
+const lashpads=document.getElementById("lashpads");
+if(lashpads)ALLPADS.push(
+  buildPad(lashpads,{title:"Angle · Jitter",store:state,ant:true,x:{k:"lashAngle",min:60,max:120,step:0.5,lbl:"∠",fmt:v=>(v-90>=0?'+':'')+I0(v-90)+'°'},y:{k:"lashAngleJit",min:0,max:40,step:1,lbl:"jit",fmt:v=>I0(v)+'°'}}),
+  buildPad(lashpads,{title:"Spacing · Jitter",store:state,ant:true,x:{k:"lashSpacing",min:0.1,max:2,step:0.02,lbl:"sp",fmt:F2},y:{k:"lashSpaceJit",min:0,max:1,step:0.02,lbl:"jit",fmt:F2}}),
+  buildPad(lashpads,{title:"Incursion · Root",store:state,ant:true,x:{k:"lashIncursion",min:0.2,max:8,step:0.1,lbl:"len",fmt:F1},y:{k:"lashPos",min:-4,max:6,step:0.05,lbl:"root",fmt:F1}}));
+slider("lashThick","lashThick",v=>v.toFixed(2),{ant:true,spring:true});
+
+/* lids: one axis drives both lids symmetrically toward the centre */
+const _sLidU=springReg(state,"lidUpper","ant"), _sLidL=springReg(state,"lidLower","ant");
+(function(){const el=document.getElementById("lidClose");if(!el)return;
+  el.addEventListener('input',()=>{const v=parseFloat(el.value);
+    _sLidU.tgt=v;_sLidL.tgt=v;antDirty=true;touchDraft();requestCompute();});})();
+function syncZernikeUI(){ALLPADS.forEach(P=>P.paint());if(window.paintMainPad)window.paintMainPad();}
+
+slider("D","D",v=>v.toFixed(1),{basis:true,ant:true,spring:true});
+slider("lambda","lambda",v=>v.toFixed(0),{before:()=>{document.getElementById("lamval").textContent=state.lambda;applyAccent();}});
+document.getElementById("lambda").addEventListener('input',()=>{ if(state.spectral){/*ignored*/} });
+
+/* lid angle slider (ant dirty); lash + lid amounts are now XY pads */
+/* lid angle removed — lids close symmetrically (state.lidAngle stays 0) */
+
+/* gamma / exposure / zoom are wired once, below, as draw-only springs.
+   (They used to be registered twice, so two springs fought over each value.) */
+(function(){const sg=springReg(state,"gamma","draw"),se=springReg(state,"exposure","draw"),sz=springReg(state,"zoom","draw");
+ const g=document.getElementById("gamma");g.addEventListener('input',()=>{sg.tgt=parseFloat(g.value);});
+ /* exposure is in STOPS: absolute mode can land near 1e-3 of the
+    diffraction-limited peak, which needs ~10 stops of gain to inspect. */
+ const e=document.getElementById("exp");e.addEventListener('input',()=>{se.tgt=Math.pow(2,parseFloat(e.value));});
+ const z=document.getElementById("zoom");z.addEventListener('input',()=>{sz.tgt=parseFloat(z.value);});})();
+
+function bindToggle(id,fn){const el=document.getElementById(id);const flip=()=>fn(el);el.addEventListener('click',flip);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip();}});}
+bindToggle("swAiry",el=>{state.airyRing=!state.airyRing;el.setAttribute('aria-pressed',state.airyRing);draw();});
+bindToggle("swTint",el=>{state.tint=!state.tint;el.setAttribute('aria-pressed',state.tint);draw();});
+bindToggle("swAbs",el=>{state.absExp=!state.absExp;el.setAttribute('aria-pressed',state.absExp);draw();});
+bindToggle("swWf",el=>{state.showWf=!state.showWf;el.setAttribute('aria-pressed',state.showWf);document.getElementById("inset").classList.toggle("hidden",!state.showWf);if(state.showWf)draw();});
+bindToggle("swApt",el=>{state.showApt=!state.showApt;el.setAttribute('aria-pressed',state.showApt);renderAperture();});
+
+function refreshSpectralUI(){const on=state.spectral;
+  document.getElementById("specHint").textContent=on?state.specSamples+' λ':'mono';
+  document.getElementById("sampCtrl").classList.toggle("disabled",!on);
+  document.getElementById("lcaRow").style.opacity=on?1:.4;document.getElementById("lcaRow").style.pointerEvents=on?'auto':'none';
+  document.getElementById("lcaCtrl").classList.toggle("disabled",!on||!state.lca);
+  document.getElementById("lamCtrl").classList.toggle("disabled",on);document.getElementById("lamSub").textContent=on?'— integrated':'';
+  document.getElementById("tintRow").style.opacity=on?.4:1;document.getElementById("tintRow").style.pointerEvents=on?'none':'auto';}
+bindToggle("swSpec",el=>{state.spectral=!state.spectral;el.setAttribute('aria-pressed',state.spectral);applyAccent();refreshSpectralUI();requestCompute();});
+bindToggle("swLca",el=>{state.lca=!state.lca;el.setAttribute('aria-pressed',state.lca);refreshSpectralUI();requestCompute();});
+slider("lcaS","lcaStrength",v=>v.toFixed(1)+'×');document.getElementById("lcaS").addEventListener('input',()=>{document.getElementById("lcaSval").textContent=state.lcaStrength.toFixed(1)+'×';});
+(function(){const s=document.getElementById("specSamples");s.addEventListener('input',()=>{state.specSamples=parseInt(s.value);document.getElementById("n_specSamples").textContent=state.specSamples;document.getElementById("specHint").textContent=state.specSamples+' λ';if(state.spectral){kernDirty=true;requestCompute();}});})();
+
+function refreshOccUI(){document.getElementById("lashBody").classList.toggle("dim",!state.lashOn);document.getElementById("lashHint").textContent=state.lashOn?state.lashCount+' lashes':'off';
+  document.getElementById("lidBody").classList.toggle("dim",!state.lidOn);document.getElementById("lidHint").textContent=state.lidOn?'slit mask':'off';}
+bindToggle("swLash",el=>{state.lashOn=!state.lashOn;el.setAttribute('aria-pressed',state.lashOn);antDirty=true;refreshOccUI();requestCompute();});
+bindToggle("swLid",el=>{state.lidOn=!state.lidOn;el.setAttribute('aria-pressed',state.lidOn);antDirty=true;refreshOccUI();requestCompute();});
+
+function applyPreset(name){const p=PRESETS[name];if(!p)return;
+  ZMODES.forEach(m=>springTarget(state.coeff,m.id,0));
+  Object.keys(p).forEach(k=>springTarget(state.coeff,k,p[k]));
+  syncZernikeUI();requestCompute();}
+const presetWrap=document.getElementById("presets");
+Object.keys(PRESETS).forEach(name=>{const b=document.createElement("button");b.textContent=name;
+  b.addEventListener('click',()=>applyPreset(name));presetWrap.appendChild(b);});
+
+/* ---- primary cluster: gear panel, xy pad, preset picker ---------------- */
+(function(){const g=document.getElementById("gui-toggle"),p=document.getElementById("panel"),
+  gear=document.getElementById("icon-gear"),minus=document.getElementById("icon-minus");
+  g.addEventListener('click',()=>{const open=p.classList.toggle('open');g.classList.toggle('open',open);
+    gear.style.display=open?'none':'';minus.style.display=open?'':'none';});})();
+
+(function(){const sel=document.getElementById("preset-picker"),tog=document.getElementById("preset-toggle");
+  sel.innerHTML='<option value="">—</option>'+Object.keys(PRESETS).map(n=>'<option>'+n+'</option>').join('');
+  tog.addEventListener('click',()=>{sel.style.pointerEvents='auto';sel.focus();
+    if(sel.showPicker)try{sel.showPicker();}catch(_){sel.click();}else sel.click();});
+  sel.addEventListener('change',()=>{applyPreset(sel.value);sel.value='';sel.style.pointerEvents='none';});})();
+
+/* main pad — defocus x spherical, sharing the same springs as the panel pad */
+(function(){const pad=document.getElementById("xy-pad"),knob=document.getElementById("xy-pad-knob");
+  const sx=springOf(state.coeff,'defocus'),sy=springOf(state.coeff,'sph');
+  if(!sx||!sy)return;
+  const P=v=>(v+1)/2, V=q=>q*2-1, cl=v=>v<0?0:v>1?1:v;
+  function paint(){const px=0.1+0.8*cl(P(sx.tgt)),py=0.1+0.8*(1-cl(P(sy.tgt)));
+    knob.style.left=(px*100)+'%';knob.style.top=(py*100)+'%';}
+  Object.keys(PRESETS).forEach(nm=>{const q=PRESETS[nm];
+    const m=document.createElement('div');m.className='preset-marker';m.title=nm;
+    m.style.left=((0.1+0.8*cl(P(q.defocus||0)))*100)+'%';
+    m.style.top=((0.1+0.8*(1-cl(P(q.sph||0))))*100)+'%';
+    pad.insertBefore(m,knob);});
+  let drag=false;
+  function set(e){const r=pad.getBoundingClientRect();
+    const qx=cl(((e.clientX-r.left)/r.width-0.1)/0.8), qy=cl(((e.clientY-r.top)/r.height-0.1)/0.8);
+    sx.tgt=V(qx); sy.tgt=V(1-qy); paint(); syncZernikeUI(); requestCompute();}
+  pad.addEventListener('pointerdown',e=>{if(e.target!==pad&&e.target!==knob&&e.target.id!=='xy-pad-background')return;
+    drag=true;pad.setPointerCapture(e.pointerId);set(e);e.preventDefault();});
+  pad.addEventListener('pointermove',e=>{if(drag)set(e);});
+  pad.addEventListener('pointerup',()=>{drag=false;});
+  pad.addEventListener('pointercancel',()=>{drag=false;});
+  window.paintMainPad=paint;paint();})();
+
+/* grid size: 5-smooth ladder — powers of two use the radix-2 path,
+   the rest go through the mixed-radix transform */
+const NSIZES=[128,192,256,320,384,512,640,768,1024];
+(function(){const el=document.getElementById("gridN"),num=document.getElementById("n_gridN");
+  const show=()=>{num.textContent=state.Nreq;};
+  el.value=String(NSIZES.indexOf(state.Nreq)<0?2:NSIZES.indexOf(state.Nreq));show();
+  el.addEventListener('input',()=>{const n=NSIZES[parseInt(el.value)];
+    if(n===state.Nreq)return;state.Nreq=n;basisDirty=true;antDirty=true;show();updateReadouts();touchDraft();requestCompute();});})();
+(function(){const el=document.getElementById("win"),num=document.getElementById("n_win");
+  const show=()=>{num.textContent=L_WIN.toFixed(1);};show();
+  el.addEventListener('input',()=>{L_WIN=parseFloat(el.value);setupGrid(state.N);
+    antDirty=true;kernDirty=true;show();updateReadouts();touchDraft();requestCompute();});})();
+
+/* collapsible cards */
+/* Collapse is delegated, not bound per element: cards built later (optics,
+   view, camera, perf) would otherwise never receive a handler and sit open. */
+(function(){const host=document.getElementById('controls');
+  host.addEventListener('click',e=>{
+    const h=e.target.closest('.card > h2');if(!h||e.target.closest('.sw'))return;
+    h.parentElement.classList.toggle('collapsed');});
+  /* drag a title to reorder; a small threshold keeps plain clicks collapsing */
+  let dg=null;
+  host.addEventListener('pointerdown',e=>{
+    const h=e.target.closest('.card > h2');if(!h||e.target.closest('.sw'))return;
+    dg={h,card:h.parentElement,y0:e.clientY,id:e.pointerId,moved:false};});
+  window.addEventListener('pointermove',e=>{
+    if(!dg||e.pointerId!==dg.id)return;
+    if(!dg.moved){if(Math.abs(e.clientY-dg.y0)<5)return;
+      dg.moved=true;dg.card.classList.add('dragging');
+      try{dg.h.setPointerCapture(dg.id);}catch(_){}}
+    const others=[...host.querySelectorAll(':scope > .card')].filter(c=>c!==dg.card);
+    let before=null;
+    for(const c of others){const r=c.getBoundingClientRect();
+      if(e.clientY<r.top+r.height/2){before=c;break;}}
+    if(before)host.insertBefore(dg.card,before);else host.appendChild(dg.card);});
+  window.addEventListener('pointerup',e=>{
+    if(!dg||e.pointerId!==dg.id)return;const d=dg;dg=null;
+    if(!d.moved)return;
+    d.card.classList.remove('dragging');
+    d.h.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();},{capture:true,once:true});});
+})();
+/* drag-to-reorder cards (grab the header) */
+let dragCard=null;const ctrlCol=document.getElementById('controls');
+function dragAfter(y){const els=[...ctrlCol.querySelectorAll('.card')].filter(c=>c!==dragCard);let best=null,bestOff=-Infinity;
+  for(const el of els){const b=el.getBoundingClientRect(),off=y-b.top-b.height/2;if(off<0&&off>bestOff){bestOff=off;best=el;}}return best;}
+document.querySelectorAll('.card').forEach(card=>{const h=card.querySelector('h2');h.setAttribute('draggable','true');
+  h.addEventListener('dragstart',e=>{dragCard=card;card.classList.add('dragging');if(e.dataTransfer){e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','c');}catch(_){}}});
+  h.addEventListener('dragend',()=>{card.classList.remove('dragging');dragCard=null;});});
+ctrlCol.addEventListener('dragover',e=>{if(!dragCard)return;e.preventDefault();const after=dragAfter(e.clientY);if(after==null)ctrlCol.appendChild(dragCard);else if(after!==dragCard)ctrlCol.insertBefore(dragCard,after);});
+
+/* ======================= SCENE / HDRI GLARE ============================ */
+const POLY_URL="https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/moonless_golf_4k.exr";
+let sceneOff=null,sceneOffctx=null,sceneImg=null;
+function setupScene(){const n=NC,len=n*n;
+  sceneR=new Float32Array(len);sceneG=new Float32Array(len);sceneB=new Float32Array(len);
+  blurR=new Float32Array(len);blurG=new Float32Array(len);blurB=new Float32Array(len);
+  KreR=new Float64Array(len);KimR=new Float64Array(len);KreG=new Float64Array(len);KimG=new Float64Array(len);KreB=new Float64Array(len);KimB=new Float64Array(len);
+  sRe=new Float64Array(len);sIm=new Float64Array(len);
+  sceneOff=document.createElement("canvas");sceneOff.width=n;sceneOff.height=n;sceneOffctx=sceneOff.getContext("2d");sceneImg=sceneOffctx.createImageData(n,n);}
+
+/* --- procedural night HDRI (always available) --- */
+function loadProcedural(){const w=1024,h=512,d=new Float32Array(w*h*3);
+  const rng=mulberry32(7);
+  for(let y=0;y<h;y++){const lat=(0.5-y/h)*Math.PI; // +pi/2 top
+    const horizon=Math.exp(-Math.pow((lat)/0.35,2))*0.012; // faint sky glow band near horizon
+    for(let x=0;x<w;x++){const i=(y*w+x)*3; let r=0.0016+horizon*0.6,g=0.0020+horizon*0.7,b=0.0034+horizon; d[i]=r;d[i+1]=g;d[i+2]=b;}}
+  const stamp=(cx,cy,I,tr,tg,tb,sig)=>{const rad=Math.ceil(sig*2.5);
+    for(let dyi=-rad;dyi<=rad;dyi++)for(let dxi=-rad;dxi<=rad;dxi++){const wt=Math.exp(-(dxi*dxi+dyi*dyi)/(2*sig*sig));
+      const xx=(((cx+dxi)%w)+w)%w,yy=cy+dyi;if(yy<0||yy>=h)continue;const i=(yy*w+xx)*3;d[i]+=I*tr*wt;d[i+1]+=I*tg*wt;d[i+2]+=I*tb*wt;}};
+  // stars (upper hemisphere) — round points
+  for(let s=0;s<520;s++){const u=rng(),v=rng()*0.55;const x=(u*w)|0,y=(v*h)|0;const mag=Math.pow(rng(),6);const I=2+mag*400;
+    const t=0.7+rng()*0.5;stamp(x,y,I,0.8+0.2*t,0.92,1.0+0.1*t,0.85);}
+  // a handful of very bright distant lights near the horizon (golf-course vibe)
+  const lights=[[0.20,0.52],[0.34,0.55],[0.62,0.5],[0.78,0.54],[0.5,0.5]];
+  for(const[lx,ly]of lights){const x=(lx*w)|0,y=(ly*h)|0;const I=2000+rng()*6000;stamp(x,y,I,1.0,0.82,0.55,1.3);}
+  hdri={w,h,data:d};hdriStatus='built-in night';hdriDirty=true;viewDirty=true;setSceneStatus();}
+
+/* --- equirect sampling + perspective view --- */
+function sampleEq(dx,dy,dz){const w=hdri.w,h=hdri.h,data=hdri.data;
+  const lon=Math.atan2(dx,-dz),lat=Math.asin(Math.max(-1,Math.min(1,dy)));
+  let u=lon/(2*Math.PI)+0.5, v=0.5-lat/Math.PI;
+  let fx=u*w-0.5, fy=v*h-0.5; let x0=Math.floor(fx),y0=Math.floor(fy);const tx=fx-x0,ty=fy-y0;
+  const xa=((x0%w)+w)%w, xb=((x0+1)%w+w)%w, ya=Math.max(0,Math.min(h-1,y0)), yb=Math.max(0,Math.min(h-1,y0+1));
+  const o00=(ya*w+xa)*3,o10=(ya*w+xb)*3,o01=(yb*w+xa)*3,o11=(yb*w+xb)*3;const out=[0,0,0];
+  for(let c=0;c<3;c++){const a=data[o00+c]*(1-tx)+data[o10+c]*tx,b=data[o01+c]*(1-tx)+data[o11+c]*tx;out[c]=a*(1-ty)+b*ty;}
+  return out;}
+function camRay(sx,sy){const t=Math.tan(state.sceneFov*Math.PI/360);let x=sx*t,y=-sy*t,z=-1;const l=Math.hypot(x,y,z);x/=l;y/=l;z/=l;
+  const pit=state.scenePitch*Math.PI/180,cp=Math.cos(pit),sp=Math.sin(pit);let y2=y*cp-z*sp,z2=y*sp+z*cp;y=y2;z=z2;
+  const yaw=state.sceneYaw*Math.PI/180,cy=Math.cos(yaw),sy2=Math.sin(yaw);let x2=x*cy+z*sy2,z3=-x*sy2+z*cy;return [x2,y,z3];}
+function renderScene(){if(!hdri)return;const n=NC;
+  for(let py=0;py<n;py++){const sy=(py/(n-1))*2-1;for(let px=0;px<n;px++){const sx=(px/(n-1))*2-1;
+    const d=camRay(sx,sy);const c=sampleEq(d[0],d[1],d[2]);const i=py*n+px;sceneR[i]=c[0];sceneG[i]=c[1];sceneB[i]=c[2];}}}
+
+/* --- build the 3 chromatic PSF convolution kernels at scene scale --- */
+function psfChannels(){ // returns {R,G,B,N} arrays at PSF grid
+  const N=state.N,len=N*N;
+  if(!state.spectral){return {R:psf,G:psf,B:psf,N:N};}
+  const R=new Float32Array(len),G=new Float32Array(len),B=new Float32Array(len);
+  for(let i=0;i<len;i++){const X=accX[i],Y=accY[i],Z=accZ[i];
+    let r=3.2406*X-1.5372*Y-0.4986*Z,g=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;
+    R[i]=r<0?0:r;G[i]=g<0?0:g;B[i]=b<0?0:b;}
+  return {R,G,B,N};}
+function resampleKernel(srcArr,Nsrc,ratio,Kre,Kim,gain){const n=NC,h=n>>1,hs=Nsrc/2;
+  for(let i=0;i<n*n;i++){Kre[i]=0;Kim[i]=0;}
+  let sum=0;const tmp=new Float64Array(n*n);
+  for(let ky=0;ky<n;ky++){const sy=hs+(ky-h)*ratio,y0=Math.floor(sy),fy=sy-y0,y1=y0+1,yIn=(y0>=0&&y1<Nsrc);
+    for(let kx=0;kx<n;kx++){const sx=hs+(kx-h)*ratio,x0=Math.floor(sx),fx=sx-x0,x1=x0+1;let v=0;
+      if(yIn&&x0>=0&&x1<Nsrc){const p00=srcArr[y0*Nsrc+x0],p10=srcArr[y0*Nsrc+x1],p01=srcArr[y1*Nsrc+x0],p11=srcArr[y1*Nsrc+x1];v=(p00*(1-fx)+p10*fx)*(1-fy)+(p01*(1-fx)+p11*fx)*fy;}
+      tmp[ky*n+kx]=v;sum+=v;}}
+  if(sum<=0)sum=1;const inv=gain/sum;
+  for(let ky=0;ky<n;ky++)for(let kx=0;kx<n;kx++){Kre[((ky+h)%n)*n+((kx+h)%n)]=tmp[ky*n+kx]*inv;}
+  fft2d(Kre,Kim,n);}
+function buildKernels(){const arcPsf=(state.spectral?LREF:state.lambda)*1e-9/(L_WIN*1e-3)*ARCSEC;
+  const arcScene=state.sceneFov*3600/NC,ratio=arcScene/arcPsf;const ch=psfChannels();const g=throughput;
+  resampleKernel(ch.R,ch.N,ratio,KreR,KimR,g);resampleKernel(ch.G,ch.N,ratio,KreG,KimG,g);resampleKernel(ch.B,ch.N,ratio,KreB,KimB,g);}
+
+/* --- convolve scene with kernels (per channel) --- */
+function convOne(src,Kre,Kim,dst){const n=NC,len=n*n;
+  for(let i=0;i<len;i++){sRe[i]=src[i];sIm[i]=0;} fft2d(sRe,sIm,n);
+  for(let i=0;i<len;i++){const a=sRe[i],b=sIm[i],c=Kre[i],dd=Kim[i];sRe[i]=a*c-b*dd;sIm[i]=a*dd+b*c;}
+  ifft2d(sRe,sIm,n);for(let i=0;i<len;i++){dst[i]=sRe[i]<0?0:sRe[i];}}
+function convolveScene(){if(state.sceneGlare){convOne(sceneR,KreR,KimR,blurR);convOne(sceneG,KreG,KimG,blurG);convOne(sceneB,KreB,KimB,blurB);}
+  else{blurR.set(sceneR);blurG.set(sceneG);blurB.set(sceneB);}}
+
+function sceneCompute(){ if(!hdri)return;
+  if(kernDirty){buildKernels();kernDirty=false;kernVersion++;}
+  if(viewDirty){renderScene();viewDirty=false;}
+  if(state.gpu && gpuTryInit()){ try{ gpuRender(); return; }catch(e){ console.warn('GPU path failed, falling back to CPU',e); gpu.ready=false; state.gpu=false; document.getElementById('swGpu').setAttribute('aria-pressed','false'); refreshGpuUI(); } }
+  convolveScene();drawScene();}
+
+/* ===== GPU FFT convolution (WebGL2, ping-pong Stockham) ===== */
+let kernVersion=0;
+const gpu={gl:null,ready:false,tried:false,kernV:-1};
+const GLSL_VS='#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+function gpuCompile(gl,vs,fs){
+  const c=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error('shader: '+gl.getShaderInfoLog(sh));return sh;};
+  const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,vs));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fs));gl.bindAttribLocation(pr,0,'p');gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error('link: '+gl.getProgramInfoLog(pr));return pr;}
+function gpuTryInit(){ if(gpu.tried)return gpu.ready; gpu.tried=true;
+  try{
+    const n=NC,cv=document.createElement('canvas');cv.width=n;cv.height=n;
+    const gl=cv.getContext('webgl2',{antialias:false,preserveDrawingBuffer:true});
+    if(!gl)throw new Error('no webgl2');
+    if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('no float render');
+    gl.getExtension('OES_texture_float_linear');
+    gpu.gl=gl;gpu.canvas=cv;
+    // quad (full-screen triangle)
+    const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+    const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+    const tex=(filter)=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,null);return t;};
+    const fbo=(t)=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return f;};
+    gpu.A=tex(gl.NEAREST);gpu.B=tex(gl.NEAREST);gpu.res=[tex(gl.NEAREST),tex(gl.NEAREST),tex(gl.NEAREST)];gpu.kern=[tex(gl.NEAREST),tex(gl.NEAREST),tex(gl.NEAREST)];
+    gpu.fA=fbo(gpu.A);gpu.fB=fbo(gpu.B);gpu.fRes=gpu.res.map(fbo);
+    const FFT='#version 300 es\nprecision highp float;precision highp int;\nuniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec2 x=texelFetch(src,c0,0).rg;vec2 y=texelFetch(src,c1,0).rg;float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec2 t=vec2(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x);o=vec4(x+bs*t,0.0,0.0);}';
+    const MUL='#version 300 es\nprecision highp float;uniform sampler2D src;uniform sampler2D kern;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);vec2 a=texelFetch(src,fc,0).rg;vec2 b=texelFetch(kern,fc,0).rg;o=vec4(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x,0.0,0.0);}';
+    const STO='#version 300 es\nprecision highp float;uniform sampler2D src;uniform float invN2;out vec4 o;\nvoid main(){float v=texelFetch(src,ivec2(gl_FragCoord.xy),0).r*invN2;o=vec4(max(v,0.0),0.0,0.0,1.0);}';
+    const TON='#version 300 es\nprecision highp float;precision highp int;uniform sampler2D rT;uniform sampler2D gT;uniform sampler2D bT;uniform float expo;uniform int N;out vec4 o;\nvec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}\nvec3 s2s(vec3 c){vec3 lo=12.92*c;vec3 hi=1.055*pow(max(c,0.0),vec3(1.0/2.4))-0.055;return mix(lo,hi,step(0.0031308,c));}\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);ivec2 q=ivec2(fc.x,(N-1)-fc.y);vec3 c=vec3(texelFetch(rT,q,0).r,texelFetch(gT,q,0).r,texelFetch(bT,q,0).r);c=aces(c*expo);o=vec4(s2s(c),1.0);}';
+    gpu.pFFT=gpuCompile(gl,GLSL_VS,FFT);gpu.pMUL=gpuCompile(gl,GLSL_VS,MUL);gpu.pSTO=gpuCompile(gl,GLSL_VS,STO);gpu.pTON=gpuCompile(gl,GLSL_VS,TON);
+    gpu.scratch=new Float32Array(n*n*4);
+    gpu.LOG2N=Math.round(Math.log2(n));
+    gpu.ready=true;
+  }catch(e){console.warn('GPU init failed:',e.message);gpu.ready=false;}
+  return gpu.ready;}
+function gpuUploadKern(){const gl=gpu.gl,n=NC;const K=[[KreR,KimR],[KreG,KimG],[KreB,KimB]];
+  for(let c=0;c<3;c++){const re=K[c][0],im=K[c][1],s=gpu.scratch;for(let i=0;i<n*n;i++){s[i*4]=re[i];s[i*4+1]=im[i];s[i*4+2]=0;s[i*4+3]=0;}
+    gl.bindTexture(gl.TEXTURE_2D,gpu.kern[c]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,s);}}
+function gpuFFT(startA,sign){const gl=gpu.gl,n=NC;gl.useProgram(gpu.pFFT);
+  gl.uniform1i(gl.getUniformLocation(gpu.pFFT,'N'),n);gl.uniform1i(gl.getUniformLocation(gpu.pFFT,'src'),0);
+  const uL=gl.getUniformLocation(gpu.pFFT,'L'),uAx=gl.getUniformLocation(gpu.pFFT,'axis');
+  gl.uniform1f(gl.getUniformLocation(gpu.pFFT,'sgn'),sign);
+  let srcA=startA;
+  for(let dim=0;dim<2;dim++){gl.uniform1i(uAx,dim);
+    for(let s=0;s<gpu.LOG2N;s++){const srcT=srcA?gpu.A:gpu.B,dstF=srcA?gpu.fB:gpu.fA;
+      gl.bindFramebuffer(gl.FRAMEBUFFER,dstF);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,srcT);
+      gl.uniform1i(uL,1<<s);gl.drawArrays(gl.TRIANGLES,0,3);srcA=!srcA;}}
+  return srcA;}
+function gpuRender(){const gl=gpu.gl,n=NC;
+  if(gpu.kernV!==kernVersion){gpuUploadKern();gpu.kernV=kernVersion;}
+  gl.viewport(0,0,n,n);gl.disable(gl.BLEND);
+  const chans=[sceneR,sceneG,sceneB];const s=gpu.scratch;
+  for(let c=0;c<3;c++){
+    const sc=chans[c];
+    if(!state.sceneGlare){ for(let i=0;i<n*n;i++){s[i*4]=sc[i];s[i*4+1]=0;s[i*4+2]=0;s[i*4+3]=1;}
+      gl.bindTexture(gl.TEXTURE_2D,gpu.res[c]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,s);continue; }
+    for(let i=0;i<n*n;i++){s[i*4]=sc[i];s[i*4+1]=0;s[i*4+2]=0;s[i*4+3]=0;}
+    gl.bindTexture(gl.TEXTURE_2D,gpu.A);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,s);
+    gpuFFT(true,-1.0);                                  // forward -> A
+    gl.useProgram(gpu.pMUL);gl.bindFramebuffer(gl.FRAMEBUFFER,gpu.fB);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gpu.A);gl.uniform1i(gl.getUniformLocation(gpu.pMUL,'src'),0);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,gpu.kern[c]);gl.uniform1i(gl.getUniformLocation(gpu.pMUL,'kern'),1);
+    gl.drawArrays(gl.TRIANGLES,0,3);                    // mult -> B
+    gpuFFT(false,1.0);                                  // inverse -> B
+    gl.useProgram(gpu.pSTO);gl.bindFramebuffer(gl.FRAMEBUFFER,gpu.fRes[c]);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gpu.B);gl.uniform1i(gl.getUniformLocation(gpu.pSTO,'src'),0);
+    gl.uniform1f(gl.getUniformLocation(gpu.pSTO,'invN2'),1/(n*n));gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  gl.useProgram(gpu.pTON);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,n,n);
+  for(let c=0;c<3;c++){gl.activeTexture(gl.TEXTURE0+c);gl.bindTexture(gl.TEXTURE_2D,gpu.res[c]);}
+  gl.uniform1i(gl.getUniformLocation(gpu.pTON,'rT'),0);gl.uniform1i(gl.getUniformLocation(gpu.pTON,'gT'),1);gl.uniform1i(gl.getUniformLocation(gpu.pTON,'bT'),2);
+  gl.uniform1f(gl.getUniformLocation(gpu.pTON,'expo'),Math.pow(2,state.sceneExp));gl.uniform1i(gl.getUniformLocation(gpu.pTON,'N'),n);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  pctx.imageSmoothingEnabled=true;pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);pctx.drawImage(gpu.canvas,0,0,n,n,0,0,dispPx,dispPx);
+  const arcScene=state.sceneFov*3600/NC;
+  document.getElementById("cScale").textContent=arcScene.toFixed(0)+' ″/px';
+  document.getElementById("cFov").textContent='FOV '+state.sceneFov+'°';
+  document.getElementById("cZoom").textContent=(state.sceneGlare?'glare·gpu':'in-focus');renderAperture();}
+
+/* --- tonemap + display --- */
+function aces(x){const a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;const y=(x*(a*x+b))/(x*(c*x+d)+e);return y<0?0:y>1?1:y;}
+function s2srgb(c){return c<=0.0031308?12.92*c:1.055*Math.pow(c,1/2.4)-0.055;}
+function drawScene(){const n=NC,data=sceneImg.data,E=Math.pow(2,state.sceneExp);
+  for(let i=0;i<n*n;i++){let r=aces(blurR[i]*E),g=aces(blurG[i]*E),b=aces(blurB[i]*E);
+    const o=i<<2;data[o]=s2srgb(r)*255;data[o+1]=s2srgb(g)*255;data[o+2]=s2srgb(b)*255;data[o+3]=255;}
+  sceneOffctx.putImageData(sceneImg,0,0);
+  pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);
+  pctx.drawImage(sceneOff,0,0,n,n,0,0,dispPx,dispPx);
+  const arcScene=state.sceneFov*3600/NC;
+  document.getElementById("cScale").textContent=arcScene.toFixed(0)+' ″/px';
+  document.getElementById("cFov").textContent='FOV '+state.sceneFov+'°';
+  document.getElementById("cZoom").textContent=(state.sceneGlare?'glare':'in-focus');renderAperture();}
+
+/* --- loaders: RGBE .hdr, EXR (zip/none), LDR image --- */
+function halfToFloat(hf){const s=(hf&0x8000)>>15,e=(hf&0x7C00)>>10,f=hf&0x03FF;
+  if(e===0)return (s?-1:1)*Math.pow(2,-14)*(f/1024);if(e===31)return f?NaN:(s?-Infinity:Infinity);
+  return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024);}
+function decodeHDR(ab){const bytes=new Uint8Array(ab);let p=0;
+  function line(){let s='';while(p<bytes.length){const c=bytes[p++];if(c===10)break;s+=String.fromCharCode(c);}return s;}
+  let l=line();if(l.indexOf('#?')!==0)throw new Error('not HDR');
+  while(true){l=line();if(l==='')break;}
+  const res=line();const m=res.match(/-Y\s+(\d+)\s+\+X\s+(\d+)/);if(!m)throw new Error('HDR res');
+  const h=+m[1],w=+m[2];const data=new Float32Array(w*h*3);
+  for(let y=0;y<h;y++){const r0=bytes[p],r1=bytes[p+1];
+    let scan=new Uint8Array(w*4);
+    if(w>=8&&w<32768&&r0===2&&r1===2){ p+=4; // new RLE
+      for(let c=0;c<4;c++){let x=0;while(x<w){let cnt=bytes[p++];if(cnt>128){cnt-=128;const val=bytes[p++];for(let k=0;k<cnt;k++)scan[(x++)*4+c]=val;}else{for(let k=0;k<cnt;k++)scan[(x++)*4+c]=bytes[p++];}}}
+    } else { // flat
+      for(let x=0;x<w;x++){scan[x*4]=bytes[p++];scan[x*4+1]=bytes[p++];scan[x*4+2]=bytes[p++];scan[x*4+3]=bytes[p++];}
+    }
+    for(let x=0;x<w;x++){const e=scan[x*4+3];const i=(y*w+x)*3;if(e===0){data[i]=data[i+1]=data[i+2]=0;}else{const f=Math.pow(2,e-128-8);data[i]=(scan[x*4]+0.5)*f;data[i+1]=(scan[x*4+1]+0.5)*f;data[i+2]=(scan[x*4+2]+0.5)*f;}}}
+  return {w,h,data};}
+async function inflate(u8){const ds=new DecompressionStream('deflate');const s=new Response(u8).body.pipeThrough(ds);return new Uint8Array(await new Response(s).arrayBuffer());}
+function exrReconstruct(r){for(let i=1;i<r.length;i++)r[i]=(r[i-1]+r[i]-128)&0xff;
+  const out=new Uint8Array(r.length),half=(r.length+1)>>1;let t1=0,t2=half,s=0;
+  while(s<r.length){out[s++]=r[t1++];if(s<r.length)out[s++]=r[t2++];}return out;}
+/* PIZ decompressor (wavelet + Huffman) — faithfully adapted from three.js EXRLoader (MIT) */
+const pizDecompress=(function(){
+  const USHORT_RANGE=1<<16,BITMAP_SIZE=USHORT_RANGE>>3,HUF_ENCBITS=16,HUF_DECBITS=14,
+    HUF_ENCSIZE=(1<<HUF_ENCBITS)+1,HUF_DECSIZE=1<<HUF_DECBITS,HUF_DECMASK=HUF_DECSIZE-1,
+    NBITS=16,A_OFFSET=1<<(NBITS-1),MOD_MASK=(1<<NBITS)-1,
+    SHORT_ZEROCODE_RUN=59,LONG_ZEROCODE_RUN=63,SHORTEST_LONG_RUN=2+LONG_ZEROCODE_RUN-SHORT_ZEROCODE_RUN,INT16_SIZE=2;
+  function pU8a(u8,o){return u8[o.value++];}
+  function pU8(dv,o){return dv.getUint8(o.value++);}
+  function pU16(dv,o){const v=dv.getUint16(o.value,true);o.value+=2;return v;}
+  function pU32(dv,o){const v=dv.getUint32(o.value,true);o.value+=4;return v;}
+  function reverseLutFromBitmap(bitmap,lut){let k=0;for(let i=0;i<USHORT_RANGE;++i){if((i==0)||(bitmap[i>>3]&(1<<(i&7))))lut[k++]=i;}const n=k-1;while(k<USHORT_RANGE)lut[k++]=0;return n;}
+  function hufClearDecTable(hdec){for(let i=0;i<HUF_DECSIZE;i++){hdec[i]={len:0,lit:0,p:null};}}
+  const gB={l:0,c:0,lc:0};
+  function getBits(nBits,c,lc,u8,o){while(lc<nBits){c=(c<<8)|pU8a(u8,o);lc+=8;}lc-=nBits;gB.l=(c>>lc)&((1<<nBits)-1);gB.c=c;gB.lc=lc;}
+  const hufTableBuffer=new Array(59);
+  function hufCanonicalCodeTable(hcode){for(let i=0;i<=58;++i)hufTableBuffer[i]=0;for(let i=0;i<HUF_ENCSIZE;++i)hufTableBuffer[hcode[i]]+=1;
+    let c=0;for(let i=58;i>0;--i){const nc=((c+hufTableBuffer[i])>>1);hufTableBuffer[i]=c;c=nc;}
+    for(let i=0;i<HUF_ENCSIZE;++i){const l=hcode[i];if(l>0)hcode[i]=l|(hufTableBuffer[l]++<<6);}}
+  function hufUnpackEncTable(u8,o,ni,im,iM,hcode){const p=o;let c=0,lc=0;
+    for(;im<=iM;im++){getBits(6,c,lc,u8,p);const l=gB.l;c=gB.c;lc=gB.lc;hcode[im]=l;
+      if(l==LONG_ZEROCODE_RUN){getBits(8,c,lc,u8,p);let zerun=gB.l+SHORTEST_LONG_RUN;c=gB.c;lc=gB.lc;while(zerun--)hcode[im++]=0;im--;}
+      else if(l>=SHORT_ZEROCODE_RUN){let zerun=l-SHORT_ZEROCODE_RUN+2;while(zerun--)hcode[im++]=0;im--;}}
+    hufCanonicalCodeTable(hcode);}
+  function hufLength(code){return code&63;}
+  function hufCode(code){return code>>6;}
+  function hufBuildDecTable(hcode,im,iM,hdecod){for(;im<=iM;im++){const c=hufCode(hcode[im]),l=hufLength(hcode[im]);
+    if(c>>l)throw new Error('PIZ table');
+    if(l>HUF_DECBITS){const pl=hdecod[(c>>(l-HUF_DECBITS))];if(pl.len)throw new Error('PIZ table');pl.lit++;
+      if(pl.p){const p=pl.p;pl.p=new Array(pl.lit);for(let i=0;i<pl.lit-1;++i)pl.p[i]=p[i];}else{pl.p=new Array(1);}pl.p[pl.lit-1]=im;}
+    else if(l){let plOff=0;for(let i=1<<(HUF_DECBITS-l);i>0;i--){const pl=hdecod[(c<<(HUF_DECBITS-l))+plOff];if(pl.len||pl.p)throw new Error('PIZ table');pl.len=l;pl.lit=im;plOff++;}}}return true;}
+  const gC={c:0,lc:0};
+  function getChar(c,lc,u8,o){c=(c<<8)|pU8a(u8,o);lc+=8;gC.c=c;gC.lc=lc;}
+  const gCode={c:0,lc:0};
+  function getCode(po,rlc,c,lc,u8,o,outBuffer,outBO,outBEnd){
+    if(po==rlc){if(lc<8){getChar(c,lc,u8,o);c=gC.c;lc=gC.lc;}lc-=8;let cs=(c>>lc);cs=cs&0xff;
+      if(outBO.value+cs>outBEnd)return false;const s=outBuffer[outBO.value-1];while(cs-->0)outBuffer[outBO.value++]=s;}
+    else if(outBO.value<outBEnd){outBuffer[outBO.value++]=po;}else{return false;}
+    gCode.c=c;gCode.lc=lc;}
+  function uI16(v){return v&0xFFFF;}
+  function iI16(v){const r=uI16(v);return (r>0x7FFF)?r-0x10000:r;}
+  const wR={a:0,b:0};
+  function wdec14(l,h){const ls=iI16(l),hs=iI16(h),hi=hs,ai=ls+(hi&1)+(hi>>1);wR.a=ai;wR.b=ai-hi;}
+  function wdec16(l,h){const m=uI16(l),d=uI16(h),bb=(m-(d>>1))&MOD_MASK,aa=(d+bb-A_OFFSET)&MOD_MASK;wR.a=aa;wR.b=bb;}
+  function wav2Decode(buffer,j,nx,ox,ny,oy,mx){const w14=mx<(1<<14),n=(nx>ny)?ny:nx;let p=1,p2,py;
+    while(p<=n)p<<=1;p>>=1;p2=p;p>>=1;
+    while(p>=1){py=0;const ey=py+oy*(ny-p2),oy1=oy*p,oy2=oy*p2,ox1=ox*p,ox2=ox*p2;let i00,i01,i10,i11;
+      for(;py<=ey;py+=oy2){let px=py;const ex=py+ox*(nx-p2);
+        for(;px<=ex;px+=ox2){const p01=px+ox1,p10=px+oy1,p11=p10+ox1;
+          if(w14){wdec14(buffer[px+j],buffer[p10+j]);i00=wR.a;i10=wR.b;wdec14(buffer[p01+j],buffer[p11+j]);i01=wR.a;i11=wR.b;
+            wdec14(i00,i01);buffer[px+j]=wR.a;buffer[p01+j]=wR.b;wdec14(i10,i11);buffer[p10+j]=wR.a;buffer[p11+j]=wR.b;}
+          else{wdec16(buffer[px+j],buffer[p10+j]);i00=wR.a;i10=wR.b;wdec16(buffer[p01+j],buffer[p11+j]);i01=wR.a;i11=wR.b;
+            wdec16(i00,i01);buffer[px+j]=wR.a;buffer[p01+j]=wR.b;wdec16(i10,i11);buffer[p10+j]=wR.a;buffer[p11+j]=wR.b;}}
+        if(nx&p){const p10=px+oy1;if(w14)wdec14(buffer[px+j],buffer[p10+j]);else wdec16(buffer[px+j],buffer[p10+j]);i00=wR.a;buffer[p10+j]=wR.b;buffer[px+j]=i00;}}
+      if(ny&p){let px=py;const ex=py+ox*(nx-p2);for(;px<=ex;px+=ox2){const p01=px+ox1;if(w14)wdec14(buffer[px+j],buffer[p01+j]);else wdec16(buffer[px+j],buffer[p01+j]);i00=wR.a;buffer[p01+j]=wR.b;buffer[px+j]=i00;}}
+      p2=p;p>>=1;}return py;}
+  function hufDecode(encTab,decTab,u8,o,ni,rlc,no,outBuffer,outO){let c=0,lc=0;const outEnd=no,inEnd=Math.trunc(o.value+(ni+7)/8);
+    while(o.value<inEnd){getChar(c,lc,u8,o);c=gC.c;lc=gC.lc;
+      while(lc>=HUF_DECBITS){const index=(c>>(lc-HUF_DECBITS))&HUF_DECMASK,pl=decTab[index];
+        if(pl.len){lc-=pl.len;getCode(pl.lit,rlc,c,lc,u8,o,outBuffer,outO,outEnd);c=gCode.c;lc=gCode.lc;}
+        else{if(!pl.p)throw new Error('PIZ huf');let j;for(j=0;j<pl.lit;j++){const l=hufLength(encTab[pl.p[j]]);
+          while(lc<l&&o.value<inEnd){getChar(c,lc,u8,o);c=gC.c;lc=gC.lc;}
+          if(lc>=l){if(hufCode(encTab[pl.p[j]])==((c>>(lc-l))&((1<<l)-1))){lc-=l;getCode(pl.p[j],rlc,c,lc,u8,o,outBuffer,outO,outEnd);c=gCode.c;lc=gCode.lc;break;}}}
+          if(j==pl.lit)throw new Error('PIZ huf');}}}
+    const i=(8-ni)&7;c>>=i;lc-=i;
+    while(lc>0){const pl=decTab[(c<<(HUF_DECBITS-lc))&HUF_DECMASK];if(pl.len){lc-=pl.len;getCode(pl.lit,rlc,c,lc,u8,o,outBuffer,outO,outEnd);c=gCode.c;lc=gCode.lc;}else throw new Error('PIZ huf');}
+    return true;}
+  function hufUncompress(u8,dv,o,nCompressed,outBuffer,nRaw){const outO={value:0},init=o.value;
+    const im=pU32(dv,o),iM=pU32(dv,o);o.value+=4;const nBits=pU32(dv,o);o.value+=4;
+    if(im<0||im>=HUF_ENCSIZE||iM<0||iM>=HUF_ENCSIZE)throw new Error('PIZ ENCSIZE');
+    const freq=new Array(HUF_ENCSIZE),hdec=new Array(HUF_DECSIZE);hufClearDecTable(hdec);
+    const ni=nCompressed-(o.value-init);hufUnpackEncTable(u8,o,ni,im,iM,freq);
+    hufBuildDecTable(freq,im,iM,hdec);hufDecode(freq,hdec,u8,o,nBits,iM,nRaw,outBuffer,outO);}
+  function applyLut(lut,data,nData){for(let i=0;i<nData;++i)data[i]=lut[data[i]];}
+  return function(ab,byteOffset,width,lines,channels){
+    const dv=new DataView(ab),u8=new Uint8Array(ab),o={value:byteOffset};
+    const nc=channels.length,size=channels.map(c=>c.type===2?2:1);
+    const pcd=new Array(nc);let outEnd=0;
+    for(let i=0;i<nc;i++){pcd[i]={start:outEnd,end:outEnd,nx:width,ny:lines,size:size[i]};outEnd+=width*lines*size[i];}
+    const outBuffer=new Uint16Array(outEnd),bitmap=new Uint8Array(BITMAP_SIZE);
+    const minNZ=pU16(dv,o),maxNZ=pU16(dv,o);if(maxNZ>=BITMAP_SIZE)throw new Error('PIZ bitmap');
+    if(minNZ<=maxNZ){for(let i=0;i<maxNZ-minNZ+1;i++)bitmap[i+minNZ]=pU8(dv,o);}
+    const lut=new Uint16Array(USHORT_RANGE),maxValue=reverseLutFromBitmap(bitmap,lut);
+    const length=pU32(dv,o);
+    hufUncompress(u8,dv,o,length,outBuffer,outEnd);
+    for(let i=0;i<nc;i++){const cd=pcd[i];for(let j=0;j<cd.size;++j)wav2Decode(outBuffer,cd.start+j,cd.nx,cd.size,cd.ny,cd.nx*cd.size,maxValue);}
+    applyLut(lut,outBuffer,outEnd);
+    let tmpOff=0;const tmp=new Uint8Array(outBuffer.buffer.byteLength);
+    for(let y=0;y<lines;y++)for(let c=0;c<nc;c++){const cd=pcd[c],n=cd.nx*cd.size;const cp=new Uint8Array(outBuffer.buffer,cd.end*INT16_SIZE,n*INT16_SIZE);tmp.set(cp,tmpOff);tmpOff+=n*INT16_SIZE;cd.end+=n;}
+    return tmp;};
+})();
+async function decodeEXR(ab){const dv=new DataView(ab);if(dv.getUint32(0,true)!==20000630)throw new Error('not EXR');
+  let p=8;function rstr(){let s='';while(true){const c=dv.getUint8(p++);if(c===0)break;s+=String.fromCharCode(c);}return s;}
+  let channels=[],comp=0,xmin=0,ymin=0,xmax=0,ymax=0;
+  while(true){const name=rstr();if(name==='')break;rstr();const size=dv.getInt32(p,true);p+=4;const next=p+size;
+    if(name==='channels'){let q=p;while(true){let cn='';while(true){const c=dv.getUint8(q++);if(c===0)break;cn+=String.fromCharCode(c);}if(cn==='')break;const pt=dv.getInt32(q,true);q+=4;q+=12;channels.push({name:cn,type:pt});}}
+    else if(name==='compression')comp=dv.getUint8(p);
+    else if(name==='dataWindow'){xmin=dv.getInt32(p,true);ymin=dv.getInt32(p+4,true);xmax=dv.getInt32(p+8,true);ymax=dv.getInt32(p+12,true);}
+    p=next;}
+  if(comp!==0&&comp!==2&&comp!==3&&comp!==4)throw new Error('EXR compression '+comp+' unsupported');
+  const w=xmax-xmin+1,h=ymax-ymin+1,linesPer=(comp===4)?32:(comp===3)?16:1,nBlocks=Math.ceil(h/linesPer);
+  const order=channels.map(c=>c.name); const ri=order.indexOf('R'),gi=order.indexOf('G'),bi=order.indexOf('B');
+  const bytesPer=channels.map(c=>c.type===2?4:2);
+  const offsets=[];for(let i=0;i<nBlocks;i++){offsets.push(Number(dv.getBigUint64(p,true)));p+=8;}
+  const data=new Float32Array(w*h*3);
+  for(let bk=0;bk<nBlocks;bk++){let q=offsets[bk];if(q<0||q+8>ab.byteLength)throw new Error('EXR offset');const y0=dv.getInt32(q,true)-ymin;q+=4;const dsz=dv.getInt32(q,true);q+=4;
+    if(dsz<0||q+dsz>ab.byteLength||y0<0||y0>=h)throw new Error('EXR block');
+    const lines=Math.min(linesPer,h-y0);const rawLen=lines*w*channels.reduce((a,c,k)=>a+bytesPer[k],0);
+    let buf;const comp_slice=new Uint8Array(ab,q,dsz);
+    if(comp===0||dsz>=rawLen){buf=comp_slice.slice();}
+    else if(comp===4){buf=pizDecompress(ab,q,w,lines,channels);}
+    else {buf=exrReconstruct(await inflate(comp_slice));}
+    // layout: per line, per channel(in order), w*bytesPer
+    const dvb=new DataView(buf.buffer,buf.byteOffset,buf.byteLength);let bp=0;
+    for(let ly=0;ly<lines;ly++){const yy=y0+ly;
+      for(let ci=0;ci<channels.length;ci++){const isF=channels[ci].type===2;
+        for(let x=0;x<w;x++){let val;if(isF){val=dvb.getFloat32(bp,true);bp+=4;}else{val=halfToFloat(dvb.getUint16(bp,true));bp+=2;}
+          const di=(yy*w+x)*3; if(ci===ri)data[di]=val;else if(ci===gi)data[di+1]=val;else if(ci===bi)data[di+2]=val;}}}}
+  return {w,h,data};}
+
+async function loadFromURL(url){setSceneStatus('fetching EXR…');
+  try{const resp=await fetch(url,{mode:'cors'});if(!resp.ok)throw new Error('HTTP '+resp.status);const ab=await resp.arrayBuffer();
+    const hd=new Uint8Array(ab,0,4);let parsed;
+    if(hd[0]===0x76&&hd[1]===0x2f){parsed=await decodeEXR(ab);}else{parsed=decodeHDR(ab);}
+    hdri=parsed;hdriStatus='moonless_golf · '+parsed.w+'×'+parsed.h;hdriDirty=true;viewDirty=true;kernDirty=true;setSceneStatus();if(state.sceneOn)requestScene();}
+  catch(e){setSceneStatus('fetch failed ('+e.message+') — try Upload, or use Night');console.warn(e);}}
+async function loadFile(file){setSceneStatus('decoding '+file.name+'…');
+  try{const nm=file.name.toLowerCase();
+    if(nm.endsWith('.hdr')||nm.endsWith('.exr')){const ab=await file.arrayBuffer();const hd=new Uint8Array(ab,0,4);
+      hdri=(hd[0]===0x76&&hd[1]===0x2f)?await decodeEXR(ab):decodeHDR(ab);}
+    else{const bmp=await createImageBitmap(file);const cv=document.createElement('canvas');cv.width=bmp.width;cv.height=bmp.height;const cx=cv.getContext('2d');cx.drawImage(bmp,0,0);const id=cx.getImageData(0,0,bmp.width,bmp.height).data;
+      const d=new Float32Array(bmp.width*bmp.height*3);for(let i=0,j=0;i<id.length;i+=4,j+=3){const lin=v=>{v/=255;v=v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);return v+Math.pow(v,8)*200;};d[j]=lin(id[i]);d[j+1]=lin(id[i+1]);d[j+2]=lin(id[i+2]);}
+      hdri={w:bmp.width,h:bmp.height,data:d};}
+    hdriStatus=file.name+' · '+hdri.w+'×'+hdri.h;hdriDirty=true;viewDirty=true;kernDirty=true;setSceneStatus();if(state.sceneOn)requestScene();}
+  catch(e){setSceneStatus('decode failed ('+e.message+') — try the .hdr version of this HDRI');console.warn(e);}}
+function setSceneStatus(s){if(s!==undefined)hdriStatus=s;document.getElementById("sceneStatus").textContent=hdriStatus;}
+
+/* --- scene UI --- */
+let scenePend=0;
+function requestScene(){setBusy(true);clearTimeout(scenePend);scenePend=setTimeout(()=>{sceneCompute();setBusy(false);},120);}
+function refreshSceneUI(){document.getElementById("sceneBody").classList.toggle("dim",!state.sceneOn);document.getElementById("sceneHint").textContent=state.sceneOn?(state.sceneGlare?'glare on':'in-focus'):'off';}
+bindToggle("swScene",el=>{state.sceneOn=!state.sceneOn;el.setAttribute('aria-pressed',state.sceneOn);refreshSceneUI();
+  if(state.sceneOn){kernDirty=true;viewDirty=true;requestCompute();}else{draw();}});
+bindToggle("swGlare",el=>{state.sceneGlare=!state.sceneGlare;el.setAttribute('aria-pressed',state.sceneGlare);refreshSceneUI();if(state.sceneOn)requestScene();});
+function refreshGpuUI(){const sub=document.getElementById("gpuSub");sub.textContent=state.gpu?(gpu.tried&&!gpu.ready?'unavailable — CPU':'WebGL2 FFT'):'CPU';}
+bindToggle("swGpu",el=>{state.gpu=!state.gpu;if(state.gpu&&!gpuTryInit()){state.gpu=false;}el.setAttribute('aria-pressed',state.gpu);refreshGpuUI();if(state.sceneOn)requestScene();});
+document.querySelectorAll('#srcSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#srcSeg button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');
+  const src=b.dataset.src; if(src==='night'){loadProcedural();if(state.sceneOn)requestScene();}else if(src==='fetch'){loadFromURL(POLY_URL);}else{document.getElementById("hdriFile").click();}}));
+document.getElementById("hdriFile").addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
+(function(){const f=document.getElementById("sceneFov");f.addEventListener('input',()=>{state.sceneFov=parseFloat(f.value);document.getElementById("n_sceneFov").textContent=state.sceneFov+'°';kernDirty=true;viewDirty=true;if(state.sceneOn)requestScene();});
+ const y=document.getElementById("sceneYaw");y.addEventListener('input',()=>{state.sceneYaw=parseFloat(y.value);document.getElementById("n_sceneYaw").textContent=state.sceneYaw+'°';viewDirty=true;if(state.sceneOn)requestScene();});
+ const pi=document.getElementById("scenePitch");pi.addEventListener('input',()=>{state.scenePitch=parseFloat(pi.value);document.getElementById("n_scenePitch").textContent=state.scenePitch+'°';viewDirty=true;if(state.sceneOn)requestScene();});
+ const ex=document.getElementById("sceneExp");ex.addEventListener('input',()=>{state.sceneExp=parseFloat(ex.value);document.getElementById("n_sceneExp").textContent=state.sceneExp.toFixed(1)+' EV';if(state.sceneOn){if(state.gpu&&gpu.ready)gpuRender();else drawScene();}});})();
+
+let rz=0;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{sizeCanvases();draw();},120);});
+
+/* ---- consolidate every control into the sidebar -------------------------
+   The bottom-left cluster keeps its DOM nodes (handlers are already bound to
+   them) but the widgets are physically moved into the panel, so there is one
+   place to reach for. Section enables ride on the card titles. */
+(function(){
+  const controls=document.getElementById("controls");
+  const cardOf=nm=>document.querySelector('.card[data-card="'+nm+'"]');
+  const bodyOf=nm=>{const c=cardOf(nm);return c?c.querySelector(':scope > .body'):null;};
+  function makeCard(nm,title,ref){
+    let c=cardOf(nm);if(c)return c;
+    c=document.createElement('div');c.className='card';c.setAttribute('data-card',nm);
+    c.innerHTML='<h2><span class="ttl">'+title+'</span></h2><div class="body"></div>';
+    if(ref&&ref.parentElement)controls.insertBefore(c,ref);else controls.appendChild(c);
+    return c;}
+  function moveSlider(id,label,host,opt){
+    const inp=document.getElementById(id);if(!inp||!host)return;
+    opt=opt||{};
+    const w=document.createElement('div');w.className='ctrl';
+    const row=document.createElement('div');row.className='row';
+    const lb=document.createElement('label');lb.textContent=label;row.appendChild(lb);
+    w.appendChild(row);
+    inp.classList.remove('xy-pad-row-slider');
+    w.appendChild(inp);                      /* appendChild moves the node */
+    if(opt.takeId){const old=document.getElementById(opt.takeId);
+      if(old&&old!==w)old.removeAttribute('id');w.id=opt.takeId;}
+    if(opt.first&&host.firstChild)host.insertBefore(w,host.firstChild);else host.appendChild(w);}
+  function normTog(sw){          /* was absolutely-positioned in the hex cluster */
+    sw.classList.remove('tog');sw.classList.add('sw');
+    sw.style.left='';sw.style.bottom='';sw.style.position='';
+    sw.textContent='';}
+  function togToTitle(swId,nm){
+    const sw=document.getElementById(swId),c=cardOf(nm);if(!sw||!c)return;
+    normTog(sw);
+    c.querySelector(':scope > h2').appendChild(sw);
+    sw.addEventListener('click',e=>e.stopPropagation());
+    sw.addEventListener('keydown',e=>e.stopPropagation());}
+  function togToBody(swId,label,host){
+    const sw=document.getElementById(swId);if(!sw||!host)return;
+    normTog(sw);
+    const r=document.createElement('div');r.className='toggle-row';
+    const s=document.createElement('span');s.textContent=label;
+    r.appendChild(s);r.appendChild(sw);host.appendChild(r);}
+
+  /* optics: pupil diameter + wavelength */
+  const optics=makeCard('optics','optics',cardOf('aberration'));
+  moveSlider('D','pupil',optics.querySelector('.body'));
+  moveSlider('lambda','wavelength',optics.querySelector('.body'),{takeId:'lamCtrl'});
+
+  /* view: display-only controls and overlays */
+  const view=makeCard('view','view',cardOf('lashes'));
+  const vb=view.querySelector('.body');
+  moveSlider('exp','exposure',vb);
+  moveSlider('gamma','tone',vb);
+  moveSlider('zoom','zoom',vb);
+  togToBody('swWf','wavefront map',vb);
+  togToBody('swApt','aperture map',vb);
+  togToBody('swAiry','airy ring',vb);
+  togToBody('swTint','tint to λ',vb);
+  togToBody('swAbs','absolute exposure',vb);
+
+  /* spectral: sample count above the lca controls */
+  moveSlider('specSamples','samples',bodyOf('spectral'),{first:true,takeId:'sampCtrl'});
+
+  /* section enables on the titles */
+  togToTitle('swLash','lashes');
+  togToTitle('swLid','lids');
+  togToTitle('swSpec','spectral');
+  togToTitle('swScene','scene');
+  const sceneBody=document.getElementById('sceneBody');
+  if(sceneBody)togToBody('swGpu','gpu fft',sceneBody);
+
+  /* perf strip */
+  const perf=makeCard('perf','perf',cardOf('presets'));
+  perf.querySelector('.body').innerHTML=
+    '<canvas id="perfCv"></canvas><div class="perflbl" id="perfLbl"></div>';
+
+  /* the bottom-left cluster is now redundant */
+  const cluster=document.getElementById('xy-pad');
+  if(cluster)cluster.style.display='none';
+  const hex=document.getElementById('toggles');
+  if(hex)hex.style.display='none';
+
+  /* panel starts open — as if the gear had already been clicked */
+  const pnl=document.getElementById('panel'),g=document.getElementById('gui-toggle');
+  if(pnl)pnl.classList.add('open');
+  if(g)g.classList.add('open');
+  const ig=document.getElementById('icon-gear'),im=document.getElementById('icon-minus');
+  if(ig)ig.style.display='none'; if(im)im.style.display='';
+})();
+
+/* ---- perf strip ---------------------------------------------------------
+   Frame interval sampled every rAF (springTick already runs one continuously),
+   plus the wall time of the last full recompute. 60 fps line for reference. */
+let refreshNums=()=>{};
+const PERF={hist:new Float32Array(100),n:0,fps:60,compute:0,fullMs:0,last:0};
+(function(){const orig=runCompute;
+  runCompute=function(){const wasDraft=draft&&PERF.fullMs>DRAFT_MS;
+    const prevN=state.N;
+    fadeCapture();                    /* the frame currently on screen */
+    const t0=(performance||Date).now();orig.apply(this,arguments);
+    const dt=(performance||Date).now()-t0;PERF.compute=dt;
+    if(!wasDraft)PERF.fullMs=dt;      /* calibrate on full-quality passes only */
+    if(prevN&&state.N>prevN&&FADE.cv&&!state.sceneOn){
+      FADE.on=true;FADE.t0=(performance||Date).now();}
+  };})();
+(function(){
+  let acc=0,frames=0,redraw=0;
+  function loop(t){
+    if(PERF.last){const dt=t-PERF.last;
+      PERF.hist[PERF.n%100]=dt;PERF.n++;acc+=dt;frames++;
+      if(acc>=250){PERF.fps=1000/(acc/frames);acc=0;frames=0;}}
+    PERF.last=t;
+    if(t-redraw>100){redraw=t;paintPerf();}
+    if(FADE.on&&!state.sceneOn)blit(true);
+    requestAnimationFrame(loop);}
+  requestAnimationFrame(loop);
+})();
+function paintPerf(){
+  const cv=document.getElementById("perfCv");if(!cv)return;
+  const dpr=Math.min(2,window.devicePixelRatio||1),W=Math.round(100*dpr),H=Math.round(28*dpr);
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
+  const g=cv.getContext("2d");g.clearRect(0,0,W,H);
+  const SCALE=50;                                  /* ms at full height */
+  const y60=H-(1000/60)/SCALE*H;
+  g.strokeStyle="rgba(255,255,255,.10)";g.lineWidth=1;
+  g.beginPath();g.moveTo(0,y60);g.lineTo(W,y60);g.stroke();
+  g.fillStyle="rgba(255,255,255,.15)";
+  const cnt=Math.min(PERF.n,100),bw=W/100;
+  for(let i=0;i<cnt;i++){
+    const idx=(PERF.n-cnt+i)%100,ms=PERF.hist[idx];
+    let h=ms/SCALE*H;if(h>H)h=H;if(h<1)h=1;
+    g.fillRect(i*bw,H-h,Math.max(1,bw-dpr*0.5),h);}
+  const lbl=document.getElementById("perfLbl");
+  if(lbl)lbl.textContent=PERF.fps.toFixed(0)+' fps · '+PERF.compute.toFixed(0)+' ms · '+state.N+(state.N!==state.Nreq?' draft':'');
+}
+
+/* ---- live value readouts ------------------------------------------------
+   Every slider in the panel gets a small right-aligned value with units, so
+   the working parameter set is legible at a glance. Reads el.value (the
+   setpoint) rather than the sprung state, which is what the user just set. */
+(function(){
+  const NUMFMT={
+    D:          v=>v.toFixed(2)+' mm',
+    lambda:     v=>v.toFixed(0)+' nm',
+    exp:        v=>{const E=Math.pow(2,v);return (E>=100?E.toFixed(0):E>=10?E.toFixed(1):E.toFixed(2))+'\u00d7';},
+    gamma:      v=>v.toFixed(2),
+    zoom:       v=>v.toFixed(2)+'\u00d7',
+    specSamples:v=>v.toFixed(0)+' \u03bb',
+    lcaS:       v=>v.toFixed(2)+'\u00d7',
+    gridN:      v=>String(NSIZES[v|0]||'')+' px',
+    win:        v=>v.toFixed(1)+' mm',
+    lashThick:  v=>v.toFixed(3)+' mm',
+    lidClose:   v=>Math.round(v*100)+'%',
+    sceneFov:   v=>v.toFixed(1)+'\u00b0',
+    sceneYaw:   v=>v.toFixed(0)+'\u00b0',
+    scenePitch: v=>v.toFixed(0)+'\u00b0',
+    camThresh:  v=>v.toFixed(2),
+    camRes:     v=>v.toFixed(0)+' px',
+    camSoft:    v=>v.toFixed(3),
+    sceneExp:   v=>(v>=0?'+':'')+v.toFixed(2)+' EV'
+  };
+  const upds=[];
+  document.querySelectorAll('#controls input[type=range]').forEach(inp=>{
+    const ctrl=inp.closest('.ctrl'); if(!ctrl)return;
+    let row=ctrl.querySelector('.row');
+    if(!row){row=document.createElement('div');row.className='row';ctrl.insertBefore(row,inp);}
+    let num=ctrl.querySelector('.num');
+    if(!num){num=document.createElement('span');num.className='num';row.appendChild(num);}
+    const st=parseFloat(inp.step||'0.01');
+    const fmt=NUMFMT[inp.id]||(v=>st>=1?v.toFixed(0):v.toFixed(2));
+    const upd=()=>{num.textContent=fmt(parseFloat(inp.value));};
+    inp.addEventListener('input',upd);
+    inp.addEventListener('dblclick',()=>{           /* back to the markup default */
+      inp.value=inp.defaultValue;inp.dispatchEvent(new Event('input'));upd();});
+    upds.push(upd);upd();});
+  refreshNums=()=>upds.forEach(f=>f());
+})();
+
+/* ---- user presets: save current, export / import JSON, de-duplicated ------
+   Held in memory and round-tripped through a JSON file rather than browser
+   storage, so a set travels with you and nothing is written behind your back. */
+const SNAP_KEYS=['D','lambda','lashOn','lashPos','lashIncursion','lashSpacing','lashThick',
+  'lashAngle','lashAngleJit','lashSpaceJit','lidOn','lidUpper','lidLower',
+  'spectral','specSamples','lca','lcaStrength','absExp'];
+const KEY_TOGGLE={lashOn:'swLash',lidOn:'swLid',spectral:'swSpec',lca:'swLca',absExp:'swAbs'};
+const SLIDER_SRC={
+  D:()=>tgtOf(state,'D'), lambda:()=>tgtOf(state,'lambda'), gamma:()=>tgtOf(state,'gamma'),
+  exp:()=>Math.log2(Math.max(1e-9,tgtOf(state,'exposure'))), zoom:()=>tgtOf(state,'zoom'),
+  specSamples:()=>state.specSamples, lcaS:()=>tgtOf(state,'lcaStrength'),
+  lashThick:()=>tgtOf(state,'lashThick'), lidClose:()=>tgtOf(state,'lidUpper'),
+  gridN:()=>Math.max(0,NSIZES.indexOf(state.Nreq)), win:()=>L_WIN,
+  sceneFov:()=>state.sceneFov, sceneYaw:()=>state.sceneYaw,
+  scenePitch:()=>state.scenePitch, sceneExp:()=>state.sceneExp};
+const tgtOf=(store,k)=>{const sp=springOf(store,k);return sp?sp.tgt:store[k];};
+const USER={};
+function snapshot(){const o={coeff:{}};
+  ZMODES.forEach(m=>o.coeff[m.id]=+(+tgtOf(state.coeff,m.id)).toFixed(6));
+  SNAP_KEYS.forEach(k=>{const v=tgtOf(state,k);o[k]=(typeof v==='number')?+v.toFixed(6):v;});
+  return o;}
+function canon(o){                       /* stable serialisation for de-duping */
+  const c={};Object.keys(o.coeff||{}).sort().forEach(k=>c[k]=o.coeff[k]);
+  const r={coeff:c};
+  Object.keys(o).filter(k=>k!=='coeff').sort().forEach(k=>r[k]=o[k]);
+  return JSON.stringify(r);}
+function setToggle(id,want){const el=document.getElementById(id);if(!el)return;
+  if((el.getAttribute('aria-pressed')==='true')!==!!want)el.click();}   /* reuse the real handler */
+function syncSlidersFromState(){
+  Object.keys(SLIDER_SRC).forEach(id=>{const el=document.getElementById(id);
+    if(el){const v=SLIDER_SRC[id]();if(isFinite(v))el.value=String(v);}});
+  refreshNums();}
+function applySnapshot(o){if(!o)return;
+  if(o.coeff)Object.keys(o.coeff).forEach(k=>{if(k in state.coeff)springTarget(state.coeff,k,o.coeff[k]);});
+  SNAP_KEYS.forEach(k=>{if(!(k in o))return;
+    if(KEY_TOGGLE[k])setToggle(KEY_TOGGLE[k],o[k]);
+    else springTarget(state,k,o[k]);});
+  basisDirty=true;antDirty=true;syncZernikeUI();syncSlidersFromState();requestCompute();}
+(function(){
+  const wrap=document.getElementById("presets"),hint=document.getElementById("pHint"),
+        addB=document.getElementById("pAdd"),expB=document.getElementById("pExp"),
+        impB=document.getElementById("pImp"),file=document.getElementById("pFile"),
+        row=document.getElementById("pNameRow"),nameIn=document.getElementById("pName");
+  if(!wrap||!addB)return;
+  const say=t=>{if(hint){hint.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>hint.textContent='',2600);}};
+  function render(){
+    wrap.querySelectorAll('.userpreset').forEach(n=>n.remove());
+    Object.keys(USER).forEach(nm=>{const b=document.createElement('button');
+      b.className='userpreset';b.textContent=nm;b.title=nm+'  (shift-click to remove)';
+      b.addEventListener('click',e=>{
+        if(e.shiftKey){delete USER[nm];render();say('removed');return;}
+        applySnapshot(USER[nm]);});
+      wrap.appendChild(b);});}
+  function add(nm,snap){nm=String(nm||'').trim();if(!nm||!snap)return 'skip';
+    const h=canon(snap);
+    for(const k in USER)if(canon(USER[k])===h)return 'dup';   /* identical values */
+    let name=nm,i=2;while(USER[name])name=nm+' '+(i++);       /* name collision only */
+    USER[name]=snap;return 'ok';}
+  addB.addEventListener('click',()=>{const open=row.style.display==='none';
+    row.style.display=open?'':'none';if(open){nameIn.value='';nameIn.focus();}});
+  nameIn.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){const r=add(nameIn.value,snapshot());row.style.display='none';
+      render();say(r==='dup'?'already saved':r==='ok'?'saved':'needs a name');}
+    else if(e.key==='Escape')row.style.display='none';});
+  expB.addEventListener('click',()=>{
+    if(!Object.keys(USER).length){say('nothing to export');return;}
+    const blob=new Blob([JSON.stringify({format:'wavefront-presets',version:1,presets:USER},null,1)],
+      {type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='wavefront-presets.json';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);say('exported '+Object.keys(USER).length);});
+  impB.addEventListener('click',()=>file.click());
+  file.addEventListener('change',()=>{const f=file.files&&file.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{let added=0,dup=0;
+      try{const j=JSON.parse(r.result),P=(j&&j.presets)||j;
+        Object.keys(P).forEach(nm=>{add(nm,P[nm])==='ok'?added++:dup++;});
+        render();say('+'+added+(dup?' · '+dup+' dup':''));}
+      catch(err){say('bad json');}
+      file.value='';};
+    r.readAsText(f);});
+  render();
+})();
+
+/* ---- webcam as a live aperture ------------------------------------------
+   The camera frame is reduced to a small luminance buffer, thresholded with a
+   soft edge, and multiplied into the anterior amplitude mask. In "replace
+   pupil" mode the disc stops bounding the aperture, so what you see is the
+   far-field diffraction pattern of the thresholded image -- its Fourier power
+   spectrum -- reshaped by whatever Zernike phase is dialled in. Apodisation
+   like this is ordinary optics: A(x,y) is any real amplitude in [0,1], not
+   only a hard disc. */
+const CAM={on:false,W:0,native:0,video:null,cv:null,ctx:null,stream:null,lum:null,raf:0,vfc:0,hint:''};
+function camSay(t){const h=document.getElementById("camHint");if(h)h.textContent=t;}
+/* The sampling buffer tracks the requested grid, bounded by what the sensor
+   actually delivers and by the detail cap -- a 160px buffer stretched over a
+   512px grid is what made the mask look blocky. */
+function camEnsure(){
+  const v=CAM.video, native=(v&&v.videoWidth)?Math.min(v.videoWidth,v.videoHeight):480;
+  const W=Math.max(64,Math.min(state.Nreq,state.camRes,native));
+  CAM.native=native;
+  if(CAM.W!==W||!CAM.lum){CAM.W=W;
+    if(!CAM.cv)CAM.cv=document.createElement('canvas');
+    CAM.cv.width=W;CAM.cv.height=W;
+    CAM.ctx=CAM.cv.getContext('2d',{willReadFrequently:true});
+    CAM.lum=new Float32Array(W*W);}
+  return W;}
+function camSampleN(u,v){                      /* bilinear, u/v normalised 0..1 */
+  const W=CAM.W,L=CAM.lum;
+  let x=u*W-0.5,y=v*W-0.5;
+  if(!(x>0))x=0; if(!(y>0))y=0;
+  if(x>W-1)x=W-1; if(y>W-1)y=W-1;
+  const x0=x|0,y0=y|0,x1=x0+1<W?x0+1:x0,y1=y0+1<W?y0+1:y0,fx=x-x0,fy=y-y0;
+  const a=L[y0*W+x0],b=L[y0*W+x1],c2=L[y1*W+x0],d=L[y1*W+x1];
+  return (a*(1-fx)+b*fx)*(1-fy)+(c2*(1-fx)+d*fx)*fy;}
+function camGrab(){const v=CAM.video;if(!v||!v.videoWidth)return false;
+  const W=camEnsure();
+  const side=Math.min(v.videoWidth,v.videoHeight);              /* centre square crop */
+  const sx=(v.videoWidth-side)/2, sy=(v.videoHeight-side)/2, c=CAM.ctx;
+  c.save();c.scale(-1,1);c.drawImage(v,sx,sy,side,side,-W,0,W,W);c.restore();  /* mirrored */
+  const d=c.getImageData(0,0,W,W).data,L=CAM.lum;
+  for(let i=0,p=0;i<L.length;i++,p+=4)L[i]=(0.2126*d[p]+0.7152*d[p+1]+0.0722*d[p+2])/255;
+  const tag='live '+W+(CAM.native?' / '+CAM.native:'');
+  if(tag!==CAM.hint){CAM.hint=tag;camSay(tag);}     /* avoid a DOM write per frame */
+  return true;}
+/* One tick per decoded video frame via requestVideoFrameCallback, falling back
+   to rAF. Both are display/decoder synced, unlike a setTimeout, which beats
+   against the refresh interval and reads as stutter even at a steady rate.
+   Compute is coalesced downstream, so if a recompute outlasts a frame we
+   simply use the newest frame rather than queueing stale ones. */
+function camTick(){if(!CAM.on)return;
+  if(camGrab()){antDirty=true;touchDraft();requestCompute();}
+  camSchedule();}
+function camSchedule(){if(!CAM.on)return;
+  const v=CAM.video;
+  if(v&&v.requestVideoFrameCallback)CAM.vfc=v.requestVideoFrameCallback(camTick);
+  else CAM.raf=requestAnimationFrame(camTick);}
+async function camStart(){
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
+      throw new Error('needs https');
+    CAM.stream=await navigator.mediaDevices.getUserMedia(
+      {video:{width:{ideal:1920},height:{ideal:1080}},audio:false});
+    if(!CAM.video){CAM.video=document.createElement('video');
+      CAM.video.playsInline=true;CAM.video.muted=true;CAM.video.autoplay=true;}
+    CAM.video.srcObject=CAM.stream;await CAM.video.play();
+    camEnsure();
+    CAM.on=true;camSay('live');camSchedule();return true;
+  }catch(e){camSay(String(e.message||e).slice(0,28));CAM.on=false;return false;}}
+function camStop(){CAM.on=false;
+  if(CAM.raf)cancelAnimationFrame(CAM.raf);CAM.raf=0;
+  if(CAM.vfc&&CAM.video&&CAM.video.cancelVideoFrameCallback){
+    try{CAM.video.cancelVideoFrameCallback(CAM.vfc);}catch(_){}}
+  CAM.vfc=0;
+  if(CAM.stream){CAM.stream.getTracks().forEach(t=>t.stop());CAM.stream=null;}
+  if(CAM.video)CAM.video.srcObject=null;CAM.hint='';camSay('off');}
+function applyCam(){if(!CAM.on||!CAM.lum)return;
+  const N=state.N,W=CAM.W,thr=state.camThresh,soft=Math.max(2e-3,state.camSoft),
+        inv=state.camInvert,L=CAM.lum,k=1/(2*soft);
+  if(W===N){                                   /* 1:1, no resampling needed */
+    for(let i=0;i<N*N;i++){let m=ss((L[i]-thr)*k+0.5);if(inv)m=1-m;antMask[i]*=m;}
+    return;}
+  for(let iy=0;iy<N;iy++){const row=iy*N,vy=(iy+0.5)/N;
+    for(let ix=0;ix<N;ix++){
+      let m=ss((camSampleN((ix+0.5)/N,vy)-thr)*k+0.5);   /* interpolate, then threshold */
+      if(inv)m=1-m;
+      antMask[row+ix]*=m;}}}
+bindToggle("swCam",async el=>{
+  if(!CAM.on){const ok=await camStart();el.setAttribute('aria-pressed',ok?'true':'false');}
+  else{camStop();el.setAttribute('aria-pressed','false');}
+  document.getElementById("camBody").classList.toggle("dim",!CAM.on);
+  antDirty=true;requestCompute();});
+bindToggle("swCamInv",el=>{state.camInvert=!state.camInvert;
+  el.setAttribute('aria-pressed',state.camInvert);antDirty=true;requestCompute();});
+bindToggle("swCamPupil",el=>{state.camPupil=!state.camPupil;
+  el.setAttribute('aria-pressed',state.camPupil);antDirty=true;requestCompute();});
+slider("camThresh","camThresh",v=>v.toFixed(2),{ant:true,spring:true});
+slider("camSoft","camSoft",v=>v.toFixed(3),{ant:true,spring:true});
+slider("camRes","camRes",v=>v.toFixed(0),{ant:true});
+
+/* ---- boot -------------------------------------------------------------- */
+['optics','aberration','view','lashes','lids','camera','spectral','display','scene','presets','perf','next'].forEach(nm=>{const el=document.querySelector('.card[data-card="'+nm+'"]');if(el)el.parentElement.appendChild(el);});
+applyAccent();refreshSpectralUI();refreshOccUI();sizeCanvases();setupGrid(256);setupScene();loadProcedural();refreshSceneUI();refreshGpuUI();runCompute();
+</script>
+</body>
+</html>
