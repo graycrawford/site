@@ -1,0 +1,3537 @@
+[
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Soft scatter",
+    "render": {
+      "phaseFunction": 0,
+      "quality": 1,
+      "raySamples": 64,
+      "section": 1,
+      "shadowSamples": 33,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 1,
+        "anisotropy": 0.02,
+        "cut": 1,
+        "density": 0.05,
+        "dispersion": 1,
+        "exposure": 4.08,
+        "hue": 2.46,
+        "intensity": 1,
+        "phaseTint": 0.57,
+        "reach": 3,
+        "zoom": 1.03
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "id": "00000000-0000-0000-0000-000000000002",
+    "name": "Plain density",
+    "render": {
+      "phaseFunction": 0,
+      "quality": 1,
+      "raySamples": 256,
+      "section": 1,
+      "shadowSamples": 24,
+      "stochastic": false,
+      "style": 1,
+      "values": {
+        "cut": 1,
+        "density": 0.8,
+        "exposure": 2.1,
+        "zoom": 1.05
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "createdAt": 810362325.199249,
+    "id": "2DBDF9FB-11F9-4EFC-9FEB-353610C203BF",
+    "name": "ballon fill",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.0645061728395061,
+        "azimuth": 3.3667667636626804,
+        "cut": 1,
+        "density": 0.5967355027290984,
+        "dispersion": 1,
+        "elevation": -0.003963694852941124,
+        "exposure": 2.1,
+        "hue": 2.4646715513406035,
+        "intensity": 1.4023206883591386,
+        "jitter": 1,
+        "phaseTint": 0.6827256944444444,
+        "reach": 1.334934413580247,
+        "thickness": 0.08,
+        "zoom": 1.3
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.110375114,
+        0.22595927,
+        0.20204563,
+        0.9465396
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810362331.115811,
+    "field": "hydrogen",
+    "id": "8307D6AC-20C7-4BE6-9BB8-F7C12FE2091F",
+    "name": "twist",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.0645061728395061,
+        "azimuth": 3.3667667636626804,
+        "cut": 1,
+        "density": 0.5967355027290984,
+        "dispersion": 1,
+        "elevation": -0.003963694852941124,
+        "exposure": 2.1,
+        "hue": 2.4646715513406035,
+        "intensity": 1.4023206883591386,
+        "jitter": 1,
+        "phaseTint": 0.6827256944444444,
+        "reach": 1.334934413580247,
+        "thickness": 0.08,
+        "zoom": 1.3
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.059206469653033264,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 4,
+        "m": -4,
+        "n": 6,
+        "phase": -2.8954259898338215
+      },
+      {
+        "amplitude": 0.015347315132800727,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 4,
+        "m": -2,
+        "n": 9,
+        "phase": 2.8066029973472837
+      },
+      {
+        "amplitude": 0.05292349620333949,
+        "id": "977779AE-4E5D-4120-88B6-2F640858BB0A",
+        "l": 1,
+        "m": 1,
+        "n": 7,
+        "phase": -0.3232256773712133
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 406.1288822471016,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810379105.408147,
+    "id": "4BF64F73-201D-419E-ABA4-165DDE5D1C34",
+    "name": "thick",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.07531828703703702,
+        "azimuth": 4.686418328906068,
+        "cut": 1,
+        "density": 1.2294831793503223,
+        "dispersion": 1,
+        "elevation": 0.05773207720588247,
+        "exposure": 1.6878509983534367,
+        "hue": 6.283185307179586,
+        "intensity": 1.4023206883591386,
+        "jitter": 1,
+        "phaseTint": 0.7609953703703703,
+        "reach": 1.334934413580247,
+        "thickness": 0.08,
+        "zoom": 1.3250843913218906
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "createdAt": 810428787.148911,
+    "field": "hydrogen",
+    "id": "16FC5A63-E847-4813-91C7-8240861301A8",
+    "mixer": {
+      "difference": 1,
+      "population": 0.19004925083240842,
+      "relativePhase": 3.6517527813682134
+    },
+    "name": "322 31-1",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 0.3,
+        "id": "4B9786A8-98E3-41A9-B2D0-A5630D44461A",
+        "l": 2,
+        "m": 0,
+        "n": 3,
+        "phase": 0
+      },
+      {
+        "amplitude": 0.3,
+        "id": "1F7F281C-FA7E-4B1D-A6B0-28AE6E55DC3D",
+        "l": 1,
+        "m": -1,
+        "n": 3,
+        "phase": 0
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.78930336,
+        -0.4954055,
+        0.30978405,
+        0.18869954
+      ],
+      "velocity": [
+        1.4380687,
+        -1.6996218,
+        0.53018767
+      ]
+    },
+    "createdAt": 810429032.557304,
+    "field": "hydrogen",
+    "id": "3EBF2C57-8D37-4582-8614-25A9F2C2128A",
+    "mixer": {
+      "difference": 1,
+      "population": 0.19004925083240842,
+      "relativePhase": 3.6517527813682134
+    },
+    "name": "tri",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.09263599537037037,
+        "azimuth": 4.644465738055986,
+        "cut": 1,
+        "density": 1.108068822242447,
+        "dispersion": 1,
+        "elevation": -0.10047104779411775,
+        "exposure": 10.000000000000007,
+        "hue": 0,
+        "intensity": 0.2579530749002167,
+        "jitter": 1,
+        "phaseTint": 0.4711130401234568,
+        "reach": 1.6775077160493828,
+        "thickness": 0.08,
+        "zoom": 1.2243627974350049
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.059206469653033264,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 4,
+        "m": -4,
+        "n": 6,
+        "phase": -2.8954259898338215
+      },
+      {
+        "amplitude": 0.21422979874377468,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 2,
+        "m": -2,
+        "n": 5,
+        "phase": -0.10099797199909782
+      },
+      {
+        "amplitude": 0.1165836234518003,
+        "id": "977779AE-4E5D-4120-88B6-2F640858BB0A",
+        "l": 1,
+        "m": 1,
+        "n": 5,
+        "phase": -0.0671848569459177
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 406.1288822471016,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.70012856,
+        0.5091933,
+        -0.42246497,
+        0.26845023
+      ],
+      "velocity": [
+        1.4380687,
+        -1.6996218,
+        0.53018767
+      ]
+    },
+    "createdAt": 810429041.215744,
+    "field": "hydrogen",
+    "id": "13769FD0-3ABE-4810-9D60-AECD4C6E2B6C",
+    "mixer": {
+      "difference": 1,
+      "population": 0.19004925083240842,
+      "relativePhase": 3.6517527813682134
+    },
+    "name": "tri",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.09263599537037037,
+        "azimuth": 4.644465738055986,
+        "cut": 1,
+        "density": 1.108068822242447,
+        "dispersion": 1,
+        "elevation": -0.10047104779411775,
+        "exposure": 10.000000000000007,
+        "hue": 0,
+        "intensity": 0.2579530749002167,
+        "jitter": 1,
+        "phaseTint": 0.4711130401234568,
+        "reach": 1.6775077160493828,
+        "thickness": 0.08,
+        "zoom": 1.2243627974350049
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.059206469653033264,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 4,
+        "m": -4,
+        "n": 6,
+        "phase": -2.8954259898338215
+      },
+      {
+        "amplitude": 0.21422979874377468,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 2,
+        "m": -2,
+        "n": 5,
+        "phase": -0.10099797199909782
+      },
+      {
+        "amplitude": 0.1165836234518003,
+        "id": "977779AE-4E5D-4120-88B6-2F640858BB0A",
+        "l": 1,
+        "m": 1,
+        "n": 5,
+        "phase": -0.0671848569459177
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 406.1288822471016,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.70268583,
+        0.67967784,
+        0.05473162,
+        -0.203163
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810429780.326951,
+    "field": "hydrogen",
+    "id": "6F06B8E6-2598-4878-B177-04945F1A9E77",
+    "mixer": {
+      "difference": 1,
+      "population": 0.19004925083240842,
+      "relativePhase": 3.6517527813682134
+    },
+    "name": "shell",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.0645061728395061,
+        "azimuth": 5.335113832322637,
+        "cut": 1,
+        "density": 4.591300201559179,
+        "densityExponent": 0.8918168764215989,
+        "densityHigh": -7.5727638711734695,
+        "densityLow": -7.655313297193878,
+        "densityPivot": -3,
+        "densitySoftness": 0.36910574776785715,
+        "dispersion": 1,
+        "elevation": -1.2576976102941178,
+        "exposure": 3.0944269935076236,
+        "hue": 0,
+        "intensity": 0.39479389007958815,
+        "jitter": 1,
+        "phaseTint": 0,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 2.4744109378642563
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.059206469653033264,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 4,
+        "m": -4,
+        "n": 6,
+        "phase": -2.8954259898338215
+      },
+      {
+        "amplitude": 0.015347315132800727,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 3,
+        "m": -2,
+        "n": 10,
+        "phase": 2.8066029973472837
+      },
+      {
+        "amplitude": 0.026046301516994032,
+        "id": "977779AE-4E5D-4120-88B6-2F640858BB0A",
+        "l": 1,
+        "m": -1,
+        "n": 6,
+        "phase": -1.7434737518844974
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 406.1288822471016,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810429790.735009,
+    "id": "1DD13329-4DCD-4423-BE75-9641CEF19812",
+    "name": "shell 1",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.0645061728395061,
+        "azimuth": 5.335113832322637,
+        "cut": 1,
+        "density": 4.591300201559179,
+        "densityExponent": 0.8918168764215989,
+        "densityHigh": -7.5727638711734695,
+        "densityLow": -7.655313297193878,
+        "densityPivot": -3,
+        "densitySoftness": 0.36910574776785715,
+        "dispersion": 1,
+        "elevation": -1.2576976102941178,
+        "exposure": 3.0944269935076236,
+        "hue": 0,
+        "intensity": 0.39479389007958815,
+        "jitter": 1,
+        "phaseTint": 0,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 2.4744109378642563
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.1278009,
+        -0.78936124,
+        -0.5829875,
+        0.1438792
+      ],
+      "velocity": [
+        0.3156528,
+        -0.6936157,
+        0.2698504
+      ]
+    },
+    "createdAt": 810431254.407585,
+    "field": "hydrogen",
+    "id": "BD26F64F-0A7E-452B-B91B-4365D0B7CCF9",
+    "mixer": {
+      "difference": 1,
+      "population": 0.19004925083240842,
+      "relativePhase": 3.6517527813682134
+    },
+    "name": "shell 2",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.0645061728395061,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 1.1661894301902234,
+        "densityHigh": -7.031493941326531,
+        "densityLow": -8.104033801020408,
+        "densityPivot": -9.137416294642858,
+        "densitySoftness": 0.05,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 1.8805807756228936,
+        "hue": 0,
+        "intensity": 0.5721738745462978,
+        "jitter": 1,
+        "phaseTint": 0,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.136045042875798
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.002718521652795893,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 1,
+        "m": 0,
+        "n": 7,
+        "phase": -1.9011248784919748
+      },
+      {
+        "amplitude": 0.010884885042108492,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 4,
+        "m": -1,
+        "n": 6,
+        "phase": 2.249611672657206
+      },
+      {
+        "amplitude": 0.018961069214797153,
+        "id": "CE9574D8-3219-45E1-BFC8-9772F7798E28",
+        "l": 2,
+        "m": 0,
+        "n": 3,
+        "phase": 2.6476253463515396
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 406.1288822471016,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 1.2796837439903848,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810431260.399186,
+    "id": "52289CA0-B3A9-4D7D-8158-618FF72FC791",
+    "name": "shell 2",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.0645061728395061,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 1.1661894301902234,
+        "densityHigh": -7.031493941326531,
+        "densityLow": -8.104033801020408,
+        "densityPivot": -9.137416294642858,
+        "densitySoftness": 0.05,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 1.8805807756228936,
+        "hue": 0,
+        "intensity": 0.5721738745462978,
+        "jitter": 1,
+        "phaseTint": 0,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.136045042875798
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "createdAt": 810432480.547541,
+    "id": "29420C09-8FC8-44F5-879D-D6A47FF4BD5B",
+    "name": "h2o 1",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.95,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 1.6646692945551391,
+        "densityHigh": -3.3366151147959187,
+        "densityLow": -5.242067920918366,
+        "densityPivot": -2.7867904974489797,
+        "densitySoftness": 0.8441306600765306,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 2.921026397721237,
+        "hue": 6.283185307179586,
+        "intensity": 0.7701722131588238,
+        "jitter": 1,
+        "phaseTint": 0.640576774691358,
+        "reach": 0.5914592978395062,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.3
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.13216221,
+        0.9457411,
+        -0.15917419,
+        0.25054023
+      ],
+      "velocity": [
+        -0.03732681,
+        -0.046335783,
+        0.0050971718
+      ]
+    },
+    "createdAt": 810433631.441253,
+    "field": "hydrogen",
+    "id": "DDF5CE4C-A693-41AD-A325-80DAC79E4A7C",
+    "mixer": {
+      "difference": 1,
+      "population": 0.17698979591836736,
+      "relativePhase": 0
+    },
+    "name": "shell 3",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.95,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 3.0000000000000004,
+        "densityHigh": -6.512117346938776,
+        "densityLow": -6.522117346938776,
+        "densityPivot": -6.412906568877553,
+        "densitySoftness": 0.33428431919642854,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 4.619895599365435,
+        "hue": 6.283185307179586,
+        "intensity": 0.16906293454672117,
+        "jitter": 1,
+        "phaseTint": 0.11135223765432099,
+        "reach": 0.5914592978395062,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.3
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.019401079296903143,
+        "id": "3E8ED038-C33E-41B9-B855-4BB373C25854",
+        "l": 4,
+        "m": -3,
+        "n": 6,
+        "phase": -0.7471419049200346
+      },
+      {
+        "amplitude": 0.018027875170252776,
+        "id": "CEAD14FD-3E4C-48A1-A11F-15AC770B7F21",
+        "l": 0,
+        "m": 0,
+        "n": 4,
+        "phase": -0.6313321102531202
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 0.23503981370192306,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810433639.732695,
+    "field": "hydrogen",
+    "id": "FC172ACC-7C12-42DE-9DE0-DBF7DBEDBBAD",
+    "mixer": {
+      "difference": 1,
+      "population": 0.17698979591836736,
+      "relativePhase": 0
+    },
+    "name": "shell 3",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 0.019401079296903143,
+        "id": "3E8ED038-C33E-41B9-B855-4BB373C25854",
+        "l": 4,
+        "m": -3,
+        "n": 6,
+        "phase": -0.7471419049200346
+      },
+      {
+        "amplitude": 0.018027875170252776,
+        "id": "CEAD14FD-3E4C-48A1-A11F-15AC770B7F21",
+        "l": 0,
+        "m": 0,
+        "n": 4,
+        "phase": -0.6313321102531202
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.14998946,
+        -0.38109308,
+        -0.1748154,
+        0.895383
+      ],
+      "velocity": [
+        0.003170578,
+        -0.010362835,
+        0.033173136
+      ]
+    },
+    "createdAt": 810433990.881211,
+    "field": "hydrogen",
+    "id": "421D249A-6FC7-47AB-9816-F1F03763F719",
+    "mixer": {
+      "difference": 1,
+      "population": 0.17698979591836736,
+      "relativePhase": 0
+    },
+    "name": "shell 4",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.95,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 3.0000000000000004,
+        "densityHigh": -6.105050223214285,
+        "densityLow": -6.2078236607142845,
+        "densityPivot": -6.003188775510203,
+        "densitySoftness": 0.31077208227040815,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 4.619895599365435,
+        "hue": 6.283185307179586,
+        "intensity": 0.16906293454672117,
+        "jitter": 1,
+        "phaseTint": 0.48736496913580246,
+        "reach": 0.5914592978395062,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.709822154666503
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.019401079296903143,
+        "id": "3E8ED038-C33E-41B9-B855-4BB373C25854",
+        "l": 4,
+        "m": -3,
+        "n": 5,
+        "phase": -0.7471419049200346
+      },
+      {
+        "amplitude": 0.012536459677562938,
+        "id": "CEAD14FD-3E4C-48A1-A11F-15AC770B7F21",
+        "l": 0,
+        "m": 0,
+        "n": 5,
+        "phase": -2.2619206158128824
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 12.809131855867347,
+      "speed": 0.23503981370192306,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.024270874,
+        0.18288325,
+        -0.62805265,
+        -0.7559857
+      ],
+      "velocity": [
+        -0.67663187,
+        0.7838628,
+        0.15478961
+      ]
+    },
+    "createdAt": 810434580.239387,
+    "field": "hydrogen",
+    "id": "B5D058BA-CD56-4C00-A323-98EEF223792C",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "shell 5",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 1.6214340471816555,
+        "densityExponent": 1.1113765488599439,
+        "densityHigh": -6.859733737244898,
+        "densityLow": -7.004160554846939,
+        "densityPivot": -14.44254225127551,
+        "densitySoftness": 0.09372110172193877,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 2.1,
+        "hue": 0,
+        "intensity": 0.5721738745462978,
+        "jitter": 1,
+        "phaseTint": 0,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.4868872349136704
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 7,
+        "phase": 0.5798012313854805
+      },
+      {
+        "amplitude": 0.5908422042916017,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": 1,
+        "n": 7,
+        "phase": 0.8352651627443183
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.47599033,
+        -0.02692388,
+        -0.6069589,
+        0.63585305
+      ],
+      "velocity": [
+        -0.04189878,
+        0.9270766,
+        -0.054049704
+      ]
+    },
+    "createdAt": 810435765.950755,
+    "field": "hydrogen",
+    "id": "B2EF951C-8EAF-404A-9C34-E5834137F7DF",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "shell 6",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 2.874465952666824,
+        "cut": 1,
+        "density": 1.4010900910019077,
+        "densityExponent": 1.1433792599811092,
+        "densityHigh": -6.139887595663264,
+        "densityLow": -6.546576052295919,
+        "densityPivot": -9.319555165816327,
+        "densitySoftness": 0.16915457589285715,
+        "dispersion": 1,
+        "elevation": -1.5,
+        "exposure": 3.481842179099139,
+        "hue": 0,
+        "intensity": 0.6200609184398549,
+        "jitter": 1,
+        "phaseTint": 0.26142939814814814,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.6080968622953775
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 7,
+        "phase": 0.5798012313854805
+      },
+      {
+        "amplitude": 0.8324737879405498,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": 1,
+        "n": 4,
+        "phase": 2.2389209663459777
+      },
+      {
+        "amplitude": 0,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 2,
+        "m": -2,
+        "n": 3,
+        "phase": -0.12731733776381166
+      },
+      {
+        "amplitude": 0.6895932253989697,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 1,
+        "m": 0,
+        "n": 7,
+        "phase": -2.038607325739204
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.80240226,
+        -0.58680755,
+        -0.034114525,
+        0.10316801
+      ],
+      "velocity": [
+        -2.8533802,
+        1.639958,
+        -0.4987335
+      ]
+    },
+    "createdAt": 810439269.58845,
+    "field": "hydrogen",
+    "id": "501C930D-6128-4984-B919-B5EDC776029B",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "shell 7",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 2.874465952666824,
+        "cut": 1,
+        "density": 1.5922634728419645,
+        "densityExponent": 1.9592563918489865,
+        "densityHigh": -7.055883290816327,
+        "densityLow": -9.109773596938776,
+        "densityPivot": -8.406967474489797,
+        "densitySoftness": 0.7027074697066327,
+        "dispersion": 1,
+        "elevation": -1.5,
+        "exposure": 3.3572264148655493,
+        "hue": 0,
+        "intensity": 0.6252379917009232,
+        "jitter": 1,
+        "phaseTint": 0.26142939814814814,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.0763645578761585
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 0.5798012313854805
+      },
+      {
+        "amplitude": 0.4188665267739517,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": 1,
+        "n": 5,
+        "phase": -1.9750028031397358
+      },
+      {
+        "amplitude": 1,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 0,
+        "m": 0,
+        "n": 4,
+        "phase": -2.2053399728289564
+      },
+      {
+        "amplitude": 0.5952045677674067,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 0,
+        "m": 0,
+        "n": 2,
+        "phase": -1.500549628394585
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.14355347,
+        -0.25071874,
+        -0.72837406,
+        -0.6212919
+      ],
+      "velocity": [
+        -0.043604523,
+        -0.5894331,
+        0.116604574
+      ]
+    },
+    "createdAt": 810490177.256738,
+    "field": "hydrogen",
+    "id": "E3A4515F-2357-45CB-8267-CDAD059FECF0",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "shell 7",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 3,
+        "densityHigh": -6.228228400735295,
+        "densityLow": -10.456500771604938,
+        "densityPivot": -6.115808823529411,
+        "densitySoftness": 0.5653356481481482,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 2.936525112179197,
+        "hue": 0,
+        "intensity": 0.7149273643175655,
+        "jitter": 1,
+        "phaseTint": 0.30049189814814814,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.4549652382798002
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.3420217361556081,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 4,
+        "phase": 0.10659620970914677
+      },
+      {
+        "amplitude": 0.24146725129552815,
+        "id": "8A723C8E-0599-4C01-9CD3-9FF2BFD5BCDF",
+        "l": 3,
+        "m": 0,
+        "n": 4,
+        "phase": -0.3865105518672771
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.47373596,
+        0.31321663,
+        0.8211739,
+        0.056063768
+      ],
+      "velocity": [
+        -0.6525385,
+        0.007106411,
+        0.6219085
+      ]
+    },
+    "createdAt": 810490297.36707,
+    "field": "hydrogen",
+    "id": "BCE39E27-566D-4B24-8C50-7FDAC18095FA",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion 1",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 4.721236125393891,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 3,
+        "densityHigh": -6.228228400735295,
+        "densityLow": -10.456500771604938,
+        "densityPivot": -6.115808823529411,
+        "densitySoftness": 0.33738425925925924,
+        "dispersion": 1,
+        "elevation": -0.013097426470588314,
+        "exposure": 2.936525112179197,
+        "hue": 5.609294290437331,
+        "intensity": 0.7149273643175655,
+        "jitter": 1,
+        "phaseTint": 0.30049189814814814,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.4549652382798002
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.3420217361556081,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 4,
+        "m": 3,
+        "n": 6,
+        "phase": 0.10659620970914677
+      },
+      {
+        "amplitude": 0.24146725129552815,
+        "id": "8A723C8E-0599-4C01-9CD3-9FF2BFD5BCDF",
+        "l": 3,
+        "m": 0,
+        "n": 4,
+        "phase": -0.3865105518672771
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.4162282,
+        0.29740044,
+        0.16324063,
+        0.8435992
+      ],
+      "velocity": [
+        0.031542916,
+        -0.021618795,
+        -0.012055917
+      ]
+    },
+    "createdAt": 810490595.351862,
+    "field": "hydrogen",
+    "id": "D4073ED1-52B5-4C9D-A569-7EBC94944194",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion slice 1",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 1.7189675080839986,
+        "cut": 0.48760609567901236,
+        "density": 15,
+        "densityExponent": 1.0571087528080099,
+        "densityHigh": -6.15728400735294,
+        "densityLow": -6.8371913580246915,
+        "densityPivot": -4.896656709558824,
+        "densitySoftness": 0.18071469907407406,
+        "dispersion": 1,
+        "elevation": -1.0376263786764706,
+        "exposure": 2.8860946581735942,
+        "hue": 5.899273473450973,
+        "intensity": 0.7987168661520876,
+        "jitter": 1,
+        "phaseTint": 0.4173900462962963,
+        "reach": 1.2522786458333335,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.7136955808958105
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.18794916970239064,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 4,
+        "m": -3,
+        "n": 6,
+        "phase": -0.32154987207944863
+      },
+      {
+        "amplitude": 0.1317178848460093,
+        "id": "8A723C8E-0599-4C01-9CD3-9FF2BFD5BCDF",
+        "l": 3,
+        "m": 1,
+        "n": 6,
+        "phase": 0.06048260534324831
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 86.46231962598485,
+      "playing": true,
+      "response": 14,
+      "speed": 2.519561298076923,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.017353429,
+        -0.23778157,
+        0.5991464,
+        -0.7643182
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810501884.649413,
+    "field": "hydrogen",
+    "id": "1B56A7CC-DAC7-4455-9497-4A8A5D04A29C",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion 3",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 574.820987654321,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 3.531564658332276,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 1.3573026699551878,
+        "densityHigh": -6.962734431735656,
+        "densityLow": -6.972734431735656,
+        "densityPivot": -9.713235294117649,
+        "densitySoftness": 0.9073567708333333,
+        "dispersion": 1,
+        "elevation": -0.8642578125,
+        "exposure": 9.221371626556667,
+        "hue": 0,
+        "intensity": 0.1514013960682672,
+        "jitter": 1,
+        "phaseTint": 0.35532407407407407,
+        "reach": 1.4208622685185186,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.107709050152346
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.1668589014385635,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 0,
+        "m": 0,
+        "n": 3,
+        "phase": 2.6120859021796545
+      },
+      {
+        "amplitude": 1,
+        "id": "8A723C8E-0599-4C01-9CD3-9FF2BFD5BCDF",
+        "l": 1,
+        "m": 1,
+        "n": 4,
+        "phase": -0.6058119809270219
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 4983.10469125245,
+      "playing": true,
+      "response": 13.97574537627551,
+      "speed": 2.519561298076923,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.56260526,
+        0.35290688,
+        -0.648346,
+        -0.37226287
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810502140.145698,
+    "field": "hydrogen",
+    "id": "5EA2CFEA-DC76-481B-8CF4-B8134ED5F933",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion 4",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 574.820987654321,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 3.792152011928652,
+        "cut": 0.5046778549382716,
+        "density": 15,
+        "densityExponent": 1.2779974833686554,
+        "densityHigh": -6.362772586465142,
+        "densityLow": -6.372772586465142,
+        "densityPivot": -8.581399356617649,
+        "densitySoftness": 1.087818287037037,
+        "dispersion": 1,
+        "elevation": -0.9805836397058824,
+        "exposure": 9.221371626556667,
+        "hue": 0,
+        "intensity": 0.1514013960682672,
+        "jitter": 1,
+        "phaseTint": 0.22853973765432098,
+        "reach": 1.4208622685185186,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.5893872794188935
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.2584234801196345,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 2,
+        "m": 2,
+        "n": 4,
+        "phase": -2.555950180831447
+      },
+      {
+        "amplitude": 1,
+        "id": "8A723C8E-0599-4C01-9CD3-9FF2BFD5BCDF",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 2.0098734453094096
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 5626.8472791836675,
+      "playing": true,
+      "response": 13.97574537627551,
+      "speed": 2.519561298076923,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810502183.932597,
+    "id": "E3E1A7A3-7C1C-4E69-976D-217DB18F9ECD",
+    "name": "amnion look",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 574.820987654321,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 3.792152011928652,
+        "cut": 0.5046778549382716,
+        "density": 15,
+        "densityExponent": 1.2779974833686554,
+        "densityHigh": -6.362772586465142,
+        "densityLow": -6.372772586465142,
+        "densityPivot": -8.581399356617649,
+        "densitySoftness": 1.087818287037037,
+        "dispersion": 1,
+        "elevation": -0.9805836397058824,
+        "exposure": 9.221371626556667,
+        "hue": 0,
+        "intensity": 0.1514013960682672,
+        "jitter": 1,
+        "phaseTint": 0.2690972222222222,
+        "reach": 1.4208622685185186,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.2656707866855692
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.45065165,
+        0.65921843,
+        0.50227505,
+        0.33175892
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810502907.060401,
+    "field": "hydrogen",
+    "id": "A98C4105-58DB-4B28-84F9-8FD8888F2CFC",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion subtle",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 574.820987654321,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 4.114856118417187,
+        "cut": 0.5068962191358025,
+        "density": 15,
+        "densityExponent": 1.0017333088356755,
+        "densityHigh": -7.32787909347767,
+        "densityLow": -7.33787909347767,
+        "densityPivot": -9.66302849264706,
+        "densitySoftness": 2,
+        "dispersion": 1,
+        "elevation": -0.6552159926470588,
+        "exposure": 8.406666958478151,
+        "hue": 6.13289306603563,
+        "intensity": 0.25714129888742954,
+        "jitter": 1,
+        "phaseTint": 0.45732060185185186,
+        "reach": 1.4208622685185186,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.2712004662064726
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 2,
+        "m": -1,
+        "n": 4,
+        "phase": -0.4468755816472219
+      },
+      {
+        "amplitude": 0.4951002517708735,
+        "id": "8A723C8E-0599-4C01-9CD3-9FF2BFD5BCDF",
+        "l": 2,
+        "m": 0,
+        "n": 4,
+        "phase": -1.185972187222969
+      },
+      {
+        "amplitude": 1,
+        "id": "F0B7E703-84B3-44EC-B83C-9802297A981D",
+        "l": 1,
+        "m": -1,
+        "n": 2,
+        "phase": -0.3244431066365041
+      },
+      {
+        "amplitude": 1,
+        "id": "D3ECB36D-CCC9-49A9-B95D-C9DE05C9E0E7",
+        "l": 0,
+        "m": 0,
+        "n": 5,
+        "phase": -1.2149501134278489
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 714.4754522643049,
+      "playing": true,
+      "response": 14,
+      "speed": 1.5292104867788463,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.043119885,
+        0.27679583,
+        0.46068245,
+        -0.8421973
+      ],
+      "velocity": [
+        -1.0140651,
+        -0.92811316,
+        -0.34926015
+      ]
+    },
+    "createdAt": 810505293.148205,
+    "field": "hydrogen",
+    "id": "82D397F9-70E2-4E04-A3B1-16439AFF5D46",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "nebula 1",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.48251350308641977,
+        "azimuth": 4.407259369836376,
+        "cut": 1,
+        "density": 2.116683708516134,
+        "densityExponent": 0.8831202811697575,
+        "densityHigh": -6.3908547794117645,
+        "densityLow": -6.555893132716049,
+        "densityPivot": -3.5421645220588243,
+        "densitySoftness": 0.36427951388888885,
+        "dispersion": 1,
+        "elevation": -0.5135569852941178,
+        "exposure": 2.727191681786317,
+        "hue": 6.056837919811572,
+        "intensity": 0.4435475244932448,
+        "jitter": 1,
+        "phaseTint": 0.4134837962962963,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.776650178261938
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.4863382744694323,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 0.1521100863278207
+      },
+      {
+        "amplitude": 0.5514994527414924,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": 1,
+        "n": 5,
+        "phase": -2.0548038991915214
+      },
+      {
+        "amplitude": 0.4904335502727718,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 2,
+        "m": -2,
+        "n": 4,
+        "phase": -1.923977308796847
+      },
+      {
+        "amplitude": 0.6610073598916496,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 2,
+        "m": 0,
+        "n": 7,
+        "phase": -0.9552556294886447
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.2662469,
+        0.6990143,
+        -0.22652946,
+        0.6238398
+      ],
+      "velocity": [
+        -0.39163494,
+        1.1057905,
+        -0.082653135
+      ]
+    },
+    "createdAt": 810507817.582151,
+    "field": "hydrogen",
+    "id": "9BB212A3-5640-4A54-A546-D6C137B2E24F",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion 5",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 59.643614969135804,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.059833140432098864,
+        "azimuth": 3.6753205721684163,
+        "cut": 1,
+        "density": 9.00519405199776,
+        "densityExponent": 0.79015604954937,
+        "densityHigh": -5.978460409047878,
+        "densityLow": -6.667417502301845,
+        "densityPivot": -3.8586309523809526,
+        "densitySoftness": 0.7048900462962963,
+        "dispersion": 1,
+        "elevation": -0.70703125,
+        "exposure": 3.3067947698772056,
+        "hue": 6.056837919811572,
+        "intensity": 0.5249539390982799,
+        "jitter": 1,
+        "orthographic": 1,
+        "phaseTint": 0.310522762345679,
+        "reach": 1.2433159722222225,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.521144498727344
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.865107606960745,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": 1,
+        "n": 5,
+        "phase": -0.502211732398668
+      },
+      {
+        "amplitude": 0.48011410183771724,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": -2,
+        "n": 4,
+        "phase": -0.5365068748996233
+      },
+      {
+        "amplitude": 0.4891369396034037,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 2,
+        "m": -1,
+        "n": 5,
+        "phase": -2.3193175695936765
+      },
+      {
+        "amplitude": 0.6610073598916496,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 3,
+        "m": 1,
+        "n": 4,
+        "phase": -0.9552556294886447
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.014635218,
+        0.7162814,
+        0.69687825,
+        0.03297585
+      ],
+      "velocity": [
+        0.0013695644,
+        -0.1744712,
+        0.00878968
+      ]
+    },
+    "createdAt": 810507914.869675,
+    "field": "hydrogen",
+    "id": "A0404CB1-F110-42DF-AB9F-3E9C550913C5",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion tri",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 59.643614969135804,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.059833140432098864,
+        "azimuth": 3.6753205721684163,
+        "cut": 1,
+        "density": 9.00519405199776,
+        "densityExponent": 0.79015604954937,
+        "densityHigh": -5.978460409047878,
+        "densityLow": -6.667417502301845,
+        "densityPivot": -3.8586309523809526,
+        "densitySoftness": 0.7048900462962963,
+        "dispersion": 1,
+        "elevation": -0.70703125,
+        "exposure": 3.3067947698772056,
+        "hue": 6.056837919811572,
+        "intensity": 0.5249539390982799,
+        "jitter": 1,
+        "orthographic": 1,
+        "phaseTint": 0.40923996913580246,
+        "reach": 1.2433159722222225,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.521144498727344
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.650961454118835,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 3,
+        "m": 1,
+        "n": 5,
+        "phase": 0.4268479138820436
+      },
+      {
+        "amplitude": 0.48011410183771724,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": -2,
+        "n": 4,
+        "phase": -0.5365068748996233
+      },
+      {
+        "amplitude": 0.4891369396034037,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 1,
+        "n": 5,
+        "phase": -2.3193175695936765
+      },
+      {
+        "amplitude": 0.6610073598916496,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 3,
+        "m": 1,
+        "n": 4,
+        "phase": -0.9552556294886447
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.029919319,
+        -0.67119306,
+        0.46889287,
+        0.5733623
+      ],
+      "velocity": [
+        -0.05072022,
+        0.5333759,
+        0.037022367
+      ]
+    },
+    "createdAt": 810508290.301793,
+    "field": "hydrogen",
+    "id": "574349D4-839E-4A76-91D0-961090841900",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "nebula slice",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 59.643614969135804,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": -0.059833140432098864,
+        "azimuth": 3.6753205721684163,
+        "cut": 0.5,
+        "density": 9.00519405199776,
+        "densityExponent": 0.7050154115815567,
+        "densityHigh": -5.819869759246291,
+        "densityLow": -6.760531961627244,
+        "densityPivot": -3.752232142857144,
+        "densitySoftness": 0.47468171296296297,
+        "dispersion": 1,
+        "elevation": -0.70703125,
+        "exposure": 3.3067947698772056,
+        "hue": 5.809582942445708,
+        "intensity": 0.5249539390982799,
+        "jitter": 1,
+        "orthographic": 1,
+        "phaseTint": 0.5504436728395061,
+        "reach": 1.2433159722222225,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "zoom": 1.6789292388033497
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.020508906239517306,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 3,
+        "m": 1,
+        "n": 5,
+        "phase": 2.6604590180100547
+      },
+      {
+        "amplitude": 0.7385284003361571,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": -2,
+        "n": 4,
+        "phase": -2.6967506055506054
+      },
+      {
+        "amplitude": 0.5717809187803631,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 1,
+        "n": 5,
+        "phase": -1.73634937135287
+      },
+      {
+        "amplitude": 1,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 3,
+        "m": 0,
+        "n": 4,
+        "phase": -1.6846449094243863
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": false,
+      "response": 14,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.29211587,
+        0.03991212,
+        -0.7652018,
+        -0.5723125
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810528689.510445,
+    "field": "hydrogen",
+    "id": "909F5BE5-84CE-46D4-B06B-7E53DC4BDEAF",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "heart 1",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 3.3963795577871796,
+        "cut": 1,
+        "density": 2.116683708516134,
+        "densityExponent": 3,
+        "densityHigh": -6.09465371796867,
+        "densityLow": -6.59465371796867,
+        "densityPivot": -7.638890712535014,
+        "densitySoftness": 0.7976128472222223,
+        "dispersion": 1,
+        "dotSize": 3.361049107142857,
+        "dotsGain": 1,
+        "elevation": -1.1259300595238095,
+        "exposure": 2.727191681786317,
+        "hue": 5.585053606381854,
+        "intensity": 0.4435475244932448,
+        "jitter": 1,
+        "orthographic": 1,
+        "phaseTint": 0.5952932098765432,
+        "reach": 0.9804108796296298,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.015673225308641976,
+        "zoom": 1.8109792113582903
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.8133492339170559,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": 0,
+        "n": 2,
+        "phase": 0.2218988602786282
+      },
+      {
+        "amplitude": 0.5514994527414924,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 2,
+        "m": 1,
+        "n": 3,
+        "phase": -2.0548038991915214
+      },
+      {
+        "amplitude": 0.6249628594530436,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 1,
+        "n": 5,
+        "phase": 0.44543005196840496
+      },
+      {
+        "amplitude": 0.4575070358176053,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 3,
+        "m": -1,
+        "n": 5,
+        "phase": -0.33612498594101226
+      },
+      {
+        "amplitude": 0.02453965317274078,
+        "id": "E600D0D8-7E2D-417F-8151-ABC49AA510AC",
+        "l": 3,
+        "m": -3,
+        "n": 6,
+        "phase": -2.753395149374521
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 526.6857387823612,
+      "playing": true,
+      "response": 14,
+      "speed": 2.1401742788461537,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.21162458,
+        -0.47502953,
+        -0.3179146,
+        0.7927751
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810531097.969182,
+    "field": "hydrogen",
+    "id": "FBE2D929-B447-41EF-BF0D-638F0B370D54",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "amnion cloud",
+    "nuclei": [
+      [
+        -0.49180957674980164,
+        0.9499329328536987,
+        -1.1599538326263428
+      ],
+      [
+        -1.6893761157989502,
+        0.3994569480419159,
+        0.31657201051712036
+      ],
+      [
+        1.738348364830017,
+        -0.041725482791662216,
+        0.5570675730705261
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 1.7320834496354447,
+        "cut": 1,
+        "density": 1.3440877133232514,
+        "densityExponent": 0.5567207540783278,
+        "densityHigh": -5.192708333333336,
+        "densityLow": -5.692708333333336,
+        "densityPivot": -2.828249007936506,
+        "densitySoftness": 0.5846137152777778,
+        "dispersion": 1,
+        "dotSize": 1.7599649234693877,
+        "dotsGain": 1,
+        "elevation": -1.1748511904761902,
+        "exposure": 1,
+        "hue": 0,
+        "intensity": 1.4661492631639965,
+        "jitter": 1,
+        "orthographic": 1,
+        "phaseTint": 0.271508487654321,
+        "reach": 0.8064211998456791,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.55,
+        "zoom": 1.5415589246309707
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.21901387261035346,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 3,
+        "phase": 2.205299259251732
+      },
+      {
+        "amplitude": 0.04037505183207656,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 2.981314322583668
+      },
+      {
+        "amplitude": 0.38659939076021665,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 0,
+        "n": 4,
+        "phase": -2.0849410934674033
+      },
+      {
+        "amplitude": 0.3190607771491549,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 2,
+        "m": -1,
+        "n": 4,
+        "phase": 0.047184641706304084
+      },
+      {
+        "amplitude": 0.5823529712267461,
+        "id": "E600D0D8-7E2D-417F-8151-ABC49AA510AC",
+        "l": 1,
+        "m": 1,
+        "n": 2,
+        "phase": 2.12881216435252
+      },
+      {
+        "amplitude": 0.15313615482122303,
+        "id": "2D7CACEB-B0C0-4ECF-865E-96EDC0C2D2B3",
+        "l": 1,
+        "m": 0,
+        "n": 2,
+        "phase": 2.4699640247189407
+      },
+      {
+        "amplitude": 0.3,
+        "id": "90CF5646-8C77-4BA0-B869-A5E9C3CAC59C",
+        "l": 0,
+        "m": 0,
+        "n": 1,
+        "phase": 0
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 5028.562525972226,
+      "playing": true,
+      "response": 14,
+      "speed": 0.38307166466346154,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.17831749,
+        0.5781679,
+        -0.7332877,
+        0.3101839
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810537070.433461,
+    "field": "hydrogen",
+    "id": "27DC81F6-1C73-4F0C-A66D-95F7DF7DF690",
+    "mixer": {
+      "difference": 1,
+      "population": 0.17698979591836736,
+      "relativePhase": 0
+    },
+    "name": "heart 3",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 430.59876543209873,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.95,
+        "azimuth": 2.865378716164798,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 3,
+        "densityHigh": -6.5351756108176495,
+        "densityLow": -11.157162558825203,
+        "densityPivot": -7.166197208049885,
+        "densitySoftness": 0.34716435185185185,
+        "dispersion": 1,
+        "dotSize": 1,
+        "dotsGain": 0,
+        "elevation": -0.5673363095238095,
+        "exposure": 4.619895599365435,
+        "hue": 6.283185307179586,
+        "intensity": 0.16906293454672117,
+        "jitter": 1,
+        "orthographic": 0,
+        "phaseTint": 0.4720293209876543,
+        "reach": 0.5914592978395062,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 1,
+        "zoom": 1.118866274329078
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.019401079296903143,
+        "id": "3E8ED038-C33E-41B9-B855-4BB373C25854",
+        "l": 2,
+        "m": -1,
+        "n": 5,
+        "phase": -0.7471419049200346
+      },
+      {
+        "amplitude": 0.01092154851703495,
+        "id": "CEAD14FD-3E4C-48A1-A11F-15AC770B7F21",
+        "l": 0,
+        "m": 0,
+        "n": 4,
+        "phase": -0.7365290751505719
+      },
+      {
+        "amplitude": 0.05491726408420837,
+        "id": "2ED98F7E-DCCF-4C9C-96AE-41607103C265",
+        "l": 3,
+        "m": 3,
+        "n": 5,
+        "phase": -0.2324061008678224
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 873.1776938281524,
+      "playing": true,
+      "response": 12.809131855867347,
+      "speed": 2.5844914362980766,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.13599414,
+        0.31956095,
+        0.011524991,
+        0.93768525
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810949063.079415,
+    "field": "hydrogen",
+    "id": "89ACCFD9-98EA-424D-9490-F005F215D9BB",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "full dot embed",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 5.8332176093997985,
+        "cut": 0.5079089506172839,
+        "density": 1.003877262918493,
+        "densityExponent": 0.5386066530956369,
+        "densityHigh": -4.993121313553138,
+        "densityLow": -10.615509638827813,
+        "densityPivot": -2.338665674603174,
+        "densitySoftness": 1.8379701967592594,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 2.986607142857143,
+        "dotsGain": 0.5267650462962963,
+        "elevation": -1.5,
+        "exposure": 5.260707397220554,
+        "grainResolution": 240,
+        "hue": 0,
+        "intensity": 1.085161481795622,
+        "jitter": 1,
+        "lightResolution": 240,
+        "orthographic": 1,
+        "phaseTint": 0.15543016975308643,
+        "reach": 1.5944251543209877,
+        "showFPS": 0,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.55,
+        "zoom": 0.9785797049672226
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.21901387261035346,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 3,
+        "phase": 2.205299259251732
+      },
+      {
+        "amplitude": 0.04037505183207656,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 2.981314322583668
+      },
+      {
+        "amplitude": 0.38659939076021665,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 0,
+        "n": 4,
+        "phase": -2.0849410934674033
+      },
+      {
+        "amplitude": 0.3190607771491549,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 2,
+        "m": -1,
+        "n": 4,
+        "phase": 0.047184641706304084
+      },
+      {
+        "amplitude": 0.5823529712267461,
+        "id": "E600D0D8-7E2D-417F-8151-ABC49AA510AC",
+        "l": 1,
+        "m": 1,
+        "n": 2,
+        "phase": 2.12881216435252
+      },
+      {
+        "amplitude": 0.15313615482122303,
+        "id": "2D7CACEB-B0C0-4ECF-865E-96EDC0C2D2B3",
+        "l": 1,
+        "m": 0,
+        "n": 2,
+        "phase": 2.4699640247189407
+      },
+      {
+        "amplitude": 0.3,
+        "id": "90CF5646-8C77-4BA0-B869-A5E9C3CAC59C",
+        "l": 0,
+        "m": 0,
+        "n": 1,
+        "phase": 0
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 112.747986071255,
+      "playing": true,
+      "response": 14,
+      "speed": 1.0960474258814104,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810949069.662726,
+    "id": "1A83FC43-788F-4762-8BFB-ECD4831A2F53",
+    "name": "full dot embed",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 1,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.35,
+        "azimuth": 5.8332176093997985,
+        "cut": 0.5079089506172839,
+        "density": 1.003877262918493,
+        "densityExponent": 0.5386066530956369,
+        "densityHigh": -4.993121313553138,
+        "densityLow": -10.615509638827813,
+        "densityPivot": -2.338665674603174,
+        "densitySoftness": 1.8379701967592594,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 2.986607142857143,
+        "dotsGain": 0.5267650462962963,
+        "elevation": -1.5,
+        "exposure": 5.260707397220554,
+        "grainResolution": 240,
+        "hue": 0,
+        "intensity": 1.085161481795622,
+        "jitter": 1,
+        "lightResolution": 240,
+        "orthographic": 1,
+        "phaseTint": 0.15543016975308643,
+        "reach": 1.5944251543209877,
+        "showFPS": 0,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.55,
+        "zoom": 0.9785797049672226
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.55488545,
+        -0.13921675,
+        -0.3883041,
+        -0.7224547
+      ],
+      "velocity": [
+        -0.6892045,
+        0.23209953,
+        0.051309645
+      ]
+    },
+    "createdAt": 810955662.113864,
+    "field": "hydrogen",
+    "id": "C10B8FFB-A95D-488F-BCDD-2DB5B3396ABA",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "scatterplot embedding",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 2,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.05396894290123444,
+        "azimuth": 5.8332176093997985,
+        "bounce": 0.6,
+        "cut": 1,
+        "density": 0.9888042430700499,
+        "densityExponent": 0.5220452652470663,
+        "densityHigh": -5.527146565903705,
+        "densityLow": -5.882676695635403,
+        "densityPivot": -0.1220238095238102,
+        "densitySoftness": 1.8670283564814816,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 1,
+        "dotsGain": 0.06385030864197531,
+        "elevation": -1.5,
+        "exposure": 4.204941136451249,
+        "grainResolution": 384,
+        "hue": 0,
+        "intensity": 1.085161481795622,
+        "jitter": 1,
+        "lightResolution": 256,
+        "orthographic": 1,
+        "phaseTint": 0.28501157407407407,
+        "reach": 0.9262080439814816,
+        "showFPS": 1,
+        "thickness": 0.08,
+        "transferEnabled": 0,
+        "volumeGain": 0.39467592592592593,
+        "zoom": 1.2027934908076856
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.21901387261035346,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 3,
+        "phase": 2.205299259251732
+      },
+      {
+        "amplitude": 0.04037505183207656,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 2.981314322583668
+      },
+      {
+        "amplitude": 0.38659939076021665,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 0,
+        "n": 4,
+        "phase": -2.0849410934674033
+      },
+      {
+        "amplitude": 0.3190607771491549,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 2,
+        "m": -1,
+        "n": 4,
+        "phase": 0.047184641706304084
+      },
+      {
+        "amplitude": 0.5823529712267461,
+        "id": "E600D0D8-7E2D-417F-8151-ABC49AA510AC",
+        "l": 1,
+        "m": 1,
+        "n": 2,
+        "phase": 2.12881216435252
+      },
+      {
+        "amplitude": 0.15313615482122303,
+        "id": "2D7CACEB-B0C0-4ECF-865E-96EDC0C2D2B3",
+        "l": 1,
+        "m": 0,
+        "n": 2,
+        "phase": 2.4699640247189407
+      },
+      {
+        "amplitude": 0.3,
+        "id": "90CF5646-8C77-4BA0-B869-A5E9C3CAC59C",
+        "l": 0,
+        "m": 0,
+        "n": 1,
+        "phase": 0
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 820.6639728368848,
+      "playing": true,
+      "response": 14,
+      "speed": 1.9302408854166666,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.13626851,
+        -0.22630873,
+        0.19821183,
+        0.9438895
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ]
+    },
+    "createdAt": 810955858.144755,
+    "field": "hydrogen",
+    "id": "094E035D-3E61-4009-A597-21CD18623E4D",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "embedding 1",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 2,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.05396894290123444,
+        "azimuth": 5.8332176093997985,
+        "bounce": 0.6,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 0.9259596386234261,
+        "densityHigh": -5.376625526320767,
+        "densityLow": -11.21355121214013,
+        "densityPivot": -1.4866071428571423,
+        "densitySoftness": 0.7274594907407407,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 1,
+        "dotsGain": 0.1267843364197531,
+        "elevation": -1.5,
+        "exposure": 3.12056785818003,
+        "grainResolution": 384,
+        "hue": 0,
+        "intensity": 1.085161481795622,
+        "jitter": 1,
+        "lightResolution": 256,
+        "orthographic": 1,
+        "phaseTint": 0.28501157407407407,
+        "reach": 0.9262080439814816,
+        "showFPS": 1,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.4406346450617284,
+        "zoom": 1.2027934908076856
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.21901387261035346,
+        "id": "4EE74BC2-7F0B-4F3A-90A3-959299AA48EB",
+        "l": 1,
+        "m": -1,
+        "n": 3,
+        "phase": 2.205299259251732
+      },
+      {
+        "amplitude": 0.04037505183207656,
+        "id": "45F25C36-F026-48F2-9582-48B17DEFB2EB",
+        "l": 1,
+        "m": 0,
+        "n": 3,
+        "phase": 2.981314322583668
+      },
+      {
+        "amplitude": 0.13772467600798166,
+        "id": "B291666E-A715-4587-82B1-02B5BE798DE9",
+        "l": 1,
+        "m": 0,
+        "n": 4,
+        "phase": -1.7673328191706164
+      },
+      {
+        "amplitude": 0.3190607771491549,
+        "id": "11263607-7EA3-4898-A4AE-33E7B149E94A",
+        "l": 2,
+        "m": -1,
+        "n": 4,
+        "phase": 0.047184641706304084
+      },
+      {
+        "amplitude": 0.5823529712267461,
+        "id": "E600D0D8-7E2D-417F-8151-ABC49AA510AC",
+        "l": 1,
+        "m": 1,
+        "n": 2,
+        "phase": 2.12881216435252
+      },
+      {
+        "amplitude": 0.15313615482122303,
+        "id": "2D7CACEB-B0C0-4ECF-865E-96EDC0C2D2B3",
+        "l": 1,
+        "m": 0,
+        "n": 2,
+        "phase": 2.4699640247189407
+      },
+      {
+        "amplitude": 0.3,
+        "id": "90CF5646-8C77-4BA0-B869-A5E9C3CAC59C",
+        "l": 0,
+        "m": 0,
+        "n": 1,
+        "phase": 0
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 1198.2717617139274,
+      "playing": true,
+      "response": 14,
+      "speed": 1.9302408854166666,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "createdAt": 810955863.712582,
+    "id": "DFC59F8D-7512-4D12-AF5D-994B47762CCE",
+    "name": "embedding 1",
+    "render": {
+      "phaseFunction": 1,
+      "quality": 2,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.05396894290123444,
+        "azimuth": 5.8332176093997985,
+        "bounce": 0.6,
+        "cut": 1,
+        "density": 15,
+        "densityExponent": 0.9259596386234261,
+        "densityHigh": -5.376625526320767,
+        "densityLow": -11.21355121214013,
+        "densityPivot": -1.4866071428571423,
+        "densitySoftness": 0.7274594907407407,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 1,
+        "dotsGain": 0.1267843364197531,
+        "elevation": -1.5,
+        "exposure": 3.12056785818003,
+        "grainResolution": 384,
+        "hue": 0,
+        "intensity": 1.085161481795622,
+        "jitter": 1,
+        "lightResolution": 256,
+        "orthographic": 1,
+        "phaseTint": 0.28501157407407407,
+        "reach": 0.9262080439814816,
+        "showFPS": 1,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.4406346450617284,
+        "zoom": 1.2027934908076856
+      }
+    },
+    "scope": "look"
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        0.31794497,
+        0.19656023,
+        0.14256477,
+        0.916488
+      ],
+      "velocity": [
+        -0.14217235,
+        -0.019567898,
+        -0.01604585
+      ]
+    },
+    "createdAt": 810988108.006924,
+    "field": "hydrogen",
+    "id": "01578E3E-6F98-40E7-ACEB-0BCE5DB55608",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "embryo",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 2,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.05396894290123444,
+        "azimuth": 4.813680410187932,
+        "bounce": 0.6,
+        "cut": 1,
+        "density": 0.2734475493177721,
+        "densityExponent": 0.7227010820036888,
+        "densityHigh": -4.189510663412777,
+        "densityLow": -5.826261313143358,
+        "densityPivot": 0,
+        "densitySoftness": 0.7274594907407407,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 1,
+        "dotsGain": 0.2974054783950617,
+        "elevation": -0.25018601190476186,
+        "exposure": 1.1408529315285034,
+        "grainResolution": 384,
+        "hue": 6.008962568802005,
+        "intensity": 1.2257820255410055,
+        "jitter": 1,
+        "lightResolution": 256,
+        "orthographic": 1,
+        "phaseTint": 0.5720968364197531,
+        "reach": 0.9262080439814816,
+        "showFPS": 1,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 1,
+        "zoom": 1.3590533193047545
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.059206469653033264,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 2,
+        "m": -2,
+        "n": 3,
+        "phase": -2.8954259898338215
+      },
+      {
+        "amplitude": 0.015347315132800727,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 0,
+        "m": 0,
+        "n": 3,
+        "phase": 2.8066029973472837
+      },
+      {
+        "amplitude": 0.05292349620333949,
+        "id": "977779AE-4E5D-4120-88B6-2F640858BB0A",
+        "l": 0,
+        "m": 0,
+        "n": 4,
+        "phase": -0.3232256773712133
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 676.8294246248753,
+      "playing": true,
+      "response": 12.809131855867347,
+      "speed": 3,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
+    "camera": {
+      "orientation": [
+        -0.42452797,
+        0.5554463,
+        -0.67800677,
+        -0.22707321
+      ],
+      "velocity": [
+        -0.000409284,
+        0.0010866929,
+        7.426679e-05
+      ]
+    },
+    "createdAt": 810988195.027819,
+    "field": "hydrogen",
+    "id": "4C9B2D69-2AC8-4D4C-8428-75E5BD60ED47",
+    "mixer": {
+      "difference": 1,
+      "population": 0.5,
+      "relativePhase": 0
+    },
+    "name": "tri",
+    "nuclei": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        -0.75695,
+        0.58588,
+        0
+      ],
+      [
+        0.75695,
+        0.58588,
+        0
+      ]
+    ],
+    "render": {
+      "phaseFunction": 1,
+      "quality": 2,
+      "raySamples": 768,
+      "section": 1,
+      "shadowSamples": 64,
+      "stochastic": false,
+      "style": 2,
+      "values": {
+        "ambient": 0,
+        "anisotropy": 0.05396894290123444,
+        "azimuth": 4.813680410187932,
+        "bounce": 0.6,
+        "cut": 1,
+        "density": 0.2734475493177721,
+        "densityExponent": 0.7227010820036888,
+        "densityHigh": -4.189510663412777,
+        "densityLow": -5.826261313143358,
+        "densityPivot": 0,
+        "densitySoftness": 0.7274594907407407,
+        "dispersion": 1,
+        "dotMode": 0,
+        "dotSize": 1,
+        "dotsGain": 0.2974054783950617,
+        "elevation": -0.25018601190476186,
+        "exposure": 1.1408529315285034,
+        "grainResolution": 384,
+        "hue": 6.008962568802005,
+        "intensity": 1.2257820255410055,
+        "jitter": 1,
+        "lightResolution": 256,
+        "orthographic": 1,
+        "phaseTint": 0.5720968364197531,
+        "reach": 0.9262080439814816,
+        "showFPS": 1,
+        "thickness": 0.08,
+        "transferEnabled": 1,
+        "volumeGain": 0.45085841049382713,
+        "zoom": 1.7062093484855712
+      }
+    },
+    "scope": "session",
+    "states": [
+      {
+        "amplitude": 0.059206469653033264,
+        "id": "B22DA129-E535-434D-AEDC-F5BCAB478A6D",
+        "l": 2,
+        "m": -2,
+        "n": 3,
+        "phase": -2.8954259898338215
+      },
+      {
+        "amplitude": 0.015347315132800727,
+        "id": "159CC772-9D38-4E94-AEB0-7CA2ACC733DE",
+        "l": 0,
+        "m": 0,
+        "n": 3,
+        "phase": 2.8066029973472837
+      },
+      {
+        "amplitude": 0.05292349620333949,
+        "id": "977779AE-4E5D-4120-88B6-2F640858BB0A",
+        "l": 1,
+        "m": 1,
+        "n": 4,
+        "phase": -0.3232256773712133
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 936.8286410005613,
+      "playing": true,
+      "response": 12.809131855867347,
+      "speed": 3,
+      "springs": true
+    }
+  }
+]

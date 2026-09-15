@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  /><meta name="theme-color" content="#000" /><title>Orbital — Gray Crawford</title
+  ><link rel="icon" href="data:," /><link rel="stylesheet" href="./style.css" />
+  <meta name="description" content="Explore hydrogen eigenstates, coherent superpositions, volumetric light and probability-current tracers. An interactive WebGPU experiment by Gray Crawford." />
+  <link rel="canonical" href="https://graycrawford.com/orbital/" />
+  <script>if (location.hostname === "graycrawford.com" && location.protocol === "http:") location.replace("https:" + location.href.slice(5));</script>
+  <body>
+    <canvas
+      id="scene"
+      aria-label="Hydrogen orbital, drag to orbit; double-click to reset"
+    ></canvas>
+    <header>
+      <a href="/" aria-label="Gray Crawford home" style="color:inherit;text-decoration:none">orbital</a><span id="fps"></span>
+      <div class="spacer"></div>
+      <select id="shapes" aria-label="Atom preset">
+        <option>Interference</option>
+        <option>Filigree</option>
+        <option>Circular</option>
+        <option>Shells</option>
+        <option>Petals</option>
+        <option>Beating</option></select
+      ><button id="gyro" title="Gyro orbit · 2×" aria-label="Gyro orbit">
+        ↻</button
+      ><button id="bank" aria-label="Preset bank">▦</button
+      ><button id="help" aria-label="Help">?</button>
+    </header>
+    <main id="controls">
+      <section id="states"></section>
+      <aside id="instruments"></aside>
+    </main>
+    <div id="status" role="status">Loading the native basis tables…</div>
+    <dialog id="presets"></dialog>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
