@@ -43,7 +43,7 @@
     }
     .cv::-webkit-scrollbar, .panel::-webkit-scrollbar { display: none; }
     .identity, .panel {
-      flex: 0 0 312px;
+      flex: 0 0 352px;
       padding: 28px 20px 60px;
       scrollbar-width: none;
     }
@@ -90,11 +90,12 @@
     .lastname { filter: blur(2.2px); transition: filter .6s var(--good-ease); }
     .lastname:hover { filter: blur(6.5px); }
     .nav { display: flex; gap: 5px; margin-top: 14px; }
+    .nav-works { display: flex; flex-direction: column; gap: 0; margin-top: 8px; }
     .nav strong { display: contents; }
     .intro {
       color: var(--font-color);
       filter: blur(.75px);
-      margin-top: 54px;
+      margin-top: 14px;
       mix-blend-mode: plus-darker;
       opacity: .6;
       transition: filter .6s var(--good-ease);
@@ -151,6 +152,20 @@
       transition: filter .6s var(--good-ease);
     }
     .twitter-tweet:hover { filter: blur(0); }
+    .tweet-glow {
+      isolation: isolate;
+      position: relative;
+    }
+    .tweet-glow::before {
+      background: rgba(17, 5, 99, .18);
+      border-radius: 50%;
+      content: "";
+      filter: blur(80px);
+      inset: 6% -24%;
+      pointer-events: none;
+      position: absolute;
+      z-index: -1;
+    }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
@@ -159,13 +174,16 @@
     <header class="identity">
       <div class="identity-card">
         <a href="/index.html"><h1 class="name">Gray <span class="lastname">Crawford</span></h1></a>
+        <p class="intro">designer * engineer * researcher * artist</p>
         <nav class="nav" aria-label="Primary navigation">
           <a href="https://twitter.com/graycrawford">tw</a>
           <a href="https://www.instagram.com/graycrawford/">ig</a>
-          <strong><a href="/cv.html" aria-current="page">cv</a></strong>
-          <a href="/thesis.html">thesis</a>
         </nav>
-        <p class="intro">designer * engineer * researcher * artist</p>
+        <nav class="nav-works" aria-label="Selected works">
+          <a href="/parhelion/src/">parhelion</a>
+          <a href="/engiscope/">engiscope</a>
+          <a href="https://graycrawford.com/orbital/">orbital</a>
+        </nav>
       </div>
     </header>
 
@@ -175,29 +193,46 @@
         <h3 class="group-title" id="y2026-product">Design + eng · Luma AI</h3>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Luma Agents</a><time class="date" datetime="2026-03-05">Mar</time></div>
+          <span class="details">Core design and engineering for agentic canvas.</span>
         </article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Latent Blend</a><time class="date" datetime="2026-03-05">Mar</time></div>
+          <span class="details">Directed research + training of custom in-house model for image embedding interpolation.</span>
         </article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-ray-3-2">Ray3.2 Modify</a><time class="date" datetime="2026-06-09">Jun</time></div>
+          <span class="details">Core design and engineering of production-class multi-keyframe video-to-video feature.</span>
         </article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://www.toolkitly.com/latest-updates/luma-ai">Timeline</a><time class="date" datetime="2026-06-20">Jun</time></div>
         </article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-luma-scenes">Luma Scenes</a><time class="date" datetime="2026-08-12">Aug</time></div>
+          <span class="details">Core design and engineering of autoregressive multi-keyframe storyboarding feature.</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2026-projects">
+        <h3 class="group-title" id="y2026-projects">Projects</h3>
+        <article class="entry">
+          <div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/2011518368013303933">Neophon</a><time class="date" datetime="2026-01-14">Jan</time></div>
+          <span class="details">Custom instrument for expressive generative music performance using Lyria Realtime, focused on responsive high-dimensional interpolation.</span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2026-live">
         <h3 class="group-title" id="y2026-live">Live</h3>
         <article class="entry">
+          <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2355085">Optia · Cirrus</a><time class="date" datetime="2026-01-31">Jan</time></div>
+          <span class="place">TIAT, SF</span>
+        </article>
+        <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://claude.com/code-with-claude">Neophon · Code with Claude</a><time class="date" datetime="2026-05-06">May</time></div>
           <span class="place">Anthropic developer conference</span>
+          <span class="details">Two 3hr improvised performances of realtime audio generation instrument.</span>
         </article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://clubtoclub.it/event/c2c-festival-nyc-2026/">Arca</a><time class="date" datetime="2026-05-08">May</time></div>
           <span class="place">C2C Festival, NY</span>
+          <span class="details">Realtime improvised streamDiffusion visuals.</span>
         </article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2315644">Moritz von Oswald &amp; Azu Tiwaline</a><time class="date" datetime="2026-05-14">May</time></div>
@@ -216,15 +251,22 @@
           <span class="place">Demos &amp; Chill, SF</span>
         </article>
       </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><a href="https://x.com/graycrawford/status/2011518368013303933"></a></blockquote>
+          <blockquote class="twitter-tweet" data-conversation="none"><a href="https://x.com/gopalkraman/status/2024235626162434373"></a></blockquote>
+        </div>
+      </section>
     </section>
 
     <section class="panel" aria-labelledby="y2025">
       <h2 class="year" id="y2025">2025</h2>
       <section class="group" aria-labelledby="y2025-product">
         <h3 class="group-title" id="y2025-product">Product design · Luma AI</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan</time></div></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan</time></div><span class="details">Model eval + finetuning data.</span></article>
         <article class="entry">
           <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-modify-video">Modify Video</a><time class="date" datetime="2025-06-02">Jun</time></div>
+          <span class="details">Core design of video-to-video feature.</span>
         </article>
         <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/ray3">Ray3</a><time class="date" datetime="2025-09-18">Sep</time></div></article>
       </section>
@@ -278,7 +320,9 @@
       </section>
       <section class="year-media" aria-label="Selected posts">
         <div class="tweet-cluster">
-          <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><a href="https://twitter.com/gopalkraman/status/1841647480238395513"></a></blockquote>
+          <div class="tweet-glow">
+            <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><a href="https://twitter.com/gopalkraman/status/1841647480238395513"></a></blockquote>
+          </div>
           <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1860524647021969900"></a></blockquote>
           <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1795891829566472318"></a></blockquote>
           <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1768336650231546049"></a></blockquote>
@@ -366,29 +410,23 @@
       </section>
     </section>
 
-    <section class="panel" aria-labelledby="y2020">
-      <h2 class="year" id="y2020">2020</h2>
-      <section class="year-media" aria-label="Selected posts">
-        <div class="tweet-cluster">
-          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1232766457521377281"></a></blockquote>
-        </div>
-      </section>
-    </section>
-
     <section class="panel" aria-labelledby="y2019">
       <h2 class="year" id="y2019">2019</h2>
       <section class="group" aria-labelledby="y2019-xoromancy">
         <h3 class="group-title" id="y2019-xoromancy">Exhibitions</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/">Xoromancy</a><time class="date" datetime="2019-02-22">Feb</time></div><span class="place">With Aman Tiwari, FRAME Gallery, Carnegie Mellon University</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/">Xoromancy</a><time class="date" datetime="2019-02-22">Feb</time></div><span class="place">With Nama Tiwari, FRAME Gallery, Carnegie Mellon University</span></article>
         <article class="entry"><div class="entry-head"><a class="entry-title" href="https://newyorklivearts.org/event/opening-reception-live-ideas-2019/">Xoromancy · Live Ideas</a><time class="date" datetime="2019-05-08">May</time></div><span class="place">New York Live Arts</span></article>
         <article class="entry"><div class="entry-head"><a class="entry-title" href="https://edas.info/web/2019ieeegem/papertitles.html">Xoromancy: Image Creation via Gestural Control of High-Dimensional Spaces</a><time class="date" datetime="2019-06-19">Jun</time></div><span class="place">IEEE Games, Entertainment &amp; Media, Yale University</span></article>
-        <article class="entry"><div class="entry-head"><span class="entry-title">Filament</span><time class="date" datetime="2019-09">Sep</time></div><span class="place">Oculus Connect 6, San Jose</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://twitter.com/graycrawford/status/1177142224615698434">Filament</a><time class="date" datetime="2019-09">Sep</time></div><span class="place">Oculus Connect 6, San Jose</span></article>
       </section>
       <section class="group" aria-labelledby="y2019-education">
         <h3 class="group-title" id="y2019-education">Education</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="/thesis.html">MDes in Design for Interactions</a><span class="date range">2017–19</span></div><span class="place">Carnegie Mellon University</span><span class="details"><a href="/thesis.html"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em></a>.</span></article>
+        <article class="entry"><div class="entry-head"><span class="entry-title">MDes in Design for Interactions</span><span class="date range">2017–19</span></div><span class="place">Carnegie Mellon University</span><span class="details">Masters thesis · <a href="/thesis.html"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em></a></span></article>
       </section>
       <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1232766457521377281"></a></blockquote>
+        </div>
         <div class="tweet-cluster">
           <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1100935327374626818"></a></blockquote>
         </div>

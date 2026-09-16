@@ -230,6 +230,7 @@ export class Model {
       coast: true,
       playing: false,
       springsEnabled: true,
+      restored: false,
       elapsed: 0,
       preset: "Interference",
       bank: [],
@@ -240,7 +241,10 @@ export class Model {
     if (restore) {
       try {
         let saved = JSON.parse(localStorage.getItem("orbital.session"));
-        if (saved) this.apply(saved);
+        if (saved) {
+          this.apply(saved);
+          this.restored = true;
+        }
         this.bank = JSON.parse(localStorage.getItem("orbital.bank") || "[]");
       } catch {}
     }

@@ -6,6 +6,14 @@ const model = new Model({
     restore: !location.search.includes("test"),
   }),
   canvas = document.querySelector("canvas");
+const builtins = await (await fetch("./assets/presets.json")).json();
+model.bank.unshift(...builtins);
+if (!model.restored && !location.search.includes("test")) {
+  const defaultPreset = [...builtins]
+    .reverse()
+    .find((preset) => preset.name === "tri");
+  if (defaultPreset) model.apply(defaultPreset);
+}
 function resize() {
   canvas.width = Math.round(innerWidth * devicePixelRatio);
   canvas.height = Math.round(innerHeight * devicePixelRatio);
@@ -13,7 +21,6 @@ function resize() {
 resize();
 addEventListener("resize", resize);
 const ui = new UI(model);
-model.bank.unshift(...(await (await fetch("./assets/presets.json")).json()));
 try {
   let renderer = await Renderer.create(canvas, {
     manualFiltering: location.search.includes("manualFiltering"),
