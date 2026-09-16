@@ -43,7 +43,7 @@
     }
     .cv::-webkit-scrollbar, .panel::-webkit-scrollbar { display: none; }
     .identity, .panel {
-      flex: 0 0 390px;
+      flex: 0 0 312px;
       padding: 28px 20px 60px;
       scrollbar-width: none;
     }
@@ -51,7 +51,6 @@
       align-self: flex-start;
       background: transparent;
       flex-basis: 220px;
-      isolation: isolate;
       left: 0;
       min-height: 100vh;
       padding-left: 28px;
@@ -59,14 +58,20 @@
       top: 0;
       z-index: 2;
     }
-    .identity::before {
+    .identity-card {
+      isolation: isolate;
+      position: relative;
+    }
+    .identity-card::before {
       -webkit-backdrop-filter: blur(18px);
-      -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 48%, rgba(0, 0, 0, .94) 62%, rgba(0, 0, 0, .72) 76%, rgba(0, 0, 0, .32) 90%, transparent 100%);
+      -webkit-mask-composite: source-in;
+      -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 48%, rgba(0, 0, 0, .94) 62%, rgba(0, 0, 0, .72) 76%, rgba(0, 0, 0, .32) 90%, transparent 100%), linear-gradient(180deg, #000 0%, #000 66%, rgba(0, 0, 0, .94) 76%, rgba(0, 0, 0, .72) 86%, rgba(0, 0, 0, .32) 95%, transparent 100%);
       backdrop-filter: blur(18px);
       background: rgba(255, 255, 255, .42);
       content: "";
-      inset: 0 -48px 0 0;
-      mask-image: linear-gradient(90deg, #000 0%, #000 48%, rgba(0, 0, 0, .94) 62%, rgba(0, 0, 0, .72) 76%, rgba(0, 0, 0, .32) 90%, transparent 100%);
+      inset: -28px -80px -50px -28px;
+      mask-composite: intersect;
+      mask-image: linear-gradient(90deg, #000 0%, #000 48%, rgba(0, 0, 0, .94) 62%, rgba(0, 0, 0, .72) 76%, rgba(0, 0, 0, .32) 90%, transparent 100%), linear-gradient(180deg, #000 0%, #000 66%, rgba(0, 0, 0, .94) 76%, rgba(0, 0, 0, .72) 86%, rgba(0, 0, 0, .32) 95%, transparent 100%);
       pointer-events: none;
       position: absolute;
       z-index: -1;
@@ -95,7 +100,6 @@
       transition: filter .6s var(--good-ease);
     }
     .intro:hover { filter: blur(1.4px); }
-    .panel::before { content: ""; display: block; height: 12px; }
     .year { margin-bottom: 31px; }
     .group + .group { margin-top: 34px; }
     .group-title {
@@ -137,72 +141,79 @@
     .place { margin-top: 2px; }
     .details { font-size: .84rem; margin-top: 4px; opacity: .72; }
     .range { font-variant-numeric: tabular-nums; opacity: .55; }
-    @media (max-width: 700px) {
-      .cv { display: block; height: auto; overflow: visible; padding: 0 24px 60px; }
-      .identity, .panel { height: auto; overflow: visible; padding: 28px 0 36px; width: 100%; }
-      .identity { min-height: 0; position: static; }
-      .identity::before { display: none; }
-      .intro { max-width: 32rem; }
-      .year { margin-bottom: 26px; }
+    .year-media { margin-top: 44px; }
+    .year + .year-media { margin-top: 0; }
+    .tweet-cluster + .tweet-cluster { margin-top: 44px; }
+    .twitter-tweet {
+      filter: blur(3px);
+      margin: 20px 0 !important;
+      max-width: 100% !important;
+      transition: filter .6s var(--good-ease);
     }
+    .twitter-tweet:hover { filter: blur(0); }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body>
   <main class="cv">
     <header class="identity">
-      <a href="/index.html"><h1 class="name">Gray <span class="lastname">Crawford</span></h1></a>
-      <nav class="nav" aria-label="Primary navigation">
-        <a href="https://twitter.com/graycrawford">tw</a>
-        <a href="https://www.instagram.com/graycrawford/">ig</a>
-        <strong><a href="/cv.html" aria-current="page">cv</a></strong>
-        <a href="/thesis.html">thesis</a>
-      </nav>
-      <p class="intro">designer * engineer * researcher * artist</p>
+      <div class="identity-card">
+        <a href="/index.html"><h1 class="name">Gray <span class="lastname">Crawford</span></h1></a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="https://twitter.com/graycrawford">tw</a>
+          <a href="https://www.instagram.com/graycrawford/">ig</a>
+          <strong><a href="/cv.html" aria-current="page">cv</a></strong>
+          <a href="/thesis.html">thesis</a>
+        </nav>
+        <p class="intro">designer * engineer * researcher * artist</p>
+      </div>
     </header>
 
     <section class="panel" aria-labelledby="y2026">
       <h2 class="year" id="y2026">2026</h2>
       <section class="group" aria-labelledby="y2026-product">
-        <h3 class="group-title" id="y2026-product">Product design + engineering · Luma AI</h3>
+        <h3 class="group-title" id="y2026-product">Design + eng · Luma AI</h3>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Luma Agents</a><time class="date" datetime="2026-03-05">Mar 5</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Luma Agents</a><time class="date" datetime="2026-03-05">Mar</time></div>
         </article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-ray-3-2">Ray3.2 Modify</a><time class="date" datetime="2026-06-09">Jun 9</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Latent Blend</a><time class="date" datetime="2026-03-05">Mar</time></div>
         </article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://www.toolkitly.com/latest-updates/luma-ai">Timeline</a><time class="date" datetime="2026-06-20">Jun 20</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-ray-3-2">Ray3.2 Modify</a><time class="date" datetime="2026-06-09">Jun</time></div>
         </article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-luma-scenes">Luma Scenes</a><time class="date" datetime="2026-08-12">Aug 12</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://www.toolkitly.com/latest-updates/luma-ai">Timeline</a><time class="date" datetime="2026-06-20">Jun</time></div>
+        </article>
+        <article class="entry">
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-luma-scenes">Luma Scenes</a><time class="date" datetime="2026-08-12">Aug</time></div>
         </article>
       </section>
       <section class="group" aria-labelledby="y2026-live">
         <h3 class="group-title" id="y2026-live">Live</h3>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://claude.com/code-with-claude">Neophon · Code with Claude</a><time class="date" datetime="2026-05-06">May 6–7</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://claude.com/code-with-claude">Neophon · Code with Claude</a><time class="date" datetime="2026-05-06">May</time></div>
           <span class="place">Anthropic developer conference</span>
         </article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://clubtoclub.it/event/c2c-festival-nyc-2026/">Arca</a><time class="date" datetime="2026-05-08">May 8</time></div>
-          <span class="place">C2C Festival, New York</span>
+          <div class="entry-head"><a class="entry-title" href="https://clubtoclub.it/event/c2c-festival-nyc-2026/">Arca</a><time class="date" datetime="2026-05-08">May</time></div>
+          <span class="place">C2C Festival, NY</span>
         </article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2315644">Moritz von Oswald &amp; Azu Tiwaline</a><time class="date" datetime="2026-05-14">May 14</time></div>
-          <span class="place">Parameter, Gray Area, San Francisco</span>
-          <span class="details">Joint visuals with Subset.</span>
+          <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2315644">Moritz von Oswald &amp; Azu Tiwaline</a><time class="date" datetime="2026-05-14">May</time></div>
+          <span class="place">Parameter, Gray Area, SF</span>
+          <span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2026-talks">
         <h3 class="group-title" id="y2026-talks">Talks</h3>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/2024235626162434373">Neophon</a><time class="date" datetime="2026-02-12">Feb 12</time></div>
-          <span class="place">South Park Commons Demo Night, San Francisco</span>
+          <div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/2024235626162434373">Neophon</a><time class="date" datetime="2026-02-12">Feb</time></div>
+          <span class="place">South Park Commons Demo Night, SF</span>
         </article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://demos.club/">Generating New Sounds with Neophon</a><span class="date">D&amp;C #15</span></div>
-          <span class="place">Demos &amp; Chill, San Francisco</span>
+          <div class="entry-head"><a class="entry-title" href="https://demos.club/">Generating New Sounds with Neophon</a><time class="date" datetime="2026-01-15">Jan</time></div>
+          <span class="place">Demos &amp; Chill, SF</span>
         </article>
       </section>
     </section>
@@ -210,50 +221,83 @@
     <section class="panel" aria-labelledby="y2025">
       <h2 class="year" id="y2025">2025</h2>
       <section class="group" aria-labelledby="y2025-product">
-        <h3 class="group-title" id="y2025-product">Product · Luma AI</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan 15</time></div></article>
+        <h3 class="group-title" id="y2025-product">Product design · Luma AI</h3>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan</time></div></article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-modify-video">Modify Video</a><time class="date" datetime="2025-06-02">Jun 2</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-modify-video">Modify Video</a><time class="date" datetime="2025-06-02">Jun</time></div>
         </article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/ray3">Ray3</a><time class="date" datetime="2025-09-18">Sep 18</time></div></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/ray3">Ray3</a><time class="date" datetime="2025-09-18">Sep</time></div></article>
       </section>
       <section class="group" aria-labelledby="y2025-live">
         <h3 class="group-title" id="y2025-live">Live</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2245890">Arca</a><time class="date" datetime="2025-09-06">Sep 6</time></div><span class="place">Palomosa Festival, Montréal</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.flaunt.com/post/portola-festival-2025">Arca</a><time class="date" datetime="2025-09-21">Sep 21</time></div><span class="place">Portola Festival, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.instagram.com/reel/DQQhlPsAPJS/">Arca</a><time class="date" datetime="2025-10-25">Oct 25</time></div><span class="place">Heineken No LineUp Festival, São Paulo</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2245890">Arca</a><time class="date" datetime="2025-09-06">Sep</time></div><span class="place">Palomosa Festival, Montréal</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.flaunt.com/post/portola-festival-2025">Arca</a><time class="date" datetime="2025-09-21">Sep</time></div><span class="place">Portola Festival, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.instagram.com/reel/DQQhlPsAPJS/">Arca</a><time class="date" datetime="2025-10-25">Oct</time></div><span class="place">Heineken No LineUp Festival, São Paulo</span></article>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://grayarea.org/event/recombinant-festival-2025-network-editions/">Hesaitix</a><time class="date" datetime="2025-12-05">Dec 5</time></div>
-          <span class="place">Recombinant Festival, Gray Area, San Francisco</span><span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
+          <div class="entry-head"><a class="entry-title" href="https://grayarea.org/event/recombinant-festival-2025-network-editions/">Hesaitix</a><time class="date" datetime="2025-12-05">Dec</time></div>
+          <span class="place">Recombinant Festival, Gray Area, SF</span><span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2025-talks">
         <h3 class="group-title" id="y2025-talks">Talks</h3>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Latent Space Image Variation</a><time class="date" datetime="2025-02-23">Feb 23</time></div>
-          <span class="place">TIAT #10, Internet Archive, San Francisco</span>
+          <div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Latent Space Image Variation</a><time class="date" datetime="2025-02-23">Feb</time></div>
+          <span class="place">TIAT #10, Internet Archive, SF</span>
         </article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1910414274855657726"></a></blockquote>
+          <blockquote class="twitter-tweet" data-media-max-width="560"><a href="https://twitter.com/graycrawford/status/1930318575694426202"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1910421562542743690"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1890844353716994469"></a></blockquote>
+        </div>
       </section>
     </section>
 
     <section class="panel" aria-labelledby="y2024">
       <h2 class="year" id="y2024">2024</h2>
       <section class="group" aria-labelledby="y2024-product">
-        <h3 class="group-title" id="y2024-product">Product · Luma AI</h3>
+        <h3 class="group-title" id="y2024-product">Product design · Luma AI</h3>
         <article class="entry">
-          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/welcome-to-the-all-new-dream-machine">Dream Machine</a><time class="date" datetime="2024-11-20">Nov 20</time></div>
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/welcome-to-the-all-new-dream-machine">Dream Machine</a><time class="date" datetime="2024-11-20">Nov</time></div>
         </article>
       </section>
       <section class="group" aria-labelledby="y2024-live">
         <h3 class="group-title" id="y2024-live">Live</h3>
-        <article class="entry"><div class="entry-head"><span class="entry-title">Optia · Hexcode Halloween Algorave</span><time class="date" datetime="2024-10-31">Oct 31</time></div><span class="place">Gray Area, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2035300">Optia · HydeFM × The Lab</a><time class="date" datetime="2024-11-08">Nov 8</time></div><span class="place">The Lab, San Francisco</span><span class="details">With Croatian Amor and ZZ/Elias.</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://cap.ucla.edu/event/live-night">Arca</a><time class="date" datetime="2024-12-07">Dec 7</time></div><span class="place">CAP UCLA / REDCAT Live Night, Los Angeles</span><span class="details">Realtime visuals with Carlos Sáez.</span></article>
+        <article class="entry"><div class="entry-head"><span class="entry-title">Optia · Hexcode Halloween Algorave</span><time class="date" datetime="2024-10-31">Oct</time></div><span class="place">Gray Area, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2035300">Optia · HydeFM × The Lab</a><time class="date" datetime="2024-11-08">Nov</time></div><span class="place">The Lab, SF</span><span class="details">With Croatian Amor and ZZ/Elias.</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://cap.ucla.edu/event/live-night">Arca</a><time class="date" datetime="2024-12-07">Dec</time></div><span class="place">CAP UCLA / REDCAT Live Night, LA</span><span class="details">Realtime improvised streamDiffusion visuals alongside Carlos Sáez.</span></article>
       </section>
       <section class="group" aria-labelledby="y2024-talks">
         <h3 class="group-title" id="y2024-talks">Talks</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Envisioning Generative OSs</a><span class="date">D&amp;C #7</span></div><span class="place">Demos &amp; Chill, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/1841647480238395513">New Behaviors</a><time class="date" datetime="2024-10-01">Oct 1</time></div><span class="place">South Park Commons Demo Night, San Francisco</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Envisioning Generative OSs</a><time class="date" datetime="2024-02-22">Feb</time></div><span class="place">Demos &amp; Chill, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/1841647480238395513">New Behaviors</a><time class="date" datetime="2024-10-01">Oct</time></div><span class="place">South Park Commons Demo Night, SF</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><a href="https://twitter.com/gopalkraman/status/1841647480238395513"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1860524647021969900"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1795891829566472318"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1768336650231546049"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1820827755598184729"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1828485425041940743"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1803547762287583647"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1799553927001882771"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1820550097425559756"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1819805456170397707"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1799998589105746327"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1811921270151483578"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1750225562281632048"></a></blockquote>
+        </div>
       </section>
     </section>
 
@@ -261,18 +305,33 @@
       <h2 class="year" id="y2023">2023</h2>
       <section class="group" aria-labelledby="y2023-talks">
         <h3 class="group-title" id="y2023-talks">Talks</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces</a><span class="date">D&amp;C #1</span></div><span class="place">Demos &amp; Chill, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://luma.com/jokxud96">Growing Branches through Latent Space</a><time class="date" datetime="2023-03-25">Mar 25</time></div><span class="place">Show &amp; Tell: AI &amp; Design, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces 2</a><span class="date">D&amp;C #5</span></div><span class="place">Demos &amp; Chill, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Wide Views</a><span class="date">TIAT #2</span></div><span class="place">San Francisco</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces</a><time class="date" datetime="2023-02-10">Feb</time></div><span class="place">Demos &amp; Chill, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://luma.com/jokxud96">Growing Branches through Latent Space</a><time class="date" datetime="2023-03-25">Mar</time></div><span class="place">Show &amp; Tell: AI &amp; Design, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces 2</a><time class="date" datetime="2023-10-02">Oct</time></div><span class="place">Demos &amp; Chill, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Wide Views</a><span class="date">TIAT #2</span></div><span class="place">SF</span></article>
       </section>
       <section class="group" aria-labelledby="y2023-projects">
         <h3 class="group-title" id="y2023-projects">Projects</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/1732562172411363591">Waft Locomotion</a><time class="date" datetime="2023">2023</time></div><span class="place">Ultraleap</span><span class="details">Velocity-based hand locomotion for spatial computing.</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/1732562172411363591">Waft Locomotion</a><time class="date" datetime="2023-04">Apr</time></div><span class="place">Ultraleap</span><span class="details">Velocity-based hand locomotion for spatial computing.</span></article>
       </section>
       <section class="group" aria-labelledby="y2023-experience">
         <h3 class="group-title" id="y2023-experience">Experience</h3>
         <article class="entry"><div class="entry-head"><span class="entry-title">Interaction Design Engineer</span><span class="date range">2019–23</span></div><span class="place">Ultraleap</span><span class="details">Spatial interaction prototyping in Tracking and Interaction R&amp;D.</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1729248497143259409"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1734737530606825599"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1741538324819652736"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1624731336702566402"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1732562172411363591"></a></blockquote>
+        </div>
       </section>
     </section>
 
@@ -280,8 +339,39 @@
       <h2 class="year" id="y2022">2022</h2>
       <section class="group" aria-labelledby="y2022-live">
         <h3 class="group-title" id="y2022-live">Live</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.youtube.com/watch?v=mPxf5x9wMAY">Optia · Hexcode Halloween Algorave</a><time class="date" datetime="2022-10-27">Oct 27</time></div><span class="place">Gray Area, San Francisco</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.devonstern.com/art/lake-party">Throw Your Phone into a Lake · New Nostalgia</a></div><span class="place">Four One Nine, San Francisco</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.youtube.com/watch?v=mPxf5x9wMAY">Optia · Hexcode Halloween Algorave</a><time class="date" datetime="2022-10-27">Oct</time></div><span class="place">Gray Area, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.devonstern.com/art/lake-party">Throw Your Phone into a Lake 2 · New Nostalgia</a><time class="date" datetime="2022-11">Nov</time></div><span class="place">Four One Nine, SF</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1536543460534013952"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1559349301104365570"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1600921304453959680"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1600922629086453760"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2021">
+      <h2 class="year" id="y2021">2021</h2>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1437134825836531712"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1400884788718825474"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2020">
+      <h2 class="year" id="y2020">2020</h2>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1232766457521377281"></a></blockquote>
+        </div>
       </section>
     </section>
 
@@ -289,14 +379,22 @@
       <h2 class="year" id="y2019">2019</h2>
       <section class="group" aria-labelledby="y2019-xoromancy">
         <h3 class="group-title" id="y2019-xoromancy">Exhibitions</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/">Xoromancy</a><time class="date" datetime="2019-02-22">Feb 22–24</time></div><span class="place">With Aman Tiwari, FRAME Gallery, Carnegie Mellon University</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://newyorklivearts.org/event/opening-reception-live-ideas-2019/">Xoromancy · Live Ideas</a><time class="date" datetime="2019-05-08">May 8–22</time></div><span class="place">New York Live Arts</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://edas.info/web/2019ieeegem/papertitles.html">Xoromancy: Image Creation via Gestural Control of High-Dimensional Spaces</a><time class="date" datetime="2019-06-19">Jun 19–22</time></div><span class="place">IEEE Games, Entertainment &amp; Media, Yale University</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/">Xoromancy</a><time class="date" datetime="2019-02-22">Feb</time></div><span class="place">With Aman Tiwari, FRAME Gallery, Carnegie Mellon University</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://newyorklivearts.org/event/opening-reception-live-ideas-2019/">Xoromancy · Live Ideas</a><time class="date" datetime="2019-05-08">May</time></div><span class="place">New York Live Arts</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://edas.info/web/2019ieeegem/papertitles.html">Xoromancy: Image Creation via Gestural Control of High-Dimensional Spaces</a><time class="date" datetime="2019-06-19">Jun</time></div><span class="place">IEEE Games, Entertainment &amp; Media, Yale University</span></article>
         <article class="entry"><div class="entry-head"><span class="entry-title">Filament</span><time class="date" datetime="2019-09">Sep</time></div><span class="place">Oculus Connect 6, San Jose</span></article>
       </section>
       <section class="group" aria-labelledby="y2019-education">
         <h3 class="group-title" id="y2019-education">Education</h3>
         <article class="entry"><div class="entry-head"><a class="entry-title" href="/thesis.html">MDes in Design for Interactions</a><span class="date range">2017–19</span></div><span class="place">Carnegie Mellon University</span><span class="details"><a href="/thesis.html"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em></a>.</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1100935327374626818"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1177142224615698434"></a></blockquote>
+        </div>
       </section>
     </section>
 
@@ -304,12 +402,12 @@
       <h2 class="year" id="y2018">2018</h2>
       <section class="group" aria-labelledby="y2018-work">
         <h3 class="group-title" id="y2018-work">Projects</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ideate.cmu.edu/news-and-announcements/2018/December/subsurface-festival.html">PROP → Mach 1</a><time class="date" datetime="2018-12-01">Dec 1</time></div><span class="place">SubSurface, Brady’s Bend limestone mine, Pennsylvania</span><span class="details">Sound propagation synchronized with a tunnel-length chain of lights.</span></article>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/992961382705491968">STRATA</a><time class="date" datetime="2018">2018</time></div><span class="place">VR cloth physics instrument</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ideate.cmu.edu/news-and-announcements/2018/December/subsurface-festival.html">PROP → Mach 1</a><time class="date" datetime="2018-12-01">Dec</time></div><span class="place">SubSurface, Brady’s Bend limestone mine, Pennsylvania</span><span class="details">Sound propagation synchronized with a tunnel-length chain of lights.</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/992961382705491968">STRATA</a><time class="date" datetime="2018-03">Mar</time></div><span class="place">VR cloth physics instrument</span></article>
       </section>
       <section class="group" aria-labelledby="y2018-experience">
         <h3 class="group-title" id="y2018-experience">Work</h3>
-        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/1044793820972339200">AR Design Prototyping Intern</a><time class="date" datetime="2018">2018</time></div><span class="place">NASA Jet Propulsion Laboratory</span><span class="details">Bimanual hand-anchored interfaces for ProtoSpace; Leap Motion tracking for HoloLens.</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/1044793820972339200">AR Design Prototyping Intern</a><span class="date">Summer</span></div><span class="place">NASA Jet Propulsion Laboratory</span><span class="details">Bimanual hand-anchored interfaces for ProtoSpace; Leap Motion tracking for HoloLens.</span></article>
       </section>
     </section>
 
@@ -322,5 +420,6 @@
       </section>
     </section>
   </main>
+  <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 </body>
 </html>
