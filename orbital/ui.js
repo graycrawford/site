@@ -875,7 +875,7 @@ export class UI {
         if (!Array.isArray(data)) data = [data];
         if (!data.every((p) => this.validPreset(p)))
           throw Error("Invalid Orbital preset file");
-        m.bank.push(...data.filter((p) => !m.bank.some((q) => q.id === p.id)));
+        m.importPresets(data);
         m.save();
         this.bank();
       } catch (e) {

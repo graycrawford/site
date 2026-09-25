@@ -201,6 +201,20 @@ export const defaults = {
   densitySoftness: 0.3,
   densityPivot: -3,
 };
+// Preset schema 1: frozen cross-platform fallbacks, independent of launch defaults.
+export const renderFallbacksV1 = {
+  bounce: 0.6, dotMode: 0, grainResolution: 192, lightResolution: 128,
+  showFPS: 0, volumeGain: 1, dotsGain: 0, dotSize: 2.2, orthographic: 0,
+  zoom: 1.05, exposure: 2.1, density: 0.8, cut: 1, thickness: 0.08,
+  azimuth: 0.5, elevation: 0.5, intensity: 1, ambient: 0.15,
+  anisotropy: 0.35, reach: 2, jitter: 1, dispersion: 0.8, hue: 0,
+  phaseTint: 0, transferEnabled: 0, densityExponent: 1, densityLow: -12,
+  densityHigh: 0, densitySoftness: 0.3, densityPivot: -3,
+};
+export function resolvedRenderValues(values) {
+  return Object.fromEntries(Object.entries(renderFallbacksV1).map(([k, v]) =>
+    [k, Number.isFinite(values[k]) ? values[k] : v]));
+}
 export function state(n, l, m, amplitude = Math.SQRT1_2, phase = 0) {
   return {
     id: globalThis.crypto?.randomUUID?.() || Math.random().toString(),
@@ -241,10 +255,7 @@ export class Model {
     if (restore) {
       try {
         let saved = JSON.parse(localStorage.getItem("orbital.session"));
-        if (saved) {
-          this.apply(saved);
-          this.restored = true;
-        }
+        if (saved) { this.apply(saved); this.restored = true; }
         this.bank = JSON.parse(localStorage.getItem("orbital.bank") || "[]");
       } catch {}
     }
@@ -422,11 +433,12 @@ export class Model {
       id: crypto.randomUUID(),
       name,
       scope,
+      schemaVersion: 1,
       createdAt: Date.now() / 1000 - 978307200,
     };
     if (scope === "session" || scope === "look")
       p.render = {
-        values: { ...this.values },
+        values: resolvedRenderValues(this.values),
         style: this.style,
         section: this.sectionMode,
         phaseFunction: this.phaseFunction,
@@ -459,18 +471,7 @@ export class Model {
     if (p.field && p.field !== "hydrogen") return;
     if ((part === "look" || part === "session") && p.render) {
       let r = p.render;
-      for (let k of [
-        "transferEnabled",
-        "densityExponent",
-        "densityLow",
-        "densityHigh",
-        "densitySoftness",
-        "densityPivot",
-      ])
-        this.values[k] = r.values[k] ?? defaults[k];
-      for (let [k, v] of Object.entries(r.values))
-        if (Object.hasOwn(defaults, k) && Number.isFinite(v))
-          this.values[k] = v;
+      Object.assign(this.values, resolvedRenderValues(r.values));
       Object.assign(this, {
         style: r.style,
         sectionMode: r.section,
@@ -506,6 +507,18 @@ export class Model {
     }
     this.values.exposure = Math.max(1, this.values.exposure);
     this.preset = p.name;
+  }
+  importPresets(presets) {
+    for (const preset of presets) {
+      const item = { ...structuredClone(preset), builtin: false };
+      const index = this.bank.findIndex(p => p.id === item.id);
+      if (index < 0) this.bank.push(item);
+      else this.bank[index] = item;
+    }
+  }
+  addBuiltins(presets) {
+    const ids = new Set(this.bank.map(p => p.id));
+    this.bank.unshift(...presets.filter(p => !ids.has(p.id)));
   }
   save() {
     try {

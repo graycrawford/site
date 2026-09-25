@@ -7,7 +7,7 @@ const model = new Model({
   }),
   canvas = document.querySelector("canvas");
 const builtins = await (await fetch("./assets/presets.json")).json();
-model.bank.unshift(...builtins);
+model.addBuiltins(builtins);
 if (!model.restored && !location.search.includes("test")) {
   const defaultPreset = [...builtins]
     .reverse()
