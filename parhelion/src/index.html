@@ -12,7 +12,7 @@
         background-color: #000;
         font-family: sans-serif;
       }
-      canvas {
+      body > canvas {
         display: block;
         position: fixed;
         inset: 0;
@@ -306,6 +306,49 @@
       .pad-label { top: 7px; left: 9px; line-height: 12px; }
       .dot-label { bottom: 40px; }
       .corner-label { right: 26px; top: 50%; transform: translateY(-50%); }
+
+      /* Preset grid: live thumbnails floating above the pad */
+      #preset-grid {
+        position: absolute;
+        left: 20px;
+        bottom: 150px;
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+        display: none;
+        grid-template-columns: repeat(auto-fill, 132px);
+        gap: 6px;
+        width: min(700px, calc(100vw - 40px));
+        z-index: 1100;
+        scrollbar-width: none;
+      }
+      #preset-grid.open { display: grid; }
+      .preset-tile {
+        position: relative;
+        border-radius: 6px;
+        overflow: hidden;
+        cursor: pointer;
+        background: #000;
+      }
+      .preset-tile canvas { display: block; opacity: 0.75; transition: opacity 0.15s; }
+      .preset-tile:hover canvas, .preset-tile.current canvas { opacity: 1; }
+      .preset-tile span, .preset-tile b {
+        position: absolute;
+        font: 10px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        color: rgba(255, 255, 255, 0.4);
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .preset-tile span { left: 6px; bottom: 5px; }
+      .preset-tile b { right: 6px; top: 3px; font-weight: normal; }
+      .preset-tile:hover span, .preset-tile:hover b { opacity: 1; }
+      .preset-tile.add {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.28);
+        font: 20px -apple-system, BlinkMacSystemFont, sans-serif;
+        background: rgba(255, 255, 255, 0.05);
+      }
 
       /* Look-away toggle: a filled sun, a ring while facing away */
       #look-away {

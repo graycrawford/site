@@ -33,7 +33,15 @@ export class Renderer {
     return renderer;
   }
 
-  constructor(canvas, device) {
+  // A second renderer on the same device (e.g. preset thumbnails on an
+  // OffscreenCanvas). It borrows the main renderer's drop tables.
+  static async createShared(main, canvas) {
+    const r = new Renderer(canvas, main.device, { mie: false, mieBuffer: main.mieBuffer });
+    await r.init();
+    return r;
+  }
+
+  constructor(canvas, device, { mie = true, mieBuffer = null } = {}) {
     this.canvas = canvas;
     this.device = device;
     this.context = canvas.getContext('webgpu');
@@ -52,14 +60,14 @@ export class Renderer {
     this.haloT = device.createBuffer({ size: HALO_T_BINS * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
     this.msKey = '';
     // Wave-optical drops: tables arrive from workers; until then they're skipped.
-    this.mieBuffer = device.createBuffer({ size: MIE_ENTRIES * (2 * MIE_ANGLES + 1) * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.mieBuffer = mieBuffer ?? device.createBuffer({ size: MIE_ENTRIES * (2 * MIE_ANGLES + 1) * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.mieReady = false;
     this.mieScale = 1;
-    this.mie = new MieTables(data => {
+    this.mie = mie ? new MieTables(data => {
       device.queue.writeBuffer(this.mieBuffer, 0, data);
       this.mieReady = true;
       this.onMieReady?.();
-    });
+    }) : null;
     this.skyBands = this.storage(skyBands());
     this.skyLut = device.createBuffer({ size: (SKY_W * SKY_H + 1) * 16, usage: GPUBufferUsage.STORAGE });
     this.skyKey = '';

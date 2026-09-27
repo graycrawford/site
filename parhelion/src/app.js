@@ -7,6 +7,7 @@ import { TYPE_KEYS, haloAngle, iorFromHaloAngle } from './optics.js';
 import { Spring } from './spring.js';
 import { MIE_MAX_RADIUS } from './mie.js';
 import { makeLabels } from './labels.js';
+import { PresetGrid } from './preset-grid.js';
 
 // Rays in the rest mean before tracing stops (~17 billion: faint multi-bounce
 // arcs get a few hundred rays per pixel), or this many frames on slow GPUs.
@@ -312,8 +313,10 @@ export function start(renderer) {
     picker.addEventListener('mousedown', e => e.stopPropagation());
     presetToggle.addEventListener('click', e => {
       e.stopPropagation();
-      try { picker.showPicker(); } catch { picker.focus(); picker.click(); }
+      grid.toggle();
     });
+    presetToggle.addEventListener('pointerdown', e => e.stopPropagation());
+    picker.style.display = 'none'; // the grid replaces the native menu
   }
 
   // --- Look away: turn to face the antisolar point (button or F) ---
@@ -412,13 +415,49 @@ export function start(renderer) {
   let mieTimer = 0;
   const scheduleMie = () => { clearTimeout(mieTimer); mieTimer = setTimeout(requestMie, 200); };
 
+  const shapeFor = c => ({
+    randomAspect: 1, plateAspect: c.plateAspect, columnAspect: c.columnAspect,
+    pyramidPrism: 0.5, pyramidCap: 0.6, tumble: c.tumble, triangularity: c.triangularity,
+    dropMie: c.dropRadius <= MIE_MAX_RADIUS,
+  });
+  // A preset's full config (missing keys at their defaults).
+  const presetConfig = p => {
+    const c = { ...CONFIG, ...PRESET_DEFAULTS };
+    for (const k of PRESET_KEYS) if (p[k] !== undefined) c[k] = p[k];
+    for (const k of TYPE_KEYS) c[k] = p.types.includes(k.slice(6).toLowerCase());
+    return c;
+  };
+  // Everything the renderer needs, straight from a config (no springs).
+  function stateFor(c) {
+    const level = c.skyLevel;
+    return {
+      sunElevation: c.sunElevation, camElevation: c.camElevation, camYaw: c.lookAway ? 180 : 0,
+      crystalTilt: c.crystalTilt, polyhedralSpin: c.polyhedralSpin, ior: c.ior, zoom: c.zoom, lowitzSpin: c.lowitzSpin,
+      diffraction: c.crystalSize > 0 ? 1 / c.crystalSize : 0, dropRadius: c.dropRadius, dropSpread: c.dropSpread,
+      typeWeights: TYPE_KEYS.map(k => (c[k] ? 1 : 0)),
+      exposure: c.exposure, saturation: c.saturation, headroom: 1, sunDisk: c.sunDisk, lift: 1 / (1 + 2 * c.shadows),
+      sky: level > 1e-3, skyScale: Math.min(1, level / 0.04) / 10 ** (-2 * level),
+      altitude: c.altitude, albedo: c.albedo, haze: c.haze, cloudHeight: c.cloudHeight, cloudLayer: c.cloudLayer,
+      showSun: c.showSun, ground: GROUNDS.indexOf(c.ground), sizeSpread: c.sizeSpread,
+      tiltScale: [c.tiltPlate, c.tiltColumn, c.tiltParry, c.tiltLowitz, c.tiltPolyhedral],
+    };
+  }
+  const grid = new PresetGrid({
+    main: renderer,
+    presets: allPresets,
+    saved: () => Object.keys(savedPresets()),
+    current: () => CONFIG.preset,
+    stateFor: p => stateFor(presetConfig(p)),
+    shapeFor: p => shapeFor(presetConfig(p)),
+    onPick: name => { loadPreset(name); fillPicker(); },
+    onSave: () => { saveCurrent(); fillPicker(); },
+    onRemove: name => { if (CONFIG.preset === name) removeCurrent(); else removePreset(name); fillPicker(); },
+  });
+
   function applyShape() {
     requestMie();
-    renderer.setCrystals({
-      randomAspect: 1, plateAspect: CONFIG.plateAspect, columnAspect: CONFIG.columnAspect,
-      pyramidPrism: 0.5, pyramidCap: 0.6, tumble: CONFIG.tumble, triangularity: CONFIG.triangularity,
-      dropMie: (dropWave = CONFIG.dropRadius <= MIE_MAX_RADIUS),
-    });
+    renderer.setCrystals(shapeFor(CONFIG));
+    dropWave = CONFIG.dropRadius <= MIE_MAX_RADIUS;
     shapeDirty = false;
   }
   applyShape();
