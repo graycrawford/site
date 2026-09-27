@@ -1,11 +1,9 @@
 // Lorenz–Mie scattering by homogeneous spheres (Bohren & Huffman's BHMIE, in
 // float64). Exact for any size and index: diffraction (corona), the bows with
-// their supernumeraries, fogbows and the glory all fall out of one sum. The
-// phase function is averaged over a lognormal size distribution and tabulated
-// per wavelength on an angle grid that is fine where the structure is fine.
+// their supernumeraries, fogbows and the glory all fall out of one sum. Here
+// it builds the proposal table the GPU samples angles from; the GPU then
+// weights each ray by the exact series for its own drop (shaders.js).
 
-export const MIE_BANDS = 31; // 400–700 nm every 10 nm
-export const bandLambda = b => 400 + 10 * b;
 
 // Scattering angle grid (degrees): 0.005° steps to 5° (corona, aureole), then
 // 0.05° to 180°. Index <-> angle is closed-form so the GPU can look it up.
@@ -89,4 +87,30 @@ export function phaseFunction(lambdaNm, m, r0, sigma, nodes = 12) {
   });
   for (let i = 0; i < MIE_ANGLES; i++) out[i] /= csca; // ∫ p dΩ = 1
   return out;
+}
+
+// --- Size-parameter table ----------------------------------------------------
+// For a given index m the phase function depends on radius and wavelength only
+// through x = 2πr/λ. So one table over x (log-spaced) and a few m nodes
+// (spanning water's dispersion) serves every radius, spread and wavelength;
+// drop sizes are then drawn per ray on the GPU, at full frame rate.
+export const MIE_X0 = 5; // r ≈ 0.3 µm at 400 nm
+export const MIE_DLNX = 0.0375; // 3.75% steps in x
+export const MIE_NX = Math.ceil(Math.log(7900 / MIE_X0) / MIE_DLNX) + 1; // to r ≈ 500 µm at 400 nm
+export const MIE_NM = 5;
+export const MIE_M0 = 1.329; // first index node (× the IOR rail's scale)
+export const MIE_DM = 0.0045; // node spacing: covers water, 1.329–1.347
+export const MIE_MAX_RADIUS = 500; // µm; larger drops use the geometric tracer
+export const mieX = j => MIE_X0 * Math.exp(j * MIE_DLNX);
+
+// Phase function (per steradian, bin centres) and efficiency Q for one sphere.
+export function phaseForX(x, m) {
+  const c = coefficients(x, m);
+  const p = new Float32Array(MIE_ANGLES);
+  const norm = 1 / (x * x * c.qsca * Math.PI);
+  for (let i = 0; i < MIE_ANGLES; i++) {
+    const th = 0.5 * (binEdge(i) + binEdge(i + 1)) * Math.PI / 180;
+    p[i] = intensity(c, Math.cos(th)) * norm;
+  }
+  return { p, q: c.qsca };
 }

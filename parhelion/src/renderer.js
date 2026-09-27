@@ -5,7 +5,8 @@
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
 import { MieTables } from './mie-tables.js';
-import { MIE_BANDS, MIE_ANGLES } from './mie.js';
+import { MIE_ENTRIES } from './mie-tables.js';
+import { MIE_ANGLES, MIE_M0, MIE_DM } from './mie.js';
 import { skyShader, skyBands, SKY_W, SKY_H, SKY_BANDS, MS_SIZE, HALO_T_BINS } from './sky.js';
 import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF, TYPE_KEYS } from './optics.js';
 
@@ -44,15 +45,16 @@ export class Renderer {
     this.crystalBuffer = null;
     this.planeBuffer = null;
 
-    this.traceUniforms = device.createBuffer({ size: 208, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.traceUniforms = device.createBuffer({ size: 224, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.presentUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.skyUniforms = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.skyMs = device.createBuffer({ size: MS_SIZE * MS_SIZE * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
     this.haloT = device.createBuffer({ size: HALO_T_BINS * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
     this.msKey = '';
     // Wave-optical drops: tables arrive from workers; until then they're skipped.
-    this.mieBuffer = device.createBuffer({ size: MIE_BANDS * MIE_ANGLES * 8, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.mieBuffer = device.createBuffer({ size: MIE_ENTRIES * (2 * MIE_ANGLES + 1) * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.mieReady = false;
+    this.mieScale = 1;
     this.mie = new MieTables(data => {
       device.queue.writeBuffer(this.mieBuffer, 0, data);
       this.mieReady = true;
@@ -64,7 +66,7 @@ export class Renderer {
     this.meter = device.createBuffer({ size: 256, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.meterRead = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
     this.metering = false;
-    this.traceData = new ArrayBuffer(208);
+    this.traceData = new ArrayBuffer(224);
     this.presentData = new ArrayBuffer(176);
 
     this.frameIndex = 0;
@@ -267,6 +269,7 @@ export class Renderer {
       const ts = s.tiltScale ?? [1, 1, 1, 1, 1];
       f.set([ts[0], ts[1], ts[2], ts[3], ts[4]], 44);
       u[49] = this.mieReady ? 1 : 0;
+      f.set([s.dropRadius ?? 500, s.dropSpread ?? 0.1, MIE_M0 * this.mieScale, MIE_DM * this.mieScale], 52);
       d.queue.writeBuffer(this.traceUniforms, 0, this.traceData);
     }
 

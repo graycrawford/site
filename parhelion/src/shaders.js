@@ -2,7 +2,8 @@
 
 import { SPECTRUM_LUT, OKLAB, TYPE_KEYS } from './optics.js';
 import { SKY_W, SKY_H, SKY_BANDS, HALO_T_BINS } from './sky.js';
-import { MIE_BANDS, MIE_ANGLES, MIE_FINE } from './mie.js';
+import { MIE_ANGLES, MIE_FINE, MIE_X0, MIE_DLNX, MIE_NX, MIE_NM } from './mie.js';
+import { MIE_ENTRIES } from './mie-tables.js';
 
 const TYPE_COUNT = TYPE_KEYS.length;
 
@@ -22,6 +23,7 @@ struct Params {
   totalSamples: u32, seed: u32, sizeSpread: f32, hideSun: u32,
   tiltScale: vec4f, // per orientation: plate, column, Parry, Lowitz
   tiltPolyhedral: f32, mieReady: u32, _q0: u32, _q1: u32,
+  dropRadius: f32, dropSpread: f32, mieM0: f32, mieDm: f32,
 }
 
 struct Crystal { box: vec4f, offset: u32, count: u32, orient: u32, kind: u32 } // kind 0: planes, 1: sphere, 2: Mie drop
@@ -42,7 +44,8 @@ fn spectrumAt(u: f32) -> Spec {
   return Spec(a.x, a.y, a.z, a.w, mix(spectrum[i0].xyz.xyz, spectrum[i0 + 1u].xyz.xyz, t));
 }
 
-// Mie drops: per band, phase function per angle bin, then its CDF (mie.js).
+// Mie drops: per (index node, size parameter) entry, the phase function per
+// angle bin, then its CDF; efficiencies Q after all entries (mie-tables.js).
 @group(0) @binding(6) var<storage, read> mie: array<f32>;
 fn mieBin(thetaDeg: f32) -> u32 {
   if (thetaDeg < 5.0) { return u32(thetaDeg / 0.005); }
@@ -52,15 +55,70 @@ fn mieEdge(i: u32) -> f32 {
   if (i <= ${MIE_FINE}u) { return f32(i) * 0.005; }
   return 5.0 + f32(i - ${MIE_FINE}u) * 0.05;
 }
-// Scatter one wavelength off a drop: half the samples follow the phase
-// function (sharp corona, bows, glory), half are uniform on the sphere (so
-// faint angles still get visited); the one-sample mixture weight p/q keeps it
-// unbiased. The band is chosen stochastically between neighbours.
-fn scatterMie(rIn: vec3f, xyz: vec3f, lambda: f32) {
-  let fb = clamp((lambda - 400.0) / 10.0, 0.0, ${MIE_BANDS - 1}.0);
-  var band = u32(floor(fb));
-  if (band < ${MIE_BANDS - 1}u && rand() < fb - f32(band)) { band++; }
-  let base = band * ${MIE_ANGLES * 2}u;
+// Pick a node index stochastically between neighbours (unbiased interpolation).
+fn pickNode(f: f32, count: u32) -> u32 {
+  let c = clamp(f, 0.0, f32(count - 1u));
+  var i = u32(floor(c));
+  if (i < count - 1u && rand() < c - f32(i)) { i++; }
+  return i;
+}
+// Exact Lorenz–Mie intensity for one sphere at cos θ = mu: returns
+// ((|S1|² + |S2|²)/2, Q_sca), summing the series in one pass with no stored
+// coefficients. Uses ψ'_n(z) = ψ_{n−1}(z) − nψ_n(z)/z; for water every order
+// needed (n < m·x) is in the stable, oscillating regime of the recurrences.
+fn mieExact(x: f32, m: f32, mu: f32) -> vec2f {
+  let nstop = u32(x + 4.0 * pow(x, 1.0 / 3.0) + 2.0);
+  let mx = m * x;
+  var psi0 = cos(x); var psi1 = sin(x);
+  var chi0 = -sin(x); var chi1 = cos(x);
+  var pm0 = cos(mx); var pm1 = sin(mx);
+  var pi0 = 0.0; var pi1 = 1.0;
+  var s1 = vec2f(0.0); var s2 = vec2f(0.0);
+  var q = 0.0;
+  for (var n = 1u; n <= nstop; n++) {
+    let fn_ = f32(n);
+    let psi = (2.0 * fn_ - 1.0) / x * psi1 - psi0;
+    let chi = (2.0 * fn_ - 1.0) / x * chi1 - chi0;
+    let pm = (2.0 * fn_ - 1.0) / mx * pm1 - pm0;
+    let dpsi = psi1 - fn_ * psi / x;
+    let dchi = chi1 - fn_ * chi / x;
+    let dpm = pm1 - fn_ * pm / mx;
+    // a = (mψm ψ' − ψ ψm') / (mψm ξ' − ξ ψm'), b = (ψm ψ' − mψ ψm') / (ψm ξ' − mξ ψm'), ξ = ψ − iχ
+    let an = m * pm * dpsi - psi * dpm;
+    let ad = vec2f(an, -(m * pm * dchi - chi * dpm));
+    let a = vec2f(an * ad.x, -an * ad.y) / dot(ad, ad);
+    let bn = pm * dpsi - m * psi * dpm;
+    let bd = vec2f(bn, -(pm * dchi - m * chi * dpm));
+    let b = vec2f(bn * bd.x, -bn * bd.y) / dot(bd, bd);
+    let tau = fn_ * mu * pi1 - (fn_ + 1.0) * pi0;
+    let f = (2.0 * fn_ + 1.0) / (fn_ * (fn_ + 1.0));
+    s1 += f * (a * pi1 + b * tau);
+    s2 += f * (a * tau + b * pi1);
+    q += (2.0 * fn_ + 1.0) * (dot(a, a) + dot(b, b));
+    let pi2 = ((2.0 * fn_ + 1.0) * mu * pi1 - (fn_ + 1.0) * pi0) / fn_;
+    pi0 = pi1; pi1 = pi2;
+    psi0 = psi1; psi1 = psi; chi0 = chi1; chi1 = chi; pm0 = pm1; pm1 = pm;
+  }
+  return vec2f(0.5 * (dot(s1, s1) + dot(s2, s2)), 2.0 * q / (x * x));
+}
+
+// Above this size parameter drops use the tabulated entry directly (their
+// angular ripple is sub-pixel; exact sums would cost too much per ray).
+const MIE_EXACT_MAX_X = 2500.0;
+
+// Scatter one wavelength off a drop of radius rUm (µm) and index m. The
+// table proposes an angle (half from a nearby tabulated phase function, half
+// uniform on the sphere); the drop's own exact Mie phase function then
+// weights it. Unbiased for any size, spread, wavelength and index.
+fn scatterMie(rIn: vec3f, xyzIn: vec3f, lambda: f32, rUm: f32, m: f32) {
+  let x = TAU * rUm / (lambda * 1e-3);
+  let fx = clamp(log(x / ${MIE_X0}.0) / ${MIE_DLNX}, 0.0, ${MIE_NX - 1}.0);
+  let j0 = min(u32(floor(fx)), ${MIE_NX - 2}u);
+  let tx = fx - f32(j0);
+  let mi = pickNode((m - P.mieM0) / P.mieDm, ${MIE_NM}u);
+  let e0 = mi * ${MIE_NX}u + j0;
+  let e = e0 + select(0u, 1u, rand() < tx);
+  let base = e * ${MIE_ANGLES * 2}u;
   var cosT: f32;
   if (rand() < 0.5) {
     let u = rand();
@@ -71,19 +129,29 @@ fn scatterMie(rIn: vec3f, xyz: vec3f, lambda: f32) {
       let mid = (lo + hi) / 2u;
       if (mie[base + ${MIE_ANGLES}u + mid] < u) { lo = mid + 1u; } else { hi = mid; }
     }
-    let c0 = cos(mieEdge(lo) * PI / 180.0);
-    let c1 = cos(mieEdge(lo + 1u) * PI / 180.0);
-    cosT = mix(c0, c1, rand());
+    cosT = mix(cos(mieEdge(lo) * PI / 180.0), cos(mieEdge(lo + 1u) * PI / 180.0), rand());
   } else {
     cosT = 2.0 * rand() - 1.0;
   }
-  let p = mie[base + mieBin(acos(clamp(cosT, -1.0, 1.0)) * 180.0 / PI)];
-  let weight = p / (0.5 * p + 0.5 / (4.0 * PI));
+  let bin = mieBin(acos(clamp(cosT, -1.0, 1.0)) * 180.0 / PI);
+  // The proposal is the mixture over both neighbouring entries.
+  let pA = mie[e0 * ${MIE_ANGLES * 2}u + bin];
+  let pB = mie[(e0 + 1u) * ${MIE_ANGLES * 2}u + bin];
+  let q = 0.5 * mix(pA, pB, tx) + 0.5 / (4.0 * PI);
+  var weight: f32;
+  if (x <= MIE_EXACT_MAX_X) {
+    let exact = mieExact(x, m, cosT);
+    // p = i / (π x² Q); drops drawn by cross-section, so energy ∝ Q/2.
+    weight = exact.x / (PI * x * x * exact.y) / q * (0.5 * exact.y);
+  } else {
+    let Q = mix(mie[${MIE_ENTRIES * MIE_ANGLES * 2}u + e0], mie[${MIE_ENTRIES * MIE_ANGLES * 2}u + e0 + 1u], tx);
+    weight = mix(pA, pB, tx) / q * (0.5 * Q);
+  }
   let t1 = normalize(cross(rIn, select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(rIn.x) > 0.9)));
   let t2 = cross(rIn, t1);
   let phi = TAU * rand();
   let sinT = sqrt(max(0.0, 1.0 - cosT * cosT));
-  splat(cosT * rIn + sinT * (cos(phi) * t1 + sin(phi) * t2), xyz * weight, lambda);
+  splat(cosT * rIn + sinT * (cos(phi) * t1 + sin(phi) * t2), xyzIn * weight, lambda);
 }
 
 // Sun -> cloud -> observer transmittance per view elevation and band (sky.js).
@@ -340,10 +408,12 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       upLocal = vec3f(0.0, 1.0, 0.0);
       sizeScale = 0.0; // diffraction is already in the phase function
       let muM = sqrt(max(0.0, 1.0 - qc.y));
+      // Radius by cross-section from the lognormal: median × e^(2σ²) shifted.
+      let rUm = P.dropRadius * exp(2.0 * P.dropSpread * P.dropSpread + P.dropSpread * gauss(qa.x));
       for (var h = 0u; h < HERO; h++) {
         let sp = spectrumAt(fract(qb.w + f32(h) / f32(HERO)));
         let limb = select(1.0, (1.0 - sp.limbU * (1.0 - muM)) / (1.0 - sp.limbU / 3.0), P.sunRadius > 0.0);
-        scatterMie(-sunM, sp.xyz * (limb / f32(HERO)), sp.lambda);
+        scatterMie(-sunM, sp.xyz * (limb / f32(HERO)), sp.lambda, rUm, sp.nWater * P.iorScale);
       }
       continue;
     }

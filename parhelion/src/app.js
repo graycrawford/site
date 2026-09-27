@@ -5,6 +5,7 @@ import {
 } from './presets.js';
 import { TYPE_KEYS, haloAngle, iorFromHaloAngle } from './optics.js';
 import { Spring } from './spring.js';
+import { MIE_MAX_RADIUS } from './mie.js';
 import { makeLabels } from './labels.js';
 
 // Rays in the rest mean before tracing stops (~17 billion: faint multi-bounce
@@ -93,16 +94,13 @@ const MIX_TOLERANCE = 0.01;
 // 1/µm. Zoom is handled separately (it scales the whole image).
 const PX_PER_UNIT = {
   sunElevation: Math.PI / 180, camElevation: Math.PI / 180, crystalTilt: Math.PI / 180,
-  camYaw: Math.PI / 180, polyhedralSpin: Math.PI / 180, lowitzSpin: Math.PI / 180, ior: 2, diffraction: 0.242,
+  dropSpread: 0.5, camYaw: Math.PI / 180, polyhedralSpin: Math.PI / 180, lowitzSpin: Math.PI / 180, ior: 2, diffraction: 0.242,
 };
 // Sprung simulation values. diffraction = 1/crystalSize (0 = off), so the
 // blur eases away as crystals grow instead of passing through D = 0.
 const SAVE = '\u0000save';
 const REMOVE = '\u0000remove';
-// Drops up to this radius (µm) use exact Mie scattering; larger ones use the
-// geometric ray tracer (Mie cost grows with the square of the drop size).
-const MIE_MAX_RADIUS = 250;
-const TRACE_KEYS = ['sunElevation', 'camElevation', 'camYaw', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction'];
+const TRACE_KEYS = ['sunElevation', 'camElevation', 'camYaw', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction', 'dropRadius', 'dropSpread'];
 const traceTarget = (k, c) => {
   if (k === 'diffraction') return c.crystalSize > 0 ? 1 / c.crystalSize : 0;
   if (k === 'camYaw') return c.camYaw;
@@ -208,6 +206,7 @@ export function start(renderer) {
   function toggleType(key) {
     CONFIG[key] = !CONFIG[key];
     if (!TYPE_KEYS.some(k => CONFIG[k])) CONFIG.enableParry = true;
+    if (key === 'enableRaindrop') requestMie();
     syncTargets();
     refresh();
   }
@@ -244,8 +243,11 @@ export function start(renderer) {
   const physics = gui.addFolder('Physics');
   physics.add(CONFIG, 'lowitzSpin', 0, 90).step(0.1).name('Lowitz Spin (Deg)').onChange(syncTargets);
   physics.add(CONFIG, 'crystalSize', 0, 200).step(1).name('Crystal Size (µm)').onChange(syncTargets);
-  physics.add(CONFIG, 'dropRadius', 1, 1000).step(1).name('Drop Radius (µm)').onFinishChange(() => { shapeDirty = true; });
-  physics.add(CONFIG, 'dropSpread', 0, 0.5).step(0.01).name('Drop Spread').onFinishChange(() => { shapeDirty = true; });
+  physics.add(CONFIG, 'dropRadius', 1, 1000).step(1).name('Drop Radius (µm)').onChange(() => {
+    if ((CONFIG.dropRadius <= MIE_MAX_RADIUS) !== dropWave) shapeDirty = true;
+    syncTargets();
+  });
+  physics.add(CONFIG, 'dropSpread', 0, 0.5).step(0.01).name('Drop Spread').onChange(syncTargets);
   physics.add(CONFIG, 'sizeSpread', 0, 1.5).step(0.01).name('Size Spread').onChange(() => { traceDirty = true; });
   for (const [k, name] of [['tiltPlate', 'Plates'], ['tiltColumn', 'Columns'], ['tiltParry', 'Parry'], ['tiltLowitz', 'Lowitz'], ['tiltPolyhedral', 'Polyhedra']]) {
     physics.add(CONFIG, k, 0, 3).step(0.01).name(`Tilt × ${name}`).onChange(() => { traceDirty = true; });
@@ -396,10 +398,15 @@ export function start(renderer) {
   };
 
   // Small drops: request Mie tables (workers); the image restarts when ready.
-  renderer.onMieReady = () => { traceDirty = true; };
+  renderer.onMieReady = () => { renderer.mieScale = pendingMieScale; traceDirty = true; };
   function requestMie() {
-    if (CONFIG.dropRadius <= MIE_MAX_RADIUS) renderer.mie.request(CONFIG.dropRadius, CONFIG.dropSpread, CONFIG.ior / 1.31);
+    if (!CONFIG.enableRaindrop || CONFIG.dropRadius > MIE_MAX_RADIUS) return;
+    const scale = CONFIG.ior / 1.31;
+    renderer.mie.request(scale);
+    pendingMieScale = scale;
   }
+  let pendingMieScale = 1;
+  let dropWave = CONFIG.dropRadius <= MIE_MAX_RADIUS;
   // The IOR rail also re-solves Mie drops, once it has been still briefly.
   let mieTimer = 0;
   const scheduleMie = () => { clearTimeout(mieTimer); mieTimer = setTimeout(requestMie, 200); };
@@ -409,7 +416,7 @@ export function start(renderer) {
     renderer.setCrystals({
       randomAspect: 1, plateAspect: CONFIG.plateAspect, columnAspect: CONFIG.columnAspect,
       pyramidPrism: 0.5, pyramidCap: 0.6, tumble: CONFIG.tumble, triangularity: CONFIG.triangularity,
-      dropMie: CONFIG.dropRadius <= MIE_MAX_RADIUS,
+      dropMie: (dropWave = CONFIG.dropRadius <= MIE_MAX_RADIUS),
     });
     shapeDirty = false;
   }
@@ -470,7 +477,7 @@ export function start(renderer) {
       sp.step(dt, springy);
       if (sp.snapped) continue;
       const delta = Math.abs(sp.value - before);
-      drift += k === 'zoom'
+      drift += k === 'zoom' || k === 'dropRadius'
         ? delta / sp.value * 0.5 * Math.hypot(renderer.width, renderer.height)
         : delta * PX_PER_UNIT[k] * 0.75 * scale;
     }
