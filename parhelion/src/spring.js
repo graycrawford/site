@@ -20,6 +20,7 @@ export class Spring {
     this.value = value;
     this.target = value;
     this.velocity = 0; // per 60 Hz frame
+    this.snapped = false; // the last step() ended by snapping onto the target
   }
 
   set(target) { this.target = target; }
@@ -31,6 +32,7 @@ export class Spring {
 
   // Returns true while the value is still changing.
   step(dt, enabled = true) {
+    this.snapped = false;
     const e = this.value - this.target;
     if (!enabled) {
       const moved = e !== 0;
@@ -46,7 +48,10 @@ export class Spring {
     const e2 = V[0][0] * p1 * c1 + V[0][1] * p2 * c2;
     this.velocity = V[1][0] * p1 * c1 + V[1][1] * p2 * c2;
     this.value = this.target + e2;
-    if (Math.abs(e2) < SNAP && Math.abs(this.velocity) < SNAP) this.jump(this.target);
+    if (Math.abs(e2) < SNAP && Math.abs(this.velocity) < SNAP) {
+      this.jump(this.target);
+      this.snapped = true;
+    }
     return true;
   }
 }

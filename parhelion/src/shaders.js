@@ -112,7 +112,7 @@ fn orientation(mode: u32, q: vec4f) -> mat3x3f {
       return rotY(TAU * q.x) * rotX(0.5 * PI + s * gauss(q.y)) * rotY(s * gauss(q.z));
     }
     case 4u: { // Lowitz: plate spinning about its own horizontal a-axis
-      return rotY(TAU * q.x) * rotZ(s * gauss(q.y)) * rotX(P.lowitz * gauss(q.z)) * rotY(PI / 3.0);
+      return rotY(TAU * q.x) * rotZ(s * gauss(q.y)) * rotX(P.lowitz * gauss(q.z)); // local +X is an a-axis
     }
     default: { // polyhedral: preferred pose (polySpin about X), wobble, free azimuth
       return rotY(TAU * q.x) * rotX(s * gauss(q.y)) * rotY(TAU * q.z) * rotX(P.polySpin);

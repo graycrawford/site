@@ -20,7 +20,9 @@ export class Renderer {
         maxBufferSize: adapter.limits.maxBufferSize,
       },
     });
-    return new Renderer(canvas, device);
+    const renderer = new Renderer(canvas, device);
+    await renderer.init(); // rejects on shader or pipeline errors -> WebGL fallback
+    return renderer;
   }
 
   constructor(canvas, device) {
@@ -40,18 +42,6 @@ export class Renderer {
     this.traceData = new ArrayBuffer(176);
     this.presentData = new ArrayBuffer(112);
 
-    this.tracePipeline = device.createComputePipeline({
-      layout: 'auto',
-      compute: { module: device.createShaderModule({ code: traceShader() }), entryPoint: 'main' },
-    });
-    const presentModule = device.createShaderModule({ code: presentShader() });
-    this.presentPipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: { module: presentModule, entryPoint: 'vs' },
-      fragment: { module: presentModule, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
-      primitive: { topology: 'triangle-list' },
-    });
-
     this.frameIndex = 0;
     this.weightMotion = 0; // Σ fade-weighted frames in the motion history
     this.weightRest = 0; // frames in the running mean since motion stopped
@@ -60,6 +50,23 @@ export class Renderer {
     this.width = 0;
     this.height = 0;
     device.lost.then(info => console.warn('WebGPU device lost:', info.message));
+  }
+
+  async init() {
+    const d = this.device;
+    const presentModule = d.createShaderModule({ code: presentShader() });
+    [this.tracePipeline, this.presentPipeline] = await Promise.all([
+      d.createComputePipelineAsync({
+        layout: 'auto',
+        compute: { module: d.createShaderModule({ code: traceShader() }), entryPoint: 'main' },
+      }),
+      d.createRenderPipelineAsync({
+        layout: 'auto',
+        vertex: { module: presentModule, entryPoint: 'vs' },
+        fragment: { module: presentModule, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
+        primitive: { topology: 'triangle-list' },
+      }),
+    ]);
   }
 
   // Extended-range Display P3 where the browser supports it; HDR output only
@@ -178,7 +185,7 @@ export class Renderer {
       f.set(v.center, 16); u[18] = this.width; u[19] = this.height;
       f.set([s.ior / ICE_N_REF, s.crystalTilt * Math.PI / 180, s.polyhedralSpin * Math.PI / 180, s.lowitzSpin * Math.PI / 180], 20);
       // Gaussian diffraction blur σ ≈ 0.44 λ/D  (λ in nm, D in µm)
-      f[24] = s.crystalSize > 0 ? 0.44e-3 / s.crystalSize : 0;
+      f[24] = 0.44e-3 * s.diffraction;
       f[25] = fixedScale;
       u[27] = 16;
       const total = s.typeWeights.reduce((a, b) => a + b, 0) || 1;

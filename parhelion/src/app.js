@@ -47,14 +47,17 @@ const CONFIG = {
 // Change per 60 Hz frame below which a parameter counts as settled (deg / index / µm).
 const MOVE_TOLERANCE = {
   sunElevation: 1e-3, camElevation: 1e-3, crystalTilt: 1e-3, polyhedralSpin: 1e-3,
-  ior: 1e-5, lowitzSpin: 1e-3, crystalSize: 1e-2,
+  ior: 1e-5, lowitzSpin: 1e-3, diffraction: 1e-5,
 };
-const TRACE_KEYS = ['sunElevation', 'camElevation', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'crystalSize'];
+// Sprung simulation values. diffraction = 1/crystalSize (0 = off), so the
+// blur eases away as crystals grow instead of passing through D = 0.
+const TRACE_KEYS = ['sunElevation', 'camElevation', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction'];
+const traceTarget = (k, c) => (k === 'diffraction' ? (c.crystalSize > 0 ? 1 / c.crystalSize : 0) : c[k]);
 const POST_KEYS = ['logExposure', 'saturation'];
 
 export function start(renderer) {
   const springs = {};
-  for (const k of TRACE_KEYS) springs[k] = new Spring(CONFIG[k]);
+  for (const k of TRACE_KEYS) springs[k] = new Spring(traceTarget(k, CONFIG));
   springs.logExposure = new Spring(Math.log10(CONFIG.exposure));
   springs.saturation = new Spring(CONFIG.saturation);
   springs.fadeFactor = new Spring(CONFIG.fadeFactor);
@@ -67,7 +70,7 @@ export function start(renderer) {
   const refresh = () => refreshControllers(gui);
 
   function syncTargets() {
-    for (const k of TRACE_KEYS) springs[k].set(CONFIG[k]);
+    for (const k of TRACE_KEYS) springs[k].set(traceTarget(k, CONFIG));
     springs.logExposure.set(Math.log10(CONFIG.exposure));
     springs.saturation.set(CONFIG.saturation);
     springs.fadeFactor.set(CONFIG.fadeFactor);
@@ -84,6 +87,7 @@ export function start(renderer) {
     }
     for (const k of TYPE_KEYS) CONFIG[k] = p.types.includes(k.slice(6).toLowerCase());
     exposureProxy.log = Math.log10(CONFIG.exposure);
+    if (CONFIG.lockZoom) lockZoom();
     syncTargets();
     refresh();
     pad.update();
@@ -100,11 +104,13 @@ export function start(renderer) {
     if (CONFIG.lockSunCenter) CONFIG.sunElevation = v;
     syncTargets();
   }
-  let lockZoomConstant = 0; // zoom · tan(22° halo angle) held fixed by Lock Zoom
+  // Lock Zoom holds the 22° halo's screen radius, zoom · tan(θ/2), fixed.
+  let lockZoomConstant = 0;
+  const lockZoom = () => { lockZoomConstant = CONFIG.zoom * Math.tan(Math.max(0.001, haloAngle(CONFIG.ior)) / 2); };
   function setZoom(v) {
     CONFIG.zoom = v;
     if (CONFIG.lockZoom) {
-      const angle = Math.atan(lockZoomConstant / v);
+      const angle = 2 * Math.atan(lockZoomConstant / v);
       CONFIG.ior = Math.max(1, Math.min(1.5, iorFromHaloAngle(angle)));
     }
     syncTargets();
@@ -112,7 +118,7 @@ export function start(renderer) {
   function setIor(v) {
     CONFIG.ior = v;
     if (CONFIG.lockZoom) {
-      const tan = Math.tan(Math.max(0.001, haloAngle(v)));
+      const tan = Math.tan(Math.max(0.001, haloAngle(v)) / 2);
       CONFIG.zoom = Math.max(0.5, Math.min(20, lockZoomConstant / tan));
     }
     syncTargets();
@@ -139,7 +145,7 @@ export function start(renderer) {
   gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(v => { setCamElevation(v); refresh(); pad.update(); });
   gui.add(CONFIG, 'lockSunCenter').name('Lock Center');
   gui.add(CONFIG, 'lockZoom').name('Lock Zoom').onChange(on => {
-    if (on) lockZoomConstant = CONFIG.zoom * Math.tan(Math.max(0.001, haloAngle(CONFIG.ior)));
+    if (on) lockZoom();
   });
   gui.add(CONFIG, 'zoom', 0.5, 20).name('Zoom').onChange(v => { setZoom(v); refresh(); pad.update(); });
   const types = gui.addFolder('Crystal Types');
@@ -271,12 +277,12 @@ export function start(renderer) {
       const before = s.value;
       s.step(dt, springy);
       const tol = (k === 'zoom' ? 1e-4 * s.value : MOVE_TOLERANCE[k]) * frames;
-      if (Math.abs(s.value - before) > tol) moving = true;
+      if (Math.abs(s.value - before) > tol && !s.snapped) moving = true;
     }
     typeSprings.forEach(s => {
       const before = s.value;
       s.step(dt, springy);
-      if (Math.abs(s.value - before) > 1e-4 * frames) moving = true;
+      if (Math.abs(s.value - before) > 1e-4 * frames && !s.snapped) moving = true;
     });
     let post = postDirty;
     postDirty = false;
@@ -298,11 +304,11 @@ export function start(renderer) {
     // Frames are deposited at their own exposure, so motion trails keep the
     // brightness they were drawn with and fade at the fade rate (frame-rate
     // independent). At rest a running mean converges underneath the fading
-    // trails, exposure changes apply to everything shown, and tracing stops
-    // once the mean is converged and the trails are gone.
+    // trails and tracing stops once the mean is converged and the trails are
+    // gone. Whenever nothing moves, exposure changes apply to everything shown.
     const rest = CONFIG.settle && !moving;
     const decay = (1 - springs.fadeFactor.value) ** (60 * Math.min(dt, 0.1));
-    const gain = rest ? exposure / lastExposure : 1;
+    const gain = moving ? 1 : exposure / lastExposure;
     lastExposure = exposure;
     const converged = rest && renderer.restFrames >= SETTLE_FRAMES && (decay === 1 || renderer.historyShare < 1e-3);
     if (converged && !post) return;
