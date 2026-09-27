@@ -15,6 +15,7 @@ export const fields = [
   "flow",
   "geometry",
   "material",
+  "scattering",
 ];
 export function uniforms() {
   return {
@@ -33,8 +34,12 @@ export function uniforms() {
     flow: [0, 0, 0, 8192],
     geometry: [0, 0, 0, 0],
     material: [0, 0, 0, 0],
+    scattering: [0, 2.744, 1, 0],
   };
 }
+// Soft grains shrink below size 1 only as far as the grid keeps them 1.25 cells wide.
+export const minimumGrainGrid = (dotSize) =>
+  dotSize >= 1 ? 96 : dotSize >= 0.75 ? 256 : 384;
 export const packed = (u) => new Float32Array(fields.flatMap((k) => u[k]));
 export const waveTerms = (components) =>
   new Float32Array(
@@ -54,9 +59,12 @@ const bindings = {
   advanceDots: [0, 1, 2, 3, 4, 5, 6, 18],
   depositDots: [0, 4, 7],
   resolveDots: [7, 16],
+  downsampleGrains: [10, 16],
   sphere: [0, 17],
+  surface: [0, 17],
+  markerFogPass: [0, 1, 2, 3, 8, 9, 10, 13, 17, 19],
   volume: [0, 1, 2, 3, 8, 9, 10, 11, 12, 13],
-  integratedPresent: [0, 1, 2, 3, 8, 9, 10, 11, 12, 13, 14],
+  integratedPresent: [0, 1, 2, 3, 9, 11, 12, 13, 14, 20, 21],
 };
 export class Renderer {
   static async create(canvas, { manualFiltering = false } = {}) {
@@ -116,9 +124,11 @@ export class Renderer {
     );
     this.dots = this.buffer(new Float32Array(8192 * 4));
     this.dotEdits = this.buffer(new Float32Array(8192 * 8));
+    this.markerFog = this.buffer(new Float32Array(8192 * 8 * 4));
     this.sampler = device.createSampler({
       magFilter: "linear",
       minFilter: "linear",
+      mipmapFilter: "linear",
     });
     this.error = null;
     device.addEventListener("uncapturederror", (e) => {
@@ -150,11 +160,13 @@ export class Renderer {
     d = 1,
     format = "r32float",
     dimension = d > 1 ? "3d" : "2d",
+    mipLevelCount = 1,
   ) {
     return this.device.createTexture({
       size: [w, h, d],
       format,
       dimension,
+      mipLevelCount,
       usage:
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_SRC |
@@ -169,6 +181,7 @@ export class Renderer {
       source =
         source.slice(0, source.indexOf("fn sampleGrid(")) +
         `fn sampleGrid(tex:texture_3d<f32>,uv:vec3f,edge:bool)->f32 {let sampled=textureSampleLevel(tex,linearSampler,uv,0).r;if(edge){return sampled;}let size=vec3f(textureDimensions(tex));let border=clamp(uv*size+0.5,vec3f(0),vec3f(1))*clamp((1-uv)*size+0.5,vec3f(0),vec3f(1));return sampled*border.x*border.y*border.z;}
+fn sampleGridLod(tex:texture_3d<f32>,uv:vec3f,lod:f32)->f32 {let size=vec3f(textureDimensions(tex));let border=clamp(uv*size+0.5,vec3f(0),vec3f(1))*clamp((1-uv)*size+0.5,vec3f(0),vec3f(1));return textureSampleLevel(tex,linearSampler,uv,lod).r*border.x*border.y*border.z;}
 ` +
         source.slice(source.indexOf("fn nearest("));
       this.hardwareFilter = true;
@@ -196,6 +209,8 @@ export class Renderer {
       "advanceDots",
       "depositDots",
       "resolveDots",
+      "downsampleGrains",
+      "markerFogPass",
     ])
       this.pipelines[entryPoint] = await this.device.createComputePipelineAsync(
         { layout: "auto", compute: { module: this.module, entryPoint } },
@@ -214,21 +229,21 @@ export class Renderer {
         },
         primitive: { topology: "triangle-list" },
       });
-    this.pipelines.sphere = await this.device.createRenderPipelineAsync({
-      layout: "auto",
-      vertex: { module: this.module, entryPoint: "sphereVertex" },
-      fragment: {
-        module: this.module,
-        entryPoint: "sphereFragment",
-        targets: [{ format: "rgba32float" }],
-      },
-      depthStencil: {
-        format: "depth32float",
-        depthWriteEnabled: true,
-        depthCompare: "less",
-      },
-      primitive: { topology: "triangle-list" },
-    });
+    for (let [name, entryPoint, targets] of [
+      ["sphere", "sphereFragment", [{ format: "rgba32float" }]],
+      ["surface", "surfaceFragment", [{ format: "rgba32float" }, { format: "r32uint" }]],
+    ])
+      this.pipelines[name] = await this.device.createRenderPipelineAsync({
+        layout: "auto",
+        vertex: { module: this.module, entryPoint: "sphereVertex" },
+        fragment: { module: this.module, entryPoint, targets },
+        depthStencil: {
+          format: "depth32float",
+          depthWriteEnabled: true,
+          depthCompare: "less",
+        },
+        primitive: { topology: "triangle-list" },
+      });
   }
   allocate(grid, grain, w, h, fullW, fullH) {
     let changed = false;
@@ -246,7 +261,7 @@ export class Renderer {
       this.grains?.destroy();
       this.cells?.destroy();
       this.grainSize = grain;
-      this.grains = this.texture(grain, grain, grain, "r32float", "3d");
+      this.grains = this.texture(grain, grain, grain, "r32float", "3d", Math.floor(Math.log2(grain)) + 1);
       this.cells = this.device.createBuffer({
         size: grain ** 3 * 4,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -267,7 +282,9 @@ export class Renderer {
     if (this.fullW !== fullW || this.fullH !== fullH) {
       this.surface?.destroy();
       this.depth?.destroy();
+      this.markerIDs?.destroy();
       this.surface = this.texture(fullW, fullH, 1, "rgba32float");
+      this.markerIDs = this.texture(fullW, fullH, 1, "r32uint");
       this.depth = this.texture(fullW, fullH, 1, "depth32float");
       this.fullW = fullW;
       this.fullH = fullH;
@@ -290,7 +307,7 @@ export class Renderer {
   }
   group(name, slot = 0, overrides = {}) {
     let resources = {
-      0: { buffer: this.uniformBuffer, offset: slot * 256, size: 240 },
+      0: { buffer: this.uniformBuffer, offset: slot * 256, size: 256 },
       1: { buffer: this.radial },
       2: { buffer: this.angular },
       3: { buffer: this.termBuffer },
@@ -307,6 +324,9 @@ export class Renderer {
       14: this.sampler,
       17: { buffer: this.dots },
       18: { buffer: this.dotEdits },
+      19: { buffer: this.markerFog },
+      20: { buffer: this.markerFog },
+      21: this.markerIDs.createView(),
       ...overrides,
     };
     return this.device.createBindGroup({
@@ -314,7 +334,8 @@ export class Renderer {
       entries: [
         ...new Set([
           ...bindings[name],
-          ...(this.hardwareFilter && ["shadowGrid", "volume"].includes(name)
+          ...(this.hardwareFilter &&
+          ["shadowGrid", "volume", "markerFogPass"].includes(name)
             ? [14]
             : []),
         ]),
@@ -344,11 +365,12 @@ export class Renderer {
         Math.sqrt(Math.max(1, components.length / 2)) *
         (model.style === 2 ? 1.6 : 1),
       scale = Math.min(1, [600, 900, 1400][model.quality] / work / fullH);
+    // Offscreen loop renderers frame the atom in the middle of a square canvas.
     u.camera = [
-      mobile ? 0 : 248 / (this.canvas.clientHeight || 1),
+      mobile || this.centered ? 0 : 248 / (this.canvas.clientHeight || 1),
       0,
       model.current("zoom") *
-        (mobile
+        (mobile && !this.centered
           ? Math.min(
               1,
               (this.canvas.clientWidth / this.canvas.clientHeight) * 1.2,
@@ -388,6 +410,7 @@ export class Renderer {
       this.extent.value,
       model.phaseFunction,
     ];
+    u.scattering = [model.current("bleed"), model.current("falloff"), model.current("grainDensity"), 0];
     u.material = [
       model.current("hue"),
       model.current("phaseTint"),
@@ -402,7 +425,7 @@ export class Renderer {
     ];
     u.transferShape = [
       model.current("densitySoftness"),
-      model.current("densityPivot"),
+      model.current("bandCenter"),
       0,
       0,
     ];
@@ -410,7 +433,13 @@ export class Renderer {
       ...["volumeGain", "dotsGain", "dotSize"].map((k) => model.current(k)),
       model.target("dotMode") > 0.5
         ? 1
-        : Math.round(model.target("grainResolution") / 16) * 16,
+        : Math.min(
+            384,
+            Math.max(
+              Math.round(model.target("grainResolution") / 16) * 16,
+              minimumGrainGrid(model.target("dotSize")),
+            ),
+          ),
     ];
     u.geometry = [model.target("dotMode"), 0, 0, model.current("bounce")];
     this.render(u, waveTerms(components), {
@@ -510,6 +539,7 @@ export class Renderer {
               stateKey,
               u.camera[3],
               u.section[2],
+              u.particles[1],
               u.particles[2],
               grain,
               markers,
@@ -525,8 +555,16 @@ export class Renderer {
         command,
         "resolveDots",
         [Math.ceil(grain / 4), Math.ceil(grain / 4), Math.ceil(grain / 4)],
-        { 16: this.grains.createView() },
+        { 16: this.grains.createView({ baseMipLevel: 0, mipLevelCount: 1 }) },
       );
+      // Box-filtered coarser levels, read by shadow rays.
+      for (let level = 1; level < this.grains.mipLevelCount; level++) {
+        const size = Math.max(1, grain >> level);
+        this.compute(command, "downsampleGrains", [Math.ceil(size / 4), Math.ceil(size / 4), Math.ceil(size / 4)], {
+          10: this.grains.createView({ baseMipLevel: level - 1, mipLevelCount: 1 }),
+          16: this.grains.createView({ baseMipLevel: level, mipLevelCount: 1 }),
+        });
+      }
       this.grainKey = grainKey;
     }
     let dk = JSON.stringify([
@@ -573,6 +611,16 @@ export class Renderer {
             loadOp: "clear",
             storeOp: "store",
           },
+          ...(light
+            ? []
+            : [
+                {
+                  view: this.markerIDs.createView(),
+                  clearValue: [0, 0, 0, 0],
+                  loadOp: "clear",
+                  storeOp: "store",
+                },
+              ]),
         ],
         depthStencilAttachment: {
           view: (light ? this.sphereDepth : this.depth).createView(),
@@ -582,12 +630,14 @@ export class Renderer {
         },
       });
       if (show && u.geometry[0] > 0.5) {
-        p.setPipeline(this.pipelines.sphere);
-        p.setBindGroup(0, this.group("sphere", light ? 1 : 2));
+        p.setPipeline(this.pipelines[light ? "sphere" : "surface"]);
+        p.setBindGroup(0, this.group(light ? "sphere" : "surface", light ? 1 : 2));
         p.draw(6, 8192);
       }
       p.end();
     }
+    if (show && u.geometry[0] > 0.5)
+      this.compute(command, "markerFogPass", [8192 / 64]);
     let p = command.beginRenderPass({
       colorAttachments: [
         {

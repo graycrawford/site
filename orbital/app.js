@@ -1,30 +1,31 @@
 import { Model } from "./model.js";
 import { UI } from "./ui.js";
 import { Renderer } from "./renderer.js";
+import { LoopMaker } from "./loops.js";
 const model = new Model({
     mobile: matchMedia("(max-width:700px)").matches,
     restore: !location.search.includes("test"),
   }),
   canvas = document.querySelector("canvas");
-const builtins = await (await fetch("./assets/presets.json")).json();
-model.addBuiltins(builtins);
-if (!model.restored && !location.search.includes("test")) {
-  const defaultPreset = [...builtins]
-    .reverse()
-    .find((preset) => preset.name === "tri");
-  if (defaultPreset) model.apply(defaultPreset);
-}
 function resize() {
   canvas.width = Math.round(innerWidth * devicePixelRatio);
   canvas.height = Math.round(innerHeight * devicePixelRatio);
 }
 resize();
 addEventListener("resize", resize);
+const builtins = await (await fetch("./assets/presets.json")).json();
+model.addBuiltins(builtins);
+// A first visit opens on the built-in marked startup, if any.
+if (!model.restored && !location.search.includes("test")) {
+  const startup = builtins.findLast((preset) => preset.startup);
+  if (startup) model.apply(startup);
+}
 const ui = new UI(model);
 try {
   let renderer = await Renderer.create(canvas, {
     manualFiltering: location.search.includes("manualFiltering"),
   });
+  ui.loops = new LoopMaker(renderer.device);
   window.orbital = {
     model,
     renderer,

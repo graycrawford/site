@@ -173,13 +173,13 @@ export const defaults = {
   grainResolution: 192,
   lightResolution: 128,
   showFPS: 0,
-  volumeGain: 0.55,
+  volumeGain: 1,
   dotsGain: 0.8,
   dotSize: 2.2,
   orthographic: 0,
   zoom: 1.05,
   exposure: 2.1,
-  density: 0.8,
+  density: 0.44,
   cut: 1,
   thickness: 0.08,
   azimuth: 0.5,
@@ -190,6 +190,9 @@ export const defaults = {
   reach: 2,
   jitter: 1,
   dispersion: 0.8,
+  bleed: 0,
+  falloff: 2.744,
+  grainDensity: 1,
   hue: 0,
   phaseTint: 0,
   speed: 0.7,
@@ -199,21 +202,51 @@ export const defaults = {
   densityLow: -12,
   densityHigh: 0,
   densitySoftness: 0.3,
-  densityPivot: -3,
 };
-// Preset schema 1: frozen cross-platform fallbacks, independent of launch defaults.
+const mobileDefaults = { ambient: 0, lightResolution: 96, dotsGain: 0, density: 0.8 };
+export const presetSchemaVersion = 2;
+// Wavelength falloff that reproduces the retired fixed extinction spectrum (0.65, 0.95, 1.4) within 0.2%.
+export const classicFalloff = 2.744;
+// Frozen cross-platform fallbacks, independent of launch defaults.
 export const renderFallbacksV1 = {
   bounce: 0.6, dotMode: 0, grainResolution: 192, lightResolution: 128,
   showFPS: 0, volumeGain: 1, dotsGain: 0, dotSize: 2.2, orthographic: 0,
   zoom: 1.05, exposure: 2.1, density: 0.8, cut: 1, thickness: 0.08,
   azimuth: 0.5, elevation: 0.5, intensity: 1, ambient: 0.15,
-  anisotropy: 0.35, reach: 2, jitter: 1, dispersion: 0.8, hue: 0,
-  phaseTint: 0, transferEnabled: 0, densityExponent: 1, densityLow: -12,
-  densityHigh: 0, densitySoftness: 0.3, densityPivot: -3,
+  anisotropy: 0.35, reach: 2, jitter: 1, dispersion: 0.8, bleed: 0,
+  falloff: 2.744, grainDensity: 1, hue: 0, phaseTint: 0, transferEnabled: 0,
+  densityExponent: 1, densityLow: -12, densityHigh: 0, densitySoftness: 0.3,
+  densityPivot: -3,
 };
-export function resolvedRenderValues(values) {
-  return Object.fromEntries(Object.entries(renderFallbacksV1).map(([k, v]) =>
-    [k, Number.isFinite(values[k]) ? values[k] : v]));
+export function resolvedRenderValues(values, schemaVersion) {
+  return migratedRenderValues(
+    Object.fromEntries(Object.entries(renderFallbacksV1).map(([k, v]) =>
+      [k, Number.isFinite(values[k]) ? values[k] : v])),
+    (schemaVersion ?? 0) < 2,
+    !Number.isFinite(values.grainDensity),
+  );
+}
+// Schema 2 folds gains that only ever multiplied density into density itself; see Presets/COMPATIBILITY.md.
+// Idempotent: schema 2 values pass through unchanged. legacyDots marks values saved before
+// grain density existed, when the dots fader set soft-grain density.
+export function migratedRenderValues(input, legacyPivot, legacyDots = false) {
+  const v = { ...input }, pivot = v.densityPivot;
+  delete v.densityPivot;
+  if (legacyPivot && pivot !== undefined && v.transferEnabled > 0.5) {
+    const center = ((v.densityLow ?? -12) + (v.densityHigh ?? 0)) / 2;
+    v.density = (v.density ?? 0.8) * 10 ** ((1 - (v.densityExponent ?? 1)) * (pivot - center));
+  }
+  if (v.volumeGain > 0) {
+    v.density = (v.density ?? 0.8) * v.volumeGain;
+    v.volumeGain = 1;
+  }
+  if (v.falloff < 0) v.falloff = classicFalloff;
+  if (legacyDots && !(v.dotMode >= 0.5) && Number.isFinite(v.dotsGain)) {
+    v.grainDensity = v.dotsGain;
+    v.dotsGain = v.dotsGain > 0 ? 1 : 0;
+  }
+  delete v.albedo;
+  return v;
 }
 export function state(n, l, m, amplitude = Math.SQRT1_2, phase = 0) {
   return {
@@ -228,12 +261,7 @@ export function state(n, l, m, amplitude = Math.SQRT1_2, phase = 0) {
 export class Model {
   constructor({ mobile = false, restore = true } = {}) {
     this.mobile = mobile;
-    this.values = {
-      ...defaults,
-      ...(mobile
-        ? { ambient: 0, lightResolution: 96, dotsGain: 0, volumeGain: 1 }
-        : {}),
-    };
+    this.values = { ...defaults, ...(mobile ? mobileDefaults : {}) };
     Object.assign(this, {
       style: 2,
       sectionMode: 1,
@@ -244,9 +272,9 @@ export class Model {
       coast: true,
       playing: false,
       springsEnabled: true,
-      restored: false,
       elapsed: 0,
       preset: "Interference",
+      restored: false,
       bank: [],
       arcball: new Arcball(),
       fps: 0,
@@ -255,7 +283,10 @@ export class Model {
     if (restore) {
       try {
         let saved = JSON.parse(localStorage.getItem("orbital.session"));
-        if (saved) { this.apply(saved); this.restored = true; }
+        if (saved) {
+          this.apply(saved);
+          this.restored = true;
+        }
         this.bank = JSON.parse(localStorage.getItem("orbital.bank") || "[]");
       } catch {}
     }
@@ -316,7 +347,11 @@ export class Model {
     if (k === "bandCenter") return this.band(-6, this.target("bandWidth"));
     if (k === "bandWidth") return this.band(this.target("bandCenter"), 12, 1);
     this.values[k] =
-      k === "cut" ? 0.5 : k === "ambient" && this.mobile ? 0 : defaults[k];
+      k === "cut"
+        ? 0.5
+        : this.mobile && Object.hasOwn(mobileDefaults, k)
+          ? mobileDefaults[k]
+          : defaults[k];
   }
   faceLight(toggle = false) {
     let front =
@@ -433,12 +468,12 @@ export class Model {
       id: crypto.randomUUID(),
       name,
       scope,
-      schemaVersion: 1,
+      schemaVersion: presetSchemaVersion,
       createdAt: Date.now() / 1000 - 978307200,
     };
     if (scope === "session" || scope === "look")
       p.render = {
-        values: resolvedRenderValues(this.values),
+        values: resolvedRenderValues(this.values, presetSchemaVersion),
         style: this.style,
         section: this.sectionMode,
         phaseFunction: this.phaseFunction,
@@ -471,7 +506,7 @@ export class Model {
     if (p.field && p.field !== "hydrogen") return;
     if ((part === "look" || part === "session") && p.render) {
       let r = p.render;
-      Object.assign(this.values, resolvedRenderValues(r.values));
+      Object.assign(this.values, resolvedRenderValues(r.values, p.schemaVersion));
       Object.assign(this, {
         style: r.style,
         sectionMode: r.section,

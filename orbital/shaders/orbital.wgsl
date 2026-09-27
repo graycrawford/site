@@ -1,5 +1,5 @@
 struct Uniforms {
-  camera:vec4f,render:vec4f,viewport:vec4f,options:vec4f,orientation:vec4f,lighting:vec4f,transport:vec4f,section:vec4f,excitation:vec4f,transfer:vec4f,transferShape:vec4f,particles:vec4f,flow:vec4f,geometry:vec4f,material:vec4f
+  camera:vec4f,render:vec4f,viewport:vec4f,options:vec4f,orientation:vec4f,lighting:vec4f,transport:vec4f,section:vec4f,excitation:vec4f,transfer:vec4f,transferShape:vec4f,particles:vec4f,flow:vec4f,geometry:vec4f,material:vec4f,scattering:vec4f
 }
 struct WaveTerm {
   coefficient:vec4f,basis:vec4f
@@ -23,6 +23,10 @@ struct WaveTerm {
 @group(0) @binding(17) var<storage,read> sphereDots:array<vec4f>;
 struct DotEdit { destination:vec4f, velocity:vec4f }
 @group(0) @binding(18) var<storage,read_write> dotEdits:array<DotEdit>;
+// Per-dot front fog, transmission and six-axis cloud light: written by markerFog, read when shading.
+@group(0) @binding(19) var<storage,read_write> markerFog:array<vec4f>;
+@group(0) @binding(20) var<storage,read> markerLight:array<vec4f>;
+@group(0) @binding(21) var markerIDs:texture_2d<u32>;
 const PI=3.141592653589793;
 fn rotate(p:vec3f,q:vec4f)->vec3f{
   return p+2*cross(q.xyz,cross(q.xyz,p)+q.w*p);
@@ -62,6 +66,18 @@ fn atomWave(p:vec3f,time:f32)->vec2f{
 }
 fn wave(p:vec3f)->vec2f{
   return atomWave(rotate(p,u.orientation)*u.section.z,u.camera.w)*pow(u.section.z,1.5);
+}
+fn scatterLight(depth:vec3f,mu:f32)->vec3f{
+  let g=clamp(u.lighting.w,-0.95,0.95);
+  var result=vec3f(0);
+  for(var i=0;i<3;i++){
+    let gi=g*select(select(0.25,0.55,i==1),1.0,i==0);
+    var phase=0.75*(1+mu*mu);
+    if(u.section.w<0.5){phase=(1-gi*gi)/pow(max(1+gi*gi-2*gi*mu,0.001),1.5);}
+    let weight=select(u.scattering.x*select(0.30,0.55,i==1),1.0,i==0);
+    result+=weight*phase*exp(-depth*select(select(0.12,0.35,i==1),1.0,i==0));
+  }
+  return result;
 }
 fn phaseColor(a:f32)->vec3f{
   return clamp(0.5+0.5*cos(vec3f(a)+vec3f(0,-2.0943951,2.0943951)),vec3f(0),vec3f(1));
@@ -106,6 +122,7 @@ fn clipSection(ro:vec3f,rd:vec3f,range:vec2f)->vec2f{
   }
   return clipSegment(ro,rd,n,d,range);
 }
+// The exponent is anchored at transferShape.y, the band center, so it changes contrast but not in-band brightness.
 fn displayDensity(d:f32)->f32{
   if(u.transfer.x<0.5||d<=0){
     return d;
@@ -139,6 +156,30 @@ fn sampleGrid(tex:texture_3d<f32>,uv:vec3f,edge:bool)->f32{
   }
   return value;
 }
+fn sampleGridLevel(tex:texture_3d<f32>,uv:vec3f,level:i32)->f32{
+  let size=vec3i(textureDimensions(tex,level));
+  let p=uv*vec3f(size)-0.5;
+  let base=vec3i(floor(p));
+  let f=fract(p);
+  var value=0.0;
+  for(var z=0;z<2;z++){
+    for(var y=0;y<2;y++){
+      for(var x=0;x<2;x++){
+        let index=base+vec3i(x,y,z);
+        let weight=mix(vec3f(1)-f,f,vec3f(f32(x),f32(y),f32(z)));
+        if(all(index>=vec3i(0))&&all(index<size)){
+          value+=textureLoad(tex,index,level).r*weight.x*weight.y*weight.z;
+        }
+      }
+    }
+  }
+  return value;
+}
+fn sampleGridLod(tex:texture_3d<f32>,uv:vec3f,lod:f32)->f32{
+  let l=clamp(lod,0.0,f32(textureNumLevels(tex)-1));
+  let a=i32(floor(l));
+  return mix(sampleGridLevel(tex,uv,a),sampleGridLevel(tex,uv,min(a+1,i32(textureNumLevels(tex))-1)),fract(l));
+}
 fn nearest(tex:texture_2d<f32>,uv:vec2f)->vec4f{
   let size=vec2i(textureDimensions(tex));
   return textureLoad(tex,clamp(vec2i(uv*vec2f(size)),vec2i(0),size-1),0);
@@ -159,19 +200,25 @@ fn lightCoordinates(p:vec3f,light:vec3f)->vec3f{
   return vec3f(dot(p,right),dot(p,cross(light,right)),dot(p,light));
 }
 fn sphereVisibility(p:vec3f)->f32{
+  return sphereVisibilityBias(p,0.0015);
+}
+// bias ignores occluders that close in front of p; markers pass their own diameter to skip self-shadowing.
+fn sphereVisibilityBias(p:vec3f,bias:f32)->f32{
   let lp=lightCoordinates(p,lightDirection());
   let uv=vec2f(lp.x,-lp.y)*0.5+0.5;
-  var visible=0.0;
-  let texel=1.0/f32(textureDimensions(sphereShadows).x);
-  for(var y=0;y<2;y++){
-    for(var x=0;x<2;x++){
-      let depth=nearest(sphereShadows,uv+(vec2f(f32(x),f32(y))-0.5)*texel).w;
-      if(depth<=0||3-lp.z<=depth+0.0015){
-        visible+=0.25;
-      }
+  // Bilinearly weighted 2x2 comparisons, so visibility changes continuously as markers move.
+  let size=f32(textureDimensions(sphereShadows).x);
+  let texel=uv*size-0.5;
+  let base=floor(texel);
+  let f=texel-base;
+  var lit=vec4f(0);
+  for(var i=0;i<4;i++){
+    let depth=nearest(sphereShadows,(base+vec2f(f32(i&1),f32(i>>1))+0.5)/size).w;
+    if(depth<=0||3-lp.z<=depth+bias){
+      lit[i]=1.0;
     }
   }
-  return visible;
+  return mix(mix(lit.x,lit.y,f.x),mix(lit.z,lit.w,f.x),f.y);
 }
 @compute @workgroup_size(4,4,4) fn densityGrid(@builtin(global_invocation_id) gid:vec3u){
   let size=textureDimensions(outputGrid);
@@ -205,9 +252,11 @@ fn sphereVisibility(p:vec3f)->f32{
       }
       let q=rotate(p+light*(range.x+(f32(k)+t)*ds),u.orientation)*0.5+0.5;
       let fog=sampleGrid(densityCache,q,false)*u.render.y*u.particles.x;
+      // Shadow steps read grains averaged over about one step, so small grains block light by their
+      // whole mass instead of being skipped between samples.
       var grain=0.0;
       if(u.geometry.x<0.5&&u.particles.y>0){
-        grain=sampleGrid(grains,q,false)*u.particles.y;
+        grain=sampleGridLod(grains,q,log2(max(1.0,ds*f32(textureDimensions(grains).x)*0.5)))*u.scattering.z;
       }
       od+=(fog+grain)*ds;
     }
@@ -222,7 +271,7 @@ struct VertexOut {
   return VertexOut(vec4f(p*2-1,0,1),vec2f(p.x,1-p.y));
 }
 struct SphereVertex {
-  @builtin(position) position:vec4f,@location(0) @interpolate(flat) center:vec3f
+  @builtin(position) position:vec4f,@location(0) @interpolate(flat) center:vec3f,@location(1) @interpolate(flat) id:u32
 }
 fn screenProjection(p:vec3f)->vec2f{
   var s=p.xy*u.camera.z*2.8/(3.1-p.z);
@@ -254,12 +303,16 @@ fn screenProjection(p:vec3f)->vec2f{
   if(marker.w==0||hash(vec2u(id,73),0)>=u.particles.y){
     xy=vec2f(3);
   }
-  return SphereVertex(vec4f(xy,0,1),center);
+  return SphereVertex(vec4f(xy,0,1),center,id);
 }
 struct SphereHit {
   @location(0) data:vec4f,@builtin(frag_depth) depth:f32
 }
-@fragment fn sphereFragment(in:SphereVertex)->SphereHit{
+struct SurfaceHit {
+  @location(0) data:vec4f,@location(1) id:u32,@builtin(frag_depth) depth:f32
+}
+// Analytic ray/sphere hit in camera or light view; w < 0 where the marker is missed or cut away.
+fn sphereSurface(in:SphereVertex)->vec4f{
   var screen=vec2f(in.position.x/u.viewport.x*2-1,1-in.position.y/u.viewport.y*2);
   var ro:vec3f;
   var rd:vec3f;
@@ -286,17 +339,17 @@ struct SphereHit {
   let closest=oc-rd*b;
   let disc=radius*radius-dot(closest,closest);
   if(disc<=0){
-    discard;
+    return vec4f(-1);
   }
   let entry=-b-sqrt(disc);
   let bound=dot(ro,rd);
   let bd=bound*bound-dot(ro,ro)+1;
   if(bd<=0){
-    discard;
+    return vec4f(-1);
   }
   let range=clipSection(ro,rd,vec2f(max(max(0.0,entry),-bound-sqrt(bd)),min(-b+sqrt(disc),-bound+sqrt(bd))));
   if(range.y<=range.x){
-    discard;
+    return vec4f(-1);
   }
   let p=ro+rd*range.x;
   var normal=normalize(p-in.center);
@@ -304,61 +357,153 @@ struct SphereHit {
     let axis=planeNormal();
     normal=select(axis,-axis,dot(axis,rd)>0);
   }
-  return SphereHit(vec4f(normal,range.x),range.x/6);
+  return vec4f(normal,range.x);
 }
+@fragment fn sphereFragment(in:SphereVertex)->SphereHit{
+  let data=sphereSurface(in);
+  if(data.w<0){
+    discard;
+  }
+  return SphereHit(data,data.w/6);
+}
+// Camera view also records which dot covers each pixel, so shading can reuse that dot's front fog.
+@fragment fn surfaceFragment(in:SphereVertex)->SurfaceHit{
+  let data=sphereSurface(in);
+  if(data.w<0){
+    discard;
+  }
+  return SurfaceHit(data,in.id,data.w/6);
+}
+// Cloud light scattered toward p from along one direction: three cached samples over a short path.
+// Uses only the cloud's own smooth shadowing; thin sphere shadows would make the fill flicker.
+fn cloudRadiance(p:vec3f,direction:vec3f,beta:vec3f)->vec3f{
+  let b=dot(p,direction);
+  let d=b*b-dot(p,p)+1;
+  if(d<=0){
+    return vec3f(0);
+  }
+  let range=clipSection(p,direction,vec2f(0.002,min(0.45,-b+sqrt(d))));
+  if(range.y<=range.x){
+    return vec3f(0);
+  }
+  let ds=(range.y-range.x)/3;
+  let mu=dot(direction,lightDirection());
+  let g=clamp(u.lighting.w,-0.95,0.95);
+  var phase=0.75*(1+mu*mu);
+  if(u.section.w<0.5){
+    phase=(1-g*g)/pow(max(1+g*g-2*g*mu,0.001),1.5);
+  }
+  var transmission=vec3f(1);
+  var radiance=vec3f(0);
+  for(var j=0;j<3;j++){
+    let sample=p+direction*(range.x+(f32(j)+0.5)*ds);
+    let uv=rotate(sample,u.orientation)*0.5+0.5;
+    let sigma=sampleGrid(densityCache,uv,false)*u.render.y*u.particles.x;
+    let attenuation=exp(-sigma*ds*beta);
+    let incident=exp(-sampleGrid(shadows,uv,false)*beta);
+    radiance+=transmission*(1-attenuation)*incident*phase;
+    transmission*=attenuation;
+  }
+  return radiance;
+}
+// Four cosine-weighted hemisphere directions around the normal.
 fn cloudBounce(p:vec3f,normal:vec3f,beta:vec3f)->vec3f{
   if(u.geometry.w<=0||u.particles.x<=0||u.lighting.y<=0){
     return vec3f(0);
   }
   let tangent=lightRight(normal);
   let bitangent=cross(normal,tangent);
-  let light=lightDirection();
   var result=vec3f(0);
   for(var i=0;i<4;i++){
     let angle=(f32(i)+0.5)*1.570796327;
-    let direction=normalize(normal+cos(angle)*tangent+sin(angle)*bitangent);
-    let b=dot(p,direction);
-    let d=b*b-dot(p,p)+1;
-    if(d<=0){
-      continue;
-    }
-    let range=clipSection(p,direction,vec2f(0.002,min(0.45,-b+sqrt(d))));
-    if(range.y<=range.x){
-      continue;
-    }
-    let ds=(range.y-range.x)/3;
-    let mu=dot(direction,light);
-    let g=clamp(u.lighting.w,-0.95,0.95);
-    var phase=0.75*(1+mu*mu);
-    if(u.section.w<0.5){
-      phase=(1-g*g)/pow(max(1+g*g-2*g*mu,0.001),1.5);
-    }
-    var transmission=vec3f(1);
-    var radiance=vec3f(0);
-    for(var j=0;j<3;j++){
-      let sample=p+direction*(range.x+(f32(j)+0.5)*ds);
-      let uv=rotate(sample,u.orientation)*0.5+0.5;
-      let sigma=sampleGrid(densityCache,uv,false)*u.render.y*u.particles.x;
-      let attenuation=exp(-sigma*ds*beta);
-      let incident=exp(-sampleGrid(shadows,uv,false)*beta)*sphereVisibility(sample);
-      radiance+=transmission*(1-attenuation)*incident*phase;
-      transmission*=attenuation;
-    }
-    result+=radiance*0.25;
+    result+=cloudRadiance(p,normalize(normal+cos(angle)*tangent+sin(angle)*bitangent),beta)*0.25;
   }
   return result*u.lighting.y*u.geometry.w;
 }
-fn shadeVolume(in:VertexOut)->vec4f{
-  var screen=in.uv*2-1;
+// The same fill from a dot's six-axis light cube; a marker is small enough to share one cube.
+fn cubeBounce(normal:vec3f,base:u32)->vec3f{
+  let n2=normal*normal;
+  let x=markerLight[base+select(1u,0u,normal.x>=0)].rgb;
+  let y=markerLight[base+select(3u,2u,normal.y>=0)].rgb;
+  let z=markerLight[base+select(5u,4u,normal.z>=0)].rgb;
+  return (n2.x*x+n2.y*y+n2.z*z)*u.lighting.y*u.geometry.w;
+}
+struct Ray {
+  ro:vec3f,rd:vec3f
+}
+fn cameraRay(uv:vec2f)->Ray{
+  var screen=uv*2-1;
   screen.x*=u.viewport.x/u.viewport.y;
   screen.x+=u.camera.x;
   screen.y+=0.16;
-  var ro=vec3f(0,0,3.1);
-  var rd=normalize(vec3f(screen/u.camera.z,-2.8));
   if(u.options.z>0.5){
-    ro=vec3f(screen/u.camera.z*(3.1/2.8),3.1);
-    rd=vec3f(0,0,-1);
+    return Ray(vec3f(screen/u.camera.z*(3.1/2.8),3.1),vec3f(0,0,-1));
   }
+  return Ray(vec3f(0,0,3.1),normalize(vec3f(screen/u.camera.z,-2.8)));
+}
+fn mediumBeta()->vec3f{
+  var raw=pow(vec3f(535.0/615.0,1,535.0/465.0),vec3f(u.scattering.y));
+  raw*=3/dot(raw,vec3f(1));
+  let axis=normalize(vec3f(1));
+  let hue=raw*cos(u.material.x)+cross(axis,raw)*sin(u.material.x)+axis*dot(axis,raw)*(1-cos(u.material.x));
+  var spectrum=max(hue,vec3f(0.0001));
+  spectrum*=3/dot(spectrum,vec3f(1));
+  return mix(vec3f(1),spectrum,u.transport.w);
+}
+// Front-to-back visible fog over steps of dt from near; returns radiance and updates transmission.
+fn marchFog(ro:vec3f,rd:vec3f,near:f32,dt:f32,steps:i32,jitter:f32,beta:vec3f,transmission:ptr<function,vec3f>)->vec3f{
+  let mu=dot(rd,lightDirection());
+  var acc=vec3f(0);
+  for(var j=0;j<steps;j++){
+    let p=ro+rd*(near+(f32(j)+jitter)*dt);
+    let psi=wave(p);
+    let density=displayDensity(dot(psi,psi));
+    var grain=0.0;
+    if(u.geometry.x<0.5&&u.particles.y>0){
+      grain=sampleGrid(grains,rotate(p,u.orientation)*0.5+0.5,false)*u.scattering.z;
+    }
+    let sigma=density*u.render.y*u.particles.x+grain;
+    var color=vec3f(1);
+    if(u.render.z<0.5){
+      color=phaseColor(atan2(psi.y,psi.x)+u.material.x);
+    }
+    var extinction=vec3f(1);
+    if(u.render.z>1.5&&sigma>0.00001){
+      let od=sampleGrid(shadows,rotate(p,u.orientation)*0.5+0.5,true);
+      let tint=mix(vec3f(1),phaseColor(atan2(psi.y,psi.x)+u.material.x),u.material.y);
+      var visibility=1.0;
+      if(u.geometry.x>0.5&&u.particles.y>0){
+        visibility=sphereVisibility(p);
+      }
+      color=tint*(vec3f(u.lighting.z)+u.lighting.y*scatterLight(od*beta,mu)*visibility);
+      extinction=beta;
+    }
+    let attenuation=exp(-sigma*dt*extinction);
+    acc+=*transmission*(1-attenuation)*color;
+    *transmission*=attenuation;
+    if(max((*transmission).x,max((*transmission).y,(*transmission).z))<0.001){
+      break;
+    }
+  }
+  return acc;
+}
+// Markers are lit through the cloud like the cloud is, with a wrapped (half-Lambert squared) falloff:
+// no hard terminator, fully dark only directly away from the light. Plus sphere shadows, ambient and bounce.
+fn shadeMarker(p:vec3f,normal:vec3f,beta:vec3f,bounce:vec3f)->vec3f{
+  let psi=wave(p);
+  let od=sampleGrid(shadows,rotate(p,u.orientation)*0.5+0.5,true);
+  var tint=mix(vec3f(1),phaseColor(atan2(psi.y,psi.x)+u.material.x),u.material.y);
+  if(u.render.z<0.5){
+    tint=phaseColor(atan2(psi.y,psi.x)+u.material.x);
+  }
+  let visibility=sphereVisibilityBias(p,0.0015+0.006*u.particles.z);
+  let wrap=0.5+0.5*dot(normal,lightDirection());
+  return tint*(vec3f(u.lighting.z)+u.lighting.y*wrap*wrap*visibility*exp(-od*beta)+bounce);
+}
+fn shadeVolume(in:VertexOut)->vec4f{
+  let ray=cameraRay(in.uv);
+  let ro=ray.ro;
+  let rd=ray.rd;
   let b=dot(ro,rd);
   let disc=b*b-dot(ro,ro)+1;
   var acc=vec3f(0);
@@ -377,65 +522,16 @@ fn shadeVolume(in:VertexOut)->vec4f{
       if(u.geometry.x<0.5&&u.particles.y>0){
         steps=max(steps,i32(ceil((range.y-range.x)*f32(textureDimensions(grains).x)/1.2)));
       }
-      let dt=(range.y-range.x)/f32(steps);
       var jitter=0.5;
       if(u.material.z>0.5){
         jitter=fract(hash(vec2u(in.position.xy),0)+u.viewport.z*0.6180339);
       }
       var transmission=vec3f(1);
-      let light=lightDirection();
-      let mu=dot(rd,light);
-      let g=clamp(u.lighting.w,-0.95,0.95);
-      var phase=0.75*(1+mu*mu);
-      if(u.section.w<0.5){
-        phase=(1-g*g)/pow(max(1+g*g-2*g*mu,0.001),1.5);
-      }
-      let raw=vec3f(0.65,0.95,1.4);
-      let axis=normalize(vec3f(1));
-      let hue=raw*cos(u.material.x)+cross(axis,raw)*sin(u.material.x)+axis*dot(axis,raw)*(1-cos(u.material.x));
-      let beta=mix(vec3f(1),max(hue,vec3f(0.1)),u.transport.w);
-      for(var j=0;j<steps;j++){
-        let p=ro+rd*(range.x+(f32(j)+jitter)*dt);
-        let psi=wave(p);
-        let density=displayDensity(dot(psi,psi));
-        var grain=0.0;
-        if(u.geometry.x<0.5&&u.particles.y>0){
-          grain=sampleGrid(grains,rotate(p,u.orientation)*0.5+0.5,false)*u.particles.y;
-        }
-        let sigma=density*u.render.y*u.particles.x+grain;
-        var color=vec3f(1);
-        if(u.render.z<0.5){
-          color=phaseColor(atan2(psi.y,psi.x)+u.material.x);
-        }
-        var extinction=vec3f(1);
-        if(u.render.z>1.5&&sigma>0.00001){
-          let od=sampleGrid(shadows,rotate(p,u.orientation)*0.5+0.5,true);
-          let tint=mix(vec3f(1),phaseColor(atan2(psi.y,psi.x)+u.material.x),u.material.y);
-          var visibility=1.0;
-          if(u.geometry.x>0.5&&u.particles.y>0){
-            visibility=sphereVisibility(p);
-          }
-          color=tint*(vec3f(u.lighting.z)+u.lighting.y*phase*exp(-od*beta)*visibility);
-          extinction=beta;
-        }
-        let attenuation=exp(-sigma*dt*extinction);
-        acc+=transmission*(1-attenuation)*color;
-        transmission*=attenuation;
-        if(max(transmission.x,max(transmission.y,transmission.z))<0.001){
-          break;
-        }
-      }
+      let beta=mediumBeta();
+      acc=marchFog(ro,rd,range.x,(range.y-range.x)/f32(steps),steps,jitter,beta,&transmission);
       if(hit){
         let p=ro+rd*range.y;
-        let psi=wave(p);
-        let od=sampleGrid(shadows,rotate(p,u.orientation)*0.5+0.5,true);
-        var tint=mix(vec3f(1),phaseColor(atan2(psi.y,psi.x)+u.material.x),u.material.y);
-        if(u.render.z<0.5){
-          tint=phaseColor(atan2(psi.y,psi.x)+u.material.x);
-        }
-        let visibility=sphereVisibility(p+surface.xyz*0.002);
-        let reflected=tint*(vec3f(u.lighting.z)+u.lighting.y*max(0.0,dot(surface.xyz,light))*visibility*exp(-od*beta)+cloudBounce(p,surface.xyz,beta));
-        acc+=transmission*reflected;
+        acc+=transmission*shadeMarker(p,surface.xyz,beta,cloudBounce(p,surface.xyz,beta));
       }
     }
   }
@@ -445,16 +541,67 @@ fn shadeVolume(in:VertexOut)->vec4f{
   }
   return vec4f(mix(acc,old,u.options.w),1);
 }
+// Fog in front of each marker, integrated once per dot rather than once per covered pixel.
+// Markers are a few pixels wide, so the veil in front of one is effectively uniform across it.
+@compute @workgroup_size(64) fn markerFogPass(@builtin(global_invocation_id) gid:vec3u){
+  let id=gid.x;
+  // Inactive and thinned-out dots are never drawn.
+  if(id>=u32(u.flow.w)||sphereDots[id].w==0||hash(vec2u(id,73),0)>=u.particles.y){
+    return;
+  }
+  let center=rotate(sphereDots[id].xyz/u.section.z,inverse(u.orientation));
+  var ro=vec3f(0,0,3.1);
+  var rd=normalize(center-ro);
+  if(u.options.z>0.5){
+    ro=vec3f(center.xy,3.1);
+    rd=vec3f(0,0,-1);
+  }
+  let b=dot(ro,rd);
+  let disc=b*b-dot(ro,ro)+1;
+  var acc=vec3f(0);
+  var transmission=vec3f(1);
+  let beta=mediumBeta();
+  if(disc>0){
+    let range=clipSection(ro,rd,vec2f(-b-sqrt(disc),-b+sqrt(disc)));
+    if(range.y>range.x){
+      // Same step spacing as a full pixel ray across this chord, ending at the marker's front.
+      // A fractional last step keeps the integral continuous as the dot moves in depth.
+      let dt=(range.y-range.x)/f32(clamp(i32(u.options.x),48,768));
+      let span=max(0.0,min(range.y,dot(center-ro,rd)-0.003*u.particles.z)-range.x);
+      let whole=min(i32(span/dt),768);
+      let rest=span-f32(whole)*dt;
+      acc=marchFog(ro,rd,range.x,dt,whole,0.5,beta,&transmission);
+      if(rest>1e-6){
+        acc+=marchFog(ro,rd,range.x+f32(whole)*dt,rest,1,0.5,beta,&transmission);
+      }
+    }
+  }
+  markerFog[id*8u]=vec4f(acc,0);
+  markerFog[id*8u+1u]=vec4f(transmission,0);
+  let fill=u.geometry.w>0&&u.particles.x>0&&u.lighting.y>0;
+  let axes=array<vec3f,6>(vec3f(1,0,0),vec3f(-1,0,0),vec3f(0,1,0),vec3f(0,-1,0),vec3f(0,0,1),vec3f(0,0,-1));
+  for(var i=0u;i<6u;i++){
+    var light=vec3f(0);
+    if(fill){
+      light=cloudRadiance(center+axes[i]*0.003*u.particles.z,axes[i],beta);
+    }
+    markerFog[id*8u+2u+i]=vec4f(light,0);
+  }
+}
 @fragment fn volume(in:VertexOut)->@location(0) vec4f{
   return shadeVolume(in);
 }
 fn linearToSRGB(c:vec3f)->vec3f{
   return select(1.055*pow(c,vec3f(1.0/2.4))-0.055,12.92*c,c<=vec3f(0.0031308));
 }
+// Full-resolution markers: each covered pixel shades its surface once, behind its dot's front fog.
 @fragment fn integratedPresent(in:VertexOut)->@location(0) vec4f{
   var c=textureSampleLevel(history,linearSampler,in.uv,0).rgb;
-  if(u.geometry.x>0.5&&u.particles.y>0&&nearest(surfaces,in.uv).w>0){
-    c=shadeVolume(in).rgb;
+  let surface=nearest(surfaces,in.uv);
+  if(u.geometry.x>0.5&&u.particles.y>0&&surface.w>0){
+    let base=textureLoad(markerIDs,vec2u(in.position.xy),0).r*8u;
+    let ray=cameraRay(in.uv);
+    c=markerLight[base].rgb+markerLight[base+1u].rgb*shadeMarker(ray.ro+ray.rd*surface.w,surface.xyz,mediumBeta(),cubeBounce(surface.xyz,base+2u));
   }
   return vec4f(linearToSRGB(1-exp(-max(c,vec3f(0))*u.render.x)),1);
 }
@@ -628,14 +775,34 @@ fn finite3(v:vec3f)->bool{
   }
   dots[id]=marker;
 }
+// Box-filtered grain level for shadow rays: each texel averages the 2x2x2 block below it.
+@compute @workgroup_size(4,4,4) fn downsampleGrains(@builtin(global_invocation_id) gid:vec3u){
+  let size=textureDimensions(outputGrid);
+  if(any(gid>=size)){
+    return;
+  }
+  let last=vec3i(textureDimensions(grains))-1;
+  var sum=0.0;
+  for(var z=0;z<2;z++){
+    for(var y=0;y<2;y++){
+      for(var x=0;x<2;x++){
+        sum+=textureLoad(grains,min(vec3i(gid*2u)+vec3i(x,y,z),last),0).r;
+      }
+    }
+  }
+  textureStore(outputGrid,gid,vec4f(sum/8));
+}
 @compute @workgroup_size(128) fn depositDots(@builtin(global_invocation_id) gid:vec3u){
   let id=gid.x;
-  if(id>=u32(u.flow.w)||dots[id].w==0){
+  // The same stable thinning as spheres: particles.y is the fraction of dots shown.
+  if(id>=u32(u.flow.w)||dots[id].w==0||hash(vec2u(id,73),0)>=u.particles.y){
     return;
   }
   let size=i32(u.particles.w);
   let center=(dots[id].xyz/u.section.z*0.5+0.5)*f32(size)-0.5;
-  let radius=(1.25+0.35*(clamp(u.particles.z,1,5)-1))*f32(size)/192;
+  let size1=clamp(u.particles.z,0.5,5);
+  // Below size 1 grains shrink linearly; the renderer raises the grid so they stay at least 1.25 cells wide.
+  let radius=max(1.0,select(1.25*size1,1.25+0.35*(size1-1),size1>=1)*f32(size)/192);
   let reach=i32(ceil(radius));
   let base=vec3i(floor(center));
   for(var z=-reach;z<=reach;z++){

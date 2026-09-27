@@ -26,10 +26,12 @@ const $ = (tag, cls, text) => {
     b.onclick = fn;
     return b;
   };
-const format = (v) =>
-  Number(v)
-    .toFixed(2)
-    .replace(/\.?0+$/, "");
+const format = (v, log = false) =>
+  log
+    ? String(Number(Number(v).toPrecision(3)))
+    : Number(v)
+        .toFixed(2)
+        .replace(/\.?0+$/, "");
 const unit = (v, r, log = false) =>
   log
     ? Math.log(clamp(v, ...r) / r[0]) / Math.log(r[1] / r[0])
@@ -155,7 +157,7 @@ export class UI {
       let w = track.clientWidth - 20,
         y = track.clientHeight / 2,
         v = draft ?? m.target(key);
-      out.value = format(v);
+      out.value = format(v, log);
       position(target, 10 + w * unit(v, range, log), y);
       position(actual, 10 + w * unit(m.current(key), range, log), y);
       track.setAttribute("aria-valuenow", v);
@@ -425,7 +427,7 @@ export class UI {
       modes,
       this.row(exposure, light),
       this.grid(
-        this.rail("density", "density", [0.05, 15], true),
+        this.rail("density", "density", [0.0001, 1000], true),
         this.rail("zoom", "zoom", [0.5, 5], true),
         this.rail("cut depth", "cut", [0, 1]),
       ),
@@ -434,7 +436,7 @@ export class UI {
         button("head-on light", () => m.faceLight(true)),
       ),
       this.grid(
-        this.rail("volume", "volumeGain", [0, 1]),
+        this.toggle("volume", "volumeGain"),
         this.rail("dots", "dotsGain", [0, 1]),
       ),
       this.select("Dots", "dotMode", [
@@ -442,9 +444,13 @@ export class UI {
         ["soft volume", 0],
       ]),
     );
-    let bounce = this.rail("cloud bounce", "bounce", [0, 1]);
-    root.append(bounce);
-    this.updates.push(() => (bounce.hidden = m.target("dotMode") < 0.5));
+    let bounce = this.rail("cloud bounce", "bounce", [0, 1]),
+      grainDensity = this.rail("grain density", "grainDensity", [0.05, 20], true);
+    root.append(bounce, grainDensity);
+    this.updates.push(() => {
+      bounce.hidden = m.target("dotMode") < 0.5;
+      grainDensity.hidden = m.target("dotMode") >= 0.5;
+    });
     let density = $("div", "density-wrap"),
       mapping = this.toggle("density mapping", "transferEnabled"),
       reset = button("reset", () =>
@@ -454,7 +460,6 @@ export class UI {
           "densityLow",
           "densityHigh",
           "densitySoftness",
-          "densityPivot",
         ].forEach((k) => m.reset(k)),
       ),
       bandColumn = $("div", "density-wrap"),
@@ -489,32 +494,13 @@ export class UI {
       edgePad.hidden = mode.value !== "edges";
       bandPad.hidden = mode.value !== "band";
     };
-    bandColumn.append(
-      mode,
-      edgePad,
-      bandPad,
-      bounds,
+    bandColumn.append(mode, edgePad, bandPad, bounds);
+    const shapeColumn = $("div", "density-wrap");
+    shapeColumn.append(
       this.rail("edge softness", "densitySoftness", [0.05, 2]),
+      this.rail("exponent", "densityExponent", [0.2, 3], true),
     );
-    let densityPads = this.row(
-      bandColumn,
-      this.pad(
-        "exponent",
-        "pivot",
-        "densityExponent",
-        "densityPivot",
-        [0.2, 3],
-        () => [
-          Math.floor(
-            Math.min(-12, m.target("densityLow"), m.target("densityPivot")),
-          ),
-          Math.ceil(
-            Math.max(0, m.target("densityHigh"), m.target("densityPivot")),
-          ),
-        ],
-        true,
-      ),
-    );
+    let densityPads = this.row(bandColumn, shapeColumn);
     density.append(this.row(mapping, reset), densityPads);
     root.append(density);
     this.updates.push(() => {
@@ -556,13 +542,15 @@ export class UI {
         this.rail("shadow samples", "shadowSamples", [2, 64]),
         this.rail("anisotropy", "anisotropy", [-0.95, 0.95]),
         this.rail("dispersion", "dispersion", [0, 1]),
+        this.rail("bleed", "bleed", [0, 1]),
+        this.rail("falloff", "falloff", [0, 16]),
         this.rail("ambient", "ambient", [0, 1]),
       ),
       this.select("Scattering", "phaseFunction", [
         ["Henyey–Greenstein", 0],
         ["Rayleigh", 1],
       ]),
-      this.rail("dot size", "dotSize", [1, 5]),
+      this.rail("dot size", "dotSize", [0.5, 5]),
       grain,
       this.rail("light grid", "lightResolution", [64, 256], false, {
         commit: true,
@@ -625,7 +613,7 @@ export class UI {
         (_, p) => m.coefficient(s.id, (p[0] - 40) / 30, (40 - p[1]) / 30),
       );
       cp.ondblclick = () => (s.amplitude = 0);
-      left.append(label, cp, $("div", "coefficient-caption", "phase · weight"));
+      left.append(label, cp);
       e.append(left);
       this.stateUpdates.push(() => {
         let c = m.cs.get(s.id).map((s) => s.value),
@@ -747,10 +735,6 @@ export class UI {
   }
   setupHeader() {
     let m = this.model;
-    document.querySelector("#shapes").onchange = (e) => {
-      m.load(e.target.value);
-      this.buildStates();
-    };
     document.querySelector("#bank").onclick = () => this.bank();
     document.querySelector("#gyro").onclick = () => this.toggleGyro("atom");
     document.querySelector("#help").onclick = () => {
@@ -778,9 +762,7 @@ export class UI {
       if (e.code === "Escape") m.arcball.velocity = [0, 0, 0];
     });
     this.updates.push(() => {
-      let shapes = document.querySelector("#shapes");
-      if ([...shapes.options].some((o) => o.value === m.preset))
-        shapes.value = m.preset;
+      document.querySelector("#preset-name").textContent = m.preset;
       document.querySelector("#fps").textContent = m.target("showFPS")
         ? `${Math.round(m.fps)} fps`
         : "";
@@ -792,79 +774,8 @@ export class UI {
   bank() {
     let m = this.model,
       d = document.querySelector("#presets");
+    d.className = "bank";
     d.replaceChildren();
-    d.append(
-      this.row(
-        $("span", "", "presets"),
-        button("close", () => d.close()),
-      ),
-    );
-    let list = $("div", "bank-list");
-    for (let scope of ["look", "state", "time", "session"]) {
-      let entries = m.bank.filter((p) => p.scope === scope);
-      if (!entries.length) continue;
-      list.append($("div", "bank-scope", scope));
-      for (let p of entries) {
-        let row = $("div", "bank-row");
-        row.append(
-          button(p.name, () => {
-            m.apply(p);
-            d.close();
-            this.buildStates();
-          }),
-        );
-        for (let [key, part, icon] of [
-          ["states", "state", "⁙"],
-          ["render", "look", "◉"],
-          ["time", "time", "◷"],
-        ])
-          if (p[key])
-            row.append(
-              button(
-                icon,
-                () => {
-                  m.apply(p, part);
-                  this.buildStates();
-                },
-                `Load ${part} from ${p.name}`,
-              ),
-            );
-        if (!p.builtin)
-          row.append(
-            button(
-              "×",
-              () => {
-                m.bank = m.bank.filter((v) => v.id !== p.id);
-                m.save();
-                this.bank();
-              },
-              "Remove preset",
-            ),
-          );
-        list.append(row);
-      }
-    }
-    d.append(list);
-    let actions = $("div", "bank-actions"),
-      name = $("input"),
-      scope = $("select");
-    name.placeholder = "Name this preset";
-    name.setAttribute("aria-label", "Preset name");
-    for (let s of ["look", "state", "time", "session"])
-      scope.append($("option", "", s));
-    scope.value = "session";
-    actions.append(
-      name,
-      scope,
-      button("Save", () => {
-        if (name.value.trim()) {
-          m.bank.push(m.snapshot(name.value.trim(), scope.value));
-          m.save();
-          this.bank();
-        }
-      }),
-    );
-    d.append(actions);
     let file = $("input");
     file.type = "file";
     file.accept = "application/json";
@@ -885,28 +796,172 @@ export class UI {
     d.append(
       file,
       this.row(
-        button("Import", () => file.click()),
-        button("Export", () => {
-          let a = $("a");
-          a.href = URL.createObjectURL(
-            new Blob(
-              [
-                JSON.stringify(
-                  m.bank.filter((p) => !p.builtin),
-                  null,
-                  2,
-                ),
-              ],
-              { type: "application/json" },
-            ),
-          );
-          a.download = "orbital-presets.json";
-          a.click();
-          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        }),
+        $("span", "bank-title", "presets"),
+        $("div", "spacer"),
+        button("import", () => file.click(), "Import presets"),
+        button(
+          "export",
+          () => {
+            let a = $("a");
+            a.href = URL.createObjectURL(
+              new Blob(
+                [JSON.stringify(m.bank.filter((p) => !p.builtin), null, 2)],
+                { type: "application/json" },
+              ),
+            );
+            a.download = "orbital-presets.json";
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+          },
+          "Export presets",
+        ),
+        button("close", () => d.close()),
       ),
     );
+    let grid = $("div", "bank-grid");
+    for (let [scope, title] of [
+      ["session", "complete · atom, look and time"],
+      ["look", "looks · lighting and rendering"],
+      ["state", "atoms · the orbital's form"],
+      ["time", "time · playback and motion"],
+    ]) {
+      let entries = m.bank.filter(
+        (p) => p.scope === scope && (!p.field || p.field === "hydrogen"),
+      );
+      if (!entries.length) continue;
+      grid.append($("div", "bank-section", title));
+      for (let p of entries) grid.append(this.tile(p, d));
+    }
+    d.append(grid);
+    let name = $("input"),
+      words = $("div", "scope-words"),
+      note = $("div", "bank-note"),
+      notes = {
+        session: "Atom, look, time, orientation and spin momentum.",
+        state: "The atom's quantum mixture; keeps the look.",
+        look: "Rendering only; keeps the current atom and time.",
+        time: "Time, playback, coast and spring settings.",
+      };
+    name.placeholder = "name";
+    name.setAttribute("aria-label", "Preset name");
+    d.scope ??= "session";
+    for (let [scope, word] of [
+      ["session", "all"],
+      ["state", "atom"],
+      ["look", "look"],
+      ["time", "time"],
+    ]) {
+      let b = button(word, () => {
+        d.scope = scope;
+        this.bank();
+      }, `Save ${word}`);
+      b.classList.toggle("active", d.scope === scope);
+      words.append(b);
+    }
+    note.textContent = notes[d.scope];
+    let save = button(
+      "save",
+      () => {
+        if (!name.value.trim()) return;
+        m.bank.push(m.snapshot(name.value.trim(), d.scope));
+        m.save();
+        this.bank();
+      },
+      "Save preset",
+    );
+    name.onkeydown = (e) => e.key === "Enter" && save.click();
+    d.append(this.row(name, words, save), note);
+    d.onclose = () => this.stopLoops();
     if (!d.open) d.showModal();
+    this.playLoops(grid);
+  }
+  tile(p, dialog) {
+    let m = this.model,
+      tile = $("div", "tile"),
+      media = button("", () => {
+        m.apply(p);
+        dialog.close();
+        this.buildStates();
+      }, `Load ${p.name}`),
+      parts = $("div", "tile-parts");
+    media.className = "tile-media";
+    tile.classList.toggle("current", m.preset === p.name);
+    // What the preset holds; each word loads just that part.
+    for (let [key, part, word] of [
+      ["states", "state", "atom"],
+      ["render", "look", "look"],
+      ["time", "time", "time"],
+    ])
+      if (p[key])
+        parts.append(
+          button(word, () => {
+            m.apply(p, part);
+            this.buildStates();
+          }, `Load only the ${word} from ${p.name}`),
+        );
+    if (!p.builtin) {
+      let remove = button("×", () => {
+        m.bank = m.bank.filter((v) => v.id !== p.id);
+        m.save();
+        this.bank();
+      }, `Remove ${p.name}`);
+      remove.className = "remove";
+      parts.append(remove);
+    }
+    tile.append(media, $("div", "tile-name", p.name), parts);
+    if (p.builtin) {
+      let video = $("video");
+      Object.assign(video, { muted: true, loop: true, playsInline: true, preload: "none" });
+      video.src = `./assets/loops/${p.id}.mp4`;
+      video.onerror = () => {
+        video.remove();
+        this.drawnLoop(media, p);
+      };
+      media.append(video);
+    } else this.drawnLoop(media, p);
+    return tile;
+  }
+  drawnLoop(media, p) {
+    if (!this.loops) return;
+    let canvas = $("canvas");
+    canvas.width = canvas.height = 192;
+    media.append(canvas);
+    this.loops.frames(p).then((frames) => (canvas.frames = frames));
+  }
+  // Only tiles in view play; browser-drawn loops share one animation timer.
+  playLoops(grid) {
+    this.stopLoops();
+    let visible = new Set();
+    this.loopObserver = new IntersectionObserver(
+      (entries) => {
+        for (let e of entries) {
+          if (e.isIntersecting) visible.add(e.target);
+          else visible.delete(e.target);
+          let video = e.target.querySelector("video");
+          if (video) e.isIntersecting ? video.play().catch(() => {}) : video.pause();
+        }
+      },
+      { root: grid },
+    );
+    grid.querySelectorAll(".tile-media").forEach((t) => this.loopObserver.observe(t));
+    let draw = (t) => {
+      for (let media of visible) {
+        let c = media.querySelector("canvas");
+        if (c?.frames?.length)
+          c.getContext("2d").drawImage(
+            c.frames[Math.floor((t / 1000) * 15) % c.frames.length],
+            0,
+            0,
+          );
+      }
+      this.loopFrame = requestAnimationFrame(draw);
+    };
+    this.loopFrame = requestAnimationFrame(draw);
+  }
+  stopLoops() {
+    this.loopObserver?.disconnect();
+    cancelAnimationFrame(this.loopFrame);
+    document.querySelectorAll("#presets video").forEach((v) => v.pause());
   }
   validPreset(p) {
     if (

@@ -52,6 +52,146 @@
   },
   {
     "builtin": true,
+    "createdAt": 810960831.448534,
+    "field": "hydrogen",
+    "id": "00000000-0000-0000-0000-000000000100",
+    "name": "Interference",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 0.7071067811865476,
+        "id": "00000000-0000-0000-0000-000000010100",
+        "l": 4,
+        "m": -3,
+        "n": 6,
+        "phase": 0
+      },
+      {
+        "amplitude": 0.7071067811865476,
+        "id": "00000000-0000-0000-0000-000000010101",
+        "l": 3,
+        "m": 1,
+        "n": 6,
+        "phase": 0.6
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "field": "hydrogen",
+    "id": "00000000-0000-0000-0000-000000000101",
+    "name": "Filigree",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "00000000-0000-0000-0000-000000010110",
+        "l": 5,
+        "m": 3,
+        "n": 8,
+        "phase": 0
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "field": "hydrogen",
+    "id": "00000000-0000-0000-0000-000000000102",
+    "name": "Circular",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "00000000-0000-0000-0000-000000010120",
+        "l": 7,
+        "m": 7,
+        "n": 8,
+        "phase": 0
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "field": "hydrogen",
+    "id": "00000000-0000-0000-0000-000000000103",
+    "name": "Shells",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 1,
+        "id": "00000000-0000-0000-0000-000000010130",
+        "l": 2,
+        "m": 0,
+        "n": 8,
+        "phase": 0
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "field": "hydrogen",
+    "id": "00000000-0000-0000-0000-000000000104",
+    "name": "Petals",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 0.7071067811865476,
+        "id": "00000000-0000-0000-0000-000000010140",
+        "l": 6,
+        "m": 4,
+        "n": 8,
+        "phase": 0
+      },
+      {
+        "amplitude": 0.7071067811865476,
+        "id": "00000000-0000-0000-0000-000000010141",
+        "l": 6,
+        "m": -4,
+        "n": 8,
+        "phase": 0.4
+      }
+    ]
+  },
+  {
+    "builtin": true,
+    "createdAt": 810960831.448534,
+    "field": "hydrogen",
+    "id": "00000000-0000-0000-0000-000000000105",
+    "name": "Beating",
+    "scope": "state",
+    "states": [
+      {
+        "amplitude": 0.7071067811865476,
+        "id": "00000000-0000-0000-0000-000000010150",
+        "l": 4,
+        "m": 2,
+        "n": 6,
+        "phase": 0
+      },
+      {
+        "amplitude": 0.7071067811865476,
+        "id": "00000000-0000-0000-0000-000000010151",
+        "l": 3,
+        "m": -1,
+        "n": 7,
+        "phase": 0
+      }
+    ],
+    "time": {
+      "coast": true,
+      "elapsed": 0,
+      "playing": true,
+      "response": 14,
+      "speed": 0.7,
+      "springs": true
+    }
+  },
+  {
+    "builtin": true,
     "createdAt": 810362325.199249,
     "id": "2DBDF9FB-11F9-4EFC-9FEB-353610C203BF",
     "name": "ballon fill",
@@ -3499,6 +3639,7 @@
       }
     },
     "scope": "session",
+    "startup": true,
     "states": [
       {
         "amplitude": 0.059206469653033264,
