@@ -35,14 +35,21 @@ export function makeLabels(config) {
     const label = document.createElement('div');
     label.className = 'rail-label';
     const cs = getComputedStyle(input);
-    for (const k of ['left', 'top', 'bottom', 'transform', 'transformOrigin']) label.style[k] = cs[k];
-    if (cs.top === 'auto') label.style.top = 'auto';
+    const vertical = cs.transform !== 'none';
+    if (vertical) {
+      // Rotated rails: a horizontal label centred above the rail's top end.
+      label.classList.add('above');
+      label.style.left = `${parseFloat(cs.left) - 10}px`;
+      label.style.bottom = '106px';
+    } else {
+      for (const k of ['left', 'top']) label.style[k] = cs[k];
+    }
     pad.append(label);
     const render = () => {
       const [name, value] = text();
       label.innerHTML = `<span>${name}</span><span class="value">${value}</span>`;
       // Keep the words on the side of the track away from the thumb.
-      label.classList.toggle('far', input.value / (input.max || 100) < 0.5);
+      if (!vertical) label.classList.toggle('far', input.value / (input.max || 100) < 0.5);
     };
     labels.set(label, render);
     const on = () => { shown.add(label); render(); label.classList.add('on'); };
