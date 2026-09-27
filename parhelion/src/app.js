@@ -164,7 +164,8 @@ export function start(renderer) {
   physics.add(CONFIG, 'sunDisk').name('Sun Disk').onChange(() => { traceDirty = true; });
   const output = gui.addFolder('Output');
   output.add(CONFIG, 'settle').name('Converge at Rest');
-  if (renderer.hdr) output.add(CONFIG, 'headroom', 1, 16).step(0.1).name('HDR Headroom').onChange(() => { postDirty = true; });
+  if (renderer.extended) output.add(CONFIG, 'headroom', 1, 16).step(0.1).name('HDR Headroom').onChange(() => { postDirty = true; });
+  renderer.hdrQuery.addEventListener('change', () => { postDirty = true; });
   output.add(CONFIG, 'resolution', 0.5, window.devicePixelRatio || 1).step(0.25).name('Resolution').onChange(resize);
   gui.add(CONFIG, 'enableSprings').name('Springs');
 

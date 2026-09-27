@@ -27,7 +27,7 @@ export class Renderer {
     this.canvas = canvas;
     this.device = device;
     this.context = canvas.getContext('webgpu');
-    this.hdr = this.configure();
+    this.extended = this.configure();
 
     const spectrum = buildSpectrum();
     this.matrix = displayMatrix(spectrum.whiteXYZ);
@@ -62,18 +62,21 @@ export class Renderer {
     device.lost.then(info => console.warn('WebGPU device lost:', info.message));
   }
 
-  // Extended-range Display P3 where the browser and display support it.
+  // Extended-range Display P3 where the browser supports it; HDR output only
+  // while the current display does (the query follows the window).
   configure() {
     const base = { device: this.device, format: 'rgba16float', alphaMode: 'opaque', colorSpace: 'display-p3' };
+    this.hdrQuery = matchMedia('(dynamic-range: high)');
     try {
       this.context.configure({ ...base, toneMapping: { mode: 'extended' } });
-      const mode = this.context.getConfiguration?.()?.toneMapping?.mode;
-      if (mode === 'extended' || mode === undefined) return matchMedia('(dynamic-range: high)').matches;
+      return this.context.getConfiguration?.()?.toneMapping?.mode === 'extended';
     } catch (e) {
       this.context.configure(base);
+      return false;
     }
-    return false;
   }
+
+  get hdr() { return this.extended && this.hdrQuery.matches; }
 
   storage(data) {
     const buffer = this.device.createBuffer({ size: Math.max(16, data.byteLength), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
