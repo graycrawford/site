@@ -63,7 +63,7 @@ const CONFIG = {
   altitude: 0.5, // km, observer height
   albedo: 0.15, // ground reflectance
   showSun: true, // draw the sun's own disk (with the sky)
-  clearGround: false, // the planet is transparent vacuum: more sky below the horizon
+  ground: 'solid', // below the air: solid planet, vacuum planet, air all the way down, or no planet
   cloudLayer: false, // crystals in a cirrus layer (vs. around the observer, diamond dust)
   cloudHeight: 9, // km, the halo cloud layer (cirrus)
   haze: 0.1, // aerosol optical depth at 550 nm (0.05 clean, 0.1 typical, 0.4 hazy)
@@ -100,6 +100,7 @@ const PX_PER_UNIT = {
 // blur eases away as crystals grow instead of passing through D = 0.
 const SAVE = '\u0000save';
 const REMOVE = '\u0000remove';
+const GROUNDS = ['solid', 'vacuum', 'air', 'none']; // see sky.js
 const TRACE_KEYS = ['sunElevation', 'camElevation', 'camYaw', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction', 'dropRadius', 'dropSpread'];
 const traceTarget = (k, c) => {
   if (k === 'diffraction') return c.crystalSize > 0 ? 1 / c.crystalSize : 0;
@@ -263,7 +264,7 @@ export function start(renderer) {
   skyFolder.add(CONFIG, 'altitude', 0, 12).step(0.1).name('Altitude (km)').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'albedo', 0, 1).step(0.01).name('Ground Albedo').onChange(() => { postDirty = true; });
   skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { traceDirty = true; });
-  skyFolder.add(CONFIG, 'clearGround').name('Transparent Ground').onChange(() => { traceDirty = true; });
+  skyFolder.add(CONFIG, 'ground', GROUNDS).name('Ground').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudLayer').name('Crystals in Cloud Layer').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudHeight', 0, 15).step(0.1).name('Cloud Height (km)').onChange(() => { traceDirty = true; });
   const output = gui.addFolder('Output');
@@ -511,7 +512,7 @@ export function start(renderer) {
     state.cloudHeight = CONFIG.cloudHeight;
     state.cloudLayer = CONFIG.cloudLayer;
     state.showSun = CONFIG.showSun;
-    state.clearGround = CONFIG.clearGround;
+    state.ground = GROUNDS.indexOf(CONFIG.ground);
     state.sizeSpread = CONFIG.sizeSpread;
     state.tiltScale = [CONFIG.tiltPlate, CONFIG.tiltColumn, CONFIG.tiltParry, CONFIG.tiltLowitz, CONFIG.tiltPolyhedral];
 

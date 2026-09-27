@@ -67,12 +67,12 @@ export const PRESETS = {
 export const PRESET_KEYS = [
   'sunElevation', 'camElevation', 'lockSunCenter', 'zoom', 'crystalTilt', 'polyhedralSpin', 'ior',
   'exposure', 'fadeFactor', 'saturation', 'lowitzSpin', 'crystalSize', 'plateAspect', 'columnAspect', 'sunDisk',
-  'lookAway', 'tumble', 'triangularity', 'skyLevel', 'altitude', 'albedo', 'haze', 'cloudHeight', 'cloudLayer', 'clearGround', 'showSun', 'shadows', 'sizeSpread', 'dropRadius', 'dropSpread',
+  'lookAway', 'tumble', 'triangularity', 'skyLevel', 'altitude', 'albedo', 'haze', 'cloudHeight', 'cloudLayer', 'ground', 'showSun', 'shadows', 'sizeSpread', 'dropRadius', 'dropSpread',
   'tiltPlate', 'tiltColumn', 'tiltParry', 'tiltLowitz', 'tiltPolyhedral',
 ];
 export const PRESET_DEFAULTS = {
   lockSunCenter: true, polyhedralSpin: 0, lowitzSpin: 30, crystalSize: 0, plateAspect: 0.2, columnAspect: 2, sunDisk: true,
-  lookAway: false, tumble: false, triangularity: 0, skyLevel: 0, altitude: 0.5, albedo: 0.15, haze: 0.1, cloudHeight: 9, cloudLayer: false, clearGround: false, showSun: true, shadows: 0, sizeSpread: 0.5, dropRadius: 500, dropSpread: 0.1,
+  lookAway: false, tumble: false, triangularity: 0, skyLevel: 0, altitude: 0.5, albedo: 0.15, haze: 0.1, cloudHeight: 9, cloudLayer: false, ground: 'solid', showSun: true, shadows: 0, sizeSpread: 0.5, dropRadius: 500, dropSpread: 0.1,
   tiltPlate: 1, tiltColumn: 1.5, tiltParry: 0.25, tiltLowitz: 1, tiltPolyhedral: 1,
 };
 
@@ -125,7 +125,7 @@ export function removePreset(name) {
 // Saved presets as entries to paste into PRESETS above.
 export function presetsAsCode(presets) {
   return Object.entries(presets).map(([name, p]) => {
-    const fields = Object.entries(p).map(([k, v]) => `${k}: ${Array.isArray(v) ? `[${v.map(t => `'${t}'`).join(', ')}]` : v}`);
+    const fields = Object.entries(p).map(([k, v]) => `${k}: ${Array.isArray(v) ? `[${v.map(t => `'${t}'`).join(', ')}]` : typeof v === 'string' ? `'${v}'` : v}`);
     return `  '${name}': { ${fields.join(', ')} },`;
   }).join('\n');
 }

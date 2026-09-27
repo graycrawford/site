@@ -317,13 +317,13 @@ export class Renderer {
 
     const enc = d.createCommandEncoder();
     // Re-bake the sky table only when the sun or observer changes.
-    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze} ${s.cloudHeight} ${s.cloudLayer} ${s.clearGround}` : this.skyKey;
+    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze} ${s.cloudHeight} ${s.cloudLayer} ${s.ground}` : this.skyKey;
     if (skyKey !== this.skyKey) {
       this.skyKey = skyKey;
       d.queue.writeBuffer(this.skyUniforms, 0, new Float32Array([
-        s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze, s.cloudHeight * 1000, s.cloudLayer ? 1 : 0, s.clearGround ? 1 : 0, 0]));
+        s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze, s.cloudHeight * 1000, s.cloudLayer ? 1 : 0, s.ground ?? 0, 0]));
       const pass = enc.beginComputePass();
-      const msKey = `${s.albedo} ${s.haze} ${s.clearGround}`; // multiple scattering doesn't depend on the sun
+      const msKey = `${s.albedo} ${s.haze} ${s.ground}`; // multiple scattering doesn't depend on the sun
       if (msKey !== this.msKey) {
         this.msKey = msKey;
         pass.setPipeline(this.msPipeline);
