@@ -55,7 +55,9 @@ const CONFIG = {
   haze: 0.1, // aerosol optical depth at 550 nm (0.05 clean, 0.1 typical, 0.4 hazy)
 
   // Output
-  shadows: 0, // 0..1: lifts the lows, peak white stays put
+  shadows: 0, // 0..3: lifts the lows, peak white stays put
+  autoExposure: false, // meter the image and steer exposure (on the spring)
+  autoBias: 0, // stops, applied to the auto target
   settle: true,
   headroom: 3,
   resolution: 1,
@@ -228,7 +230,9 @@ export function start(renderer) {
   skyFolder.add(CONFIG, 'albedo', 0, 1).step(0.01).name('Ground Albedo').onChange(() => { postDirty = true; });
   skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { postDirty = true; });
   const output = gui.addFolder('Output');
-  output.add(CONFIG, 'shadows', 0, 1).step(0.01).name('Shadows').onChange(() => { postDirty = true; });
+  output.add(CONFIG, 'shadows', 0, 3).step(0.01).name('Shadows').onChange(() => { postDirty = true; });
+  output.add(CONFIG, 'autoExposure').name('Auto Exposure').onChange(() => { postDirty = true; });
+  output.add(CONFIG, 'autoBias', -3, 3).step(0.1).name('Auto Bias (stops)').onChange(() => { postDirty = true; });
   output.add(CONFIG, 'settle').name('Converge at Rest');
   if (renderer.extended) output.add(CONFIG, 'headroom', 1, 16).step(0.1).name('HDR Headroom').onChange(() => { postDirty = true; });
   renderer.hdrQuery.addEventListener('change', () => { postDirty = true; });
@@ -326,11 +330,34 @@ export function start(renderer) {
     onZoom(v) { setZoom(v); refresh(); },
     onTilt(v) { CONFIG.crystalTilt = v; syncTargets(); refresh(); },
     onFade(v) { CONFIG.fadeFactor = v; syncTargets(); refresh(); },
-    onExposure(v) { setExposure(v); refresh(); },
+    onExposure(v) { CONFIG.autoExposure = false; setExposure(v); refresh(); }, // hand-set takes over
     onToggle(key) { toggleType(key); pad.update(); },
   });
 
   labels = makeLabels(CONFIG);
+
+  // Auto exposure: put the 99.5th percentile of lit pixels (sun and sundog
+  // cores excepted by construction) at 70% of the display's peak, shifted by
+  // the bias. Steps are partial and go through the exposure spring, with a
+  // deadband so it settles instead of hunting; the smooth shoulder above
+  // handles whatever is brighter without clipping.
+  renderer.onMeter = (counts, peak, metered) => {
+    if (!CONFIG.autoExposure) return;
+    let total = 0;
+    for (const c of counts) total += c;
+    if (total < 64) return;
+    let cum = 0, bin = 63;
+    for (let b = 0; b < 64; b++) { cum += counts[b]; if (cum >= 0.995 * total) { bin = b; break; } }
+    const level = 2 ** ((bin + 0.5) / 64 * 24 - 16);
+    const stops = Math.log2(0.7 * peak * 2 ** CONFIG.autoBias / level);
+    // Relative to the exposure that made the metered frame, so readings that
+    // arrive while the spring is still moving don't compound.
+    const target = metered * 2 ** Math.max(-2, Math.min(2, stops));
+    if (Math.abs(Math.log2(target / CONFIG.exposure)) < 0.2) return;
+    setExposure(target);
+    refresh();
+    pad.update();
+  };
 
   function applyShape() {
     renderer.setCrystals({

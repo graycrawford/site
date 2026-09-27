@@ -48,6 +48,9 @@ export class Renderer {
     this.skyBands = this.storage(skyBands());
     this.skyLut = device.createBuffer({ size: (SKY_W * SKY_H + 1) * 16, usage: GPUBufferUsage.STORAGE });
     this.skyKey = '';
+    this.meter = device.createBuffer({ size: 256, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
+    this.meterRead = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    this.metering = false;
     this.traceData = new ArrayBuffer(176);
     this.presentData = new ArrayBuffer(176);
 
@@ -75,7 +78,7 @@ export class Renderer {
   async init() {
     const d = this.device;
     const presentModule = d.createShaderModule({ code: presentShader() });
-    [this.tracePipeline, this.presentPipeline, this.skyPipeline] = await Promise.all([
+    [this.tracePipeline, this.presentPipeline, this.skyPipeline, this.meterPipeline] = await Promise.all([
       d.createComputePipelineAsync({
         layout: 'auto',
         compute: { module: d.createShaderModule({ code: traceShader() }), entryPoint: 'main' },
@@ -90,6 +93,7 @@ export class Renderer {
         layout: 'auto',
         compute: { module: d.createShaderModule({ code: skyShader() }), entryPoint: 'main' },
       }),
+      d.createComputePipelineAsync({ layout: 'auto', compute: { module: presentModule, entryPoint: 'meterMain' } }),
     ]);
     this.skyGroup = d.createBindGroup({
       layout: this.skyPipeline.getBindGroupLayout(0),
@@ -167,6 +171,11 @@ export class Renderer {
     this.presentGroup = d.createBindGroup({
       layout: this.presentPipeline.getBindGroupLayout(0),
       entries: [this.presentUniforms, this.hist, this.accum, this.skyLut].map((buffer, binding) => ({ binding, resource: { buffer } })),
+    });
+    this.meterGroup = d.createBindGroup({
+      layout: this.meterPipeline.getBindGroupLayout(0),
+      entries: [[0, this.presentUniforms], [2, this.accum], [3, this.skyLut], [4, this.meter]]
+        .map(([binding, buffer]) => ({ binding, resource: { buffer } })),
     });
   }
 
@@ -316,7 +325,28 @@ export class Renderer {
     pass.setBindGroup(0, this.presentGroup);
     pass.draw(3);
     pass.end();
+    // Auto exposure: histogram what was just shown, read back asynchronously.
+    const meter = this.onMeter && !this.metering && this.frameIndex % 4 === 0;
+    if (meter) {
+      enc.clearBuffer(this.meter);
+      const mp = enc.beginComputePass();
+      mp.setPipeline(this.meterPipeline);
+      mp.setBindGroup(0, this.meterGroup);
+      mp.dispatchWorkgroups(Math.ceil(this.width / 32), Math.ceil(this.height / 32));
+      mp.end();
+      enc.copyBufferToBuffer(this.meter, 0, this.meterRead, 0, 256);
+    }
     d.queue.submit([enc.finish()]);
+    if (meter) {
+      const meteredExposure = s.exposure;
+      this.metering = true;
+      this.meterRead.mapAsync(GPUMapMode.READ).then(() => {
+        const counts = new Uint32Array(this.meterRead.getMappedRange().slice(0));
+        this.meterRead.unmap();
+        this.metering = false;
+        this.onMeter?.(counts, this.hdr ? s.headroom : 1, meteredExposure);
+      }, () => { this.metering = false; });
+    }
     if (timing) {
       timing.mapAsync(GPUMapMode.READ).then(() => {
         const t = new BigInt64Array(timing.getMappedRange());

@@ -393,6 +393,7 @@ const LUMA = vec3f(0.2289746, 0.6917385, 0.0792869); // Display P3 Y
 // (a fraction of the P3 boundary chroma for that L and hue) rolls off smoothly
 // so the spectral locus lands on the boundary. Perceived brightness and hue
 // stay put, and there are no kinks, so pure spectra stay a continuous rainbow.
+const KNEE_P = 3.0; // shoulder hardness
 const GAMUT_KNEE = 0.75;
 const GAMUT_POWER = 1.2;
 const P3_TO_LMS = mat3x3f(${m(OKLAB.p3ToLms)});
@@ -424,6 +425,46 @@ fn mapGamut(rgb: vec3f, saturation: f32, lim: f32) -> vec3f {
   return max(labToP3(vec3f(lab.x, dir * Cout)), vec3f(0.0));
 }
 
+// Pre-tonemap display-linear P3 for a pixel: accumulated energy -> radiance
+// (dividing by the pixel's stereographic solid angle), plus sky, gamut-mapped.
+fn sceneRGB(p: vec2f, a: vec3f) -> vec3f {
+  let s = (p - U.center) / U.scale;
+  let k = 1.0 + dot(s, s);
+  var xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale);
+  if (U.skyGain > 0.0) {
+    // This pixel's sky direction: inverse stereographic, then the camera basis.
+    let c = vec3f(2.0 * s, 2.0 - k) / k;
+    let d = normalize(U.camRight * c.x + U.camDown * c.y + U.camFwd * c.z);
+    var light = skyLookup(d);
+    if (dot(d, U.sunDir) > U.sunCos) {
+      light += sky[${SKY_W * SKY_H}u].xyz / (2.0 * PI * (1.0 - U.sunCos)); // the sun itself
+    }
+    xyz += light * U.skyGain;
+  }
+  return mapGamut(vec3f(dot(U.m0.xyz, xyz), dot(U.m1.xyz, xyz), dot(U.m2.xyz, xyz)), U.saturation, U.gamutLimit);
+}
+
+// Exposure meter: a log2 histogram of max(rgb) over every 4th pixel, before
+// the shoulder, for auto exposure. 64 bins spanning 2^-16 .. 2^8.
+@group(0) @binding(4) var<storage, read_write> meter: array<atomic<u32>, 64>;
+var<workgroup> localBins: array<atomic<u32>, 64>;
+@compute @workgroup_size(8, 8)
+fn meterMain(@builtin(global_invocation_id) id: vec3u, @builtin(local_invocation_index) li: u32) {
+  let p = id.xy * 4u;
+  if (p.x < U.width && f32(p.y) < 2.0 * U.center.y) {
+    let i = p.y * U.width + p.x;
+    let rgb = sceneRGB(vec2f(p) + 0.5, accum[2u * i].xyz + accum[2u * i + 1u].xyz);
+    let m = max(rgb.r, max(rgb.g, rgb.b));
+    if (m > 1.52587890625e-5) {
+      let bin = u32(clamp((log2(m) + 16.0) / 24.0 * 64.0, 0.0, 63.0));
+      atomicAdd(&localBins[bin], 1u);
+    }
+  }
+  workgroupBarrier();
+  let n = atomicLoad(&localBins[li]);
+  if (n > 0u) { atomicAdd(&meter[li], n); }
+}
+
 @fragment
 fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   let px = vec2u(pos.xy);
@@ -445,31 +486,15 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   }
   let a = motion + rest;
 
-  // Exposure-weighted energy per pixel -> radiance: divide by the
-  // stereographic solid angle of the pixel.
-  let s = (pos.xy - U.center) / U.scale;
-  let k = 1.0 + dot(s, s);
-  var xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale);
-  if (U.skyGain > 0.0) {
-    // This pixel's sky direction: inverse stereographic, then the camera basis.
-    let c = vec3f(2.0 * s, 2.0 - k) / k;
-    let d = normalize(U.camRight * c.x + U.camDown * c.y + U.camFwd * c.z);
-    var light = skyLookup(d);
-    if (dot(d, U.sunDir) > U.sunCos) {
-      light += sky[${SKY_W * SKY_H}u].xyz / (2.0 * PI * (1.0 - U.sunCos)); // the sun itself
-    }
-    xyz += light * U.skyGain;
-  }
+  var rgb = sceneRGB(pos.xy, a);
 
-  var rgb = mapGamut(vec3f(dot(U.m0.xyz, xyz), dot(U.m1.xyz, xyz), dot(U.m2.xyz, xyz)), U.saturation, U.gamutLimit);
-
-  // Hue-preserving shoulder on max(rgb) toward the headroom, and a path to
-  // white driven by how hard the shoulder is compressing.
+  // Hue-preserving shoulder on max(rgb): f(m) = m / (1 + (m/H)^p)^(1/p) is
+  // smooth everywhere (no joint to band at), ~linear below the knee, and
+  // approaches the headroom H without ever reaching it, so nothing clips.
+  // Then a path to white driven by how hard it is compressing.
   let H = U.headroom;
   let m = max(rgb.r, max(rgb.g, rgb.b));
-  let knee = 0.6 * H;
-  var fm = m;
-  if (m > knee) { fm = knee + (H - knee) * (1.0 - exp(-(m - knee) / (H - knee))); }
+  let fm = m / pow(1.0 + pow(m / H, KNEE_P), 1.0 / KNEE_P);
   if (m > 0.0) {
     rgb *= fm / m;
     let squeeze = 1.0 - fm / m;
