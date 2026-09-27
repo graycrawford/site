@@ -233,10 +233,17 @@
       </div>
     </div>
 
+    <div class="card" data-card="near">
+      <h2><span class="chev">▾</span><span class="ttl">near source</span><span class="hint" id="nearHint">off</span><div class="sw" id="swNear" role="button" aria-pressed="false" tabindex="0"></div></h2>
+      <div class="body"><div id="nearBody" class="body dim">
+        <div class="zgrid" id="nearpads"></div>
+      </div></div>
+    </div>
+
     <div class="card" data-card="display">
       <h2><span class="chev">▾</span><span class="ttl">grid</span><span class="hint" id="fillHint"></span></h2>
       <div class="body">
-        <div class="ctrl"><div class="row"><label>size</label><span class="num" id="n_gridN"></span></div><input type="range" id="gridN" min="0" max="8" step="1" value="3" title="grid size (5-smooth)"></div>
+        <div class="ctrl"><div class="row"><label>size</label><span class="num" id="n_gridN"></span></div><input type="range" id="gridN" min="0" max="11" step="1" value="9" title="grid size (5-smooth)"></div>
         <div class="ctrl"><div class="row"><label>window</label><span class="num" id="n_win"></span></div><input type="range" id="win" min="6" max="32" step="0.5" value="16" title="pupil-plane window (mm)"></div>
       </div>
     </div>
@@ -267,6 +274,7 @@
         <div class="ctrl"><div class="row"><label>threshold</label></div><input type="range" id="camThresh" min="0" max="1" step="0.005" value="0.5" title="luminance threshold"></div>
         <div class="ctrl"><div class="row"><label>edge</label></div><input type="range" id="camSoft" min="0.002" max="0.4" step="0.002" value="0.05" title="threshold softness"></div>
         <div class="ctrl"><div class="row"><label>detail</label></div><input type="range" id="camRes" min="128" max="1024" step="64" value="512" title="max camera sampling resolution"></div>
+        <div class="toggle-row"><span>colour</span><div class="sw" id="swCamColor" role="button" aria-pressed="true" tabindex="0"></div></div>
         <div class="toggle-row"><span>invert</span><div class="sw" id="swCamInv" role="button" aria-pressed="false" tabindex="0"></div></div>
         <div class="toggle-row"><span>replace pupil</span><div class="sw" id="swCamPupil" role="button" aria-pressed="false" tabindex="0"></div></div>
       </div></div>
@@ -307,12 +315,13 @@ const ZMODES=[{id:"defocus",label:"Defocus",nm:"Z₂⁰"},{id:"sph",label:"Spher
 const PRESETS={"Diffraction-limited":{},"Defocus":{defocus:0.60},"Astigmatism":{astig0:0.60},"Coma":{comaY:0.50},
   "Trefoil":{trefX:0.50},"Spherical":{sph:0.50},"Keratoconus":{comaY:0.42,trefX:0.30,astig0:0.28,defocus:0.18},"Typical eye":{sph:0.10,astig0:0.08,comaY:0.05}};
 
-const state={ N:256,Nreq:256,D:3.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camRes:512,lambda:550,coeff:{},rot:0,
+const state={ N:256,Nreq:2048,D:3.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camColor:true,camRes:512,lambda:550,coeff:{},rot:0,
   spectral:true,specSamples:14,lca:false,lcaStrength:1.0,
   lashOn:false,lashPos:2,lashCount:30,lashSpacing:0.86,lashThick:0.46,lashAngle:90,lashAngleJit:6,lashSpaceJit:0.3,lashIncursion:2.7,depth:0,
   lidOn:false,lidAngle:0,lidUpper:0,lidLower:0,
   gamma:1,exposure:1,zoom:1,absExp:false,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
-  sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:0,sceneExp:0,sceneGlare:true,gpu:true };
+  sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:0,sceneExp:0,sceneGlare:true,gpu:true,
+  near:false,nearLog:1.176 };   /* nearLog = log10(source distance, mm) — 15 mm ≈ a speck on glasses */
 ZMODES.forEach(m=>state.coeff[m.id]=0);
 
 let dx, gr=null, zb=null, fbin=null, re=null, im=null, psf=null;
@@ -403,20 +412,33 @@ function fft2d(reA,imA,n){if(!_row||_row.re.length!==n){_row={re:new Float64Arra
 function ifft2d(reA,imA,n){for(let i=0;i<n*n;i++)imA[i]=-imA[i];fft2d(reA,imA,n);const s=1/(n*n);for(let i=0;i<n*n;i++){reA[i]*=s;imA[i]=-imA[i]*s;}}
 
 /* ---- grid -------------------------------------------------------------- */
-function setupGrid(N){state.N=N;dx=L_WIN/N;const len=N*N;
+/* CPU arrays are built lazily: the GPU path needs none of them, and at 8192²
+   they would run to gigabytes. setupGrid only fixes the sampling. */
+let cpuN=0, maskVer=0;
+function setupGrid(N){state.N=N;dx=L_WIN/N;cpuN=0;
+  gr=zb=re=im=psf=accX=accY=accZ=antMask=antSpecRe=antSpecIm=null;
+  fbin=new Float32Array(N);for(let k=0;k<N;k++)fbin[k]=((k<N/2?k:k-N))/(N*dx); // cycles/mm
+  buildBasis();}
+function ensureOut(){const len=state.N*state.N;
+  if(!psf||psf.length!==len){psf=new Float32Array(len);accX=new Float32Array(len);accY=new Float32Array(len);accZ=new Float32Array(len);}}
+function ensureCpu(){const N=state.N;if(cpuN===N)return;const len=N*N;ensureOut();
   gr={r:new Float32Array(len),r2:new Float32Array(len),r3:new Float32Array(len),r4:new Float32Array(len),
     c1:new Float32Array(len),s1:new Float32Array(len),c2:new Float32Array(len),s2:new Float32Array(len),c3:new Float32Array(len),s3:new Float32Array(len)};
-  re=new Float64Array(len);im=new Float64Array(len);psf=new Float32Array(len);
-  accX=new Float32Array(len);accY=new Float32Array(len);accZ=new Float32Array(len);
-  antMask=new Float64Array(len);antSpecRe=new Float64Array(len);antSpecIm=new Float64Array(len);
+  re=new Float64Array(len);im=new Float64Array(len);
+  antSpecRe=new Float64Array(len);antSpecIm=new Float64Array(len);
   zb=[];for(let k=0;k<ZMODES.length;k++)zb.push(new Float32Array(len));
-  fbin=new Float32Array(N);for(let k=0;k<N;k++)fbin[k]=((k<N/2?k:k-N))/(N*dx); // cycles/mm
   const c=N/2;
   for(let iy=0;iy<N;iy++)for(let ix=0;ix<N;ix++){const i=iy*N+ix,x=(ix-c)*dx,y=(iy-c)*dx,r=Math.sqrt(x*x+y*y),th=Math.atan2(y,x);
     gr.r[i]=r;gr.r2[i]=r*r;gr.r3[i]=r*r*r;gr.r4[i]=r*r*r*r;gr.c1[i]=Math.cos(th);gr.s1[i]=Math.sin(th);
     gr.c2[i]=Math.cos(2*th);gr.s2[i]=Math.sin(2*th);gr.c3[i]=Math.cos(3*th);gr.s3[i]=Math.sin(3*th);}
-  buildBasis();}
-function buildBasis(){const len=state.N*state.N,R=state.D/2,a=2/state.D,a2=a*a,a3=a2*a,a4=a3*a;let cnt=0;
+  cpuN=N;buildBasis();
+  if(state.occ&&state.depth>0)antDirty=true;}   /* antSpec is new */
+/* same inside-pupil test as the CPU basis (float32 radius <= R) */
+function pupilCount(){const N=state.N,c=N/2,R=state.D/2;let cnt=0;
+  for(let iy=0;iy<N;iy++){const y=(iy-c)*dx;for(let ix=0;ix<N;ix++){const x=(ix-c)*dx;if(Math.fround(Math.sqrt(x*x+y*y))<=R)cnt++;}}
+  return cnt;}
+function buildBasis(){if(cpuN!==state.N){sumA=pupilCount();return;}
+  const len=state.N*state.N,R=state.D/2,a=2/state.D,a2=a*a,a3=a2*a,a4=a3*a;let cnt=0;
   for(let i=0;i<len;i++){if(gr.r[i]<=R){const rho=a*gr.r[i],rho2=a2*gr.r2[i],rho3=a3*gr.r3[i],rho4=a4*gr.r4[i];
     zb[0][i]=S3*(2*rho2-1);zb[1][i]=S5*(6*rho4-6*rho2+1);zb[2][i]=S6*rho2*gr.c2[i];zb[3][i]=S6*rho2*gr.s2[i];
     const cc=(3*rho3-2*rho);zb[4][i]=S8*cc*gr.c1[i];zb[5][i]=S8*cc*gr.s1[i];zb[6][i]=S8*rho3*gr.c3[i];zb[7][i]=S8*rho3*gr.s3[i];cnt++;}
@@ -455,7 +477,9 @@ function applyLashes(){const N=state.N,c=N/2,r=state.lashThick/2,soft=1.2*dx;
         const m=ss(((Math.sqrt(qx*qx+qy*qy)-r)/soft)+0.5);
         if(m<1)antMask[row+ix]*=m;}}}}
 function buildAnterior(){state.occ=state.lashOn||state.lidOn||CAM.on;if(!state.occ)return;
-  const len=state.N*state.N;for(let i=0;i<len;i++)antMask[i]=1;
+  const len=state.N*state.N;if(!antMask||antMask.length!==len)antMask=new Float32Array(len);
+  if(state.depth>0)ensureCpu();
+  antMask.fill(1);maskVer++;
   if(state.lidOn)applyLids(); if(state.lashOn)applyLashes(); if(CAM.on)applyCam();
   if(state.depth>0){ for(let i=0;i<len;i++){antSpecRe[i]=antMask[i];antSpecIm[i]=0;} fft2d(antSpecRe,antSpecIm,state.N); }}
 
@@ -473,9 +497,40 @@ function fieldAtPupil(lambdaNm,cDeff){const N=state.N,len=N*N,k0=2*Math.PI/(lamb
     if(gr.r[i]<=R||openAll){const W=cDeff*zb[0][i]+cS*zb[1][i]+cA0*zb[2][i]+cA45*zb[3][i]+cCx*zb[4][i]+cCy*zb[5][i]+cTx*zb[6][i]+cTy*zb[7][i];
       const ph=k0*W,cph=Math.cos(ph),sph=Math.sin(ph);
       if(state.occ){const ar=re[i],ai=im[i];re[i]=ar*cph-ai*sph;im[i]=ar*sph+ai*cph;}else{re[i]=cph;im[i]=sph;}}
-    else{re[i]=0;im[i]=0;}}}
+    else{re[i]=0;im[i]=0;}}
+  if(camColorOn()&&camM){const w=camW(lambdaNm);
+    for(let i=0;i<len;i++){const o=i*4,f=camM[o]*w[0]+camM[o+1]*w[1]+camM[o+2]*w[2];re[i]*=f;im[i]*=f;}}}
 function shiftIntensity(){const N=state.N,h=N>>1;let pk=0;
   for(let ky=0;ky<N;ky++){const sy=(ky+h)%N;for(let kx=0;kx<N;kx++){const sx=(kx+h)%N;const o=ky*N+kx;const p=re[o]*re[o]+im[o]*im[o];psf[sy*N+sx]=p;if(p>pk)pk=p;}}return pk;}
+
+/* ---- near source ---------------------------------------------------------
+   A point s mm in front of the pupil (dust on a spectacle lens, s≈15) arrives
+   with vergence 1/s ≈ 66 D. As pupil phase that is ~70 µm of defocus — far
+   past what the Fraunhofer grid can sample. But the retinal field is
+     U(u) ∝ ∫ P(r) e^{ikr²/2s} e^{-iku·r/f} dr,
+   which is, up to a phase, the Fresnel pattern of P at distance s, seen at
+   angle θ = x/s. So all defocus (source + Zernike + LCA) goes into one
+   angular-spectrum step instead, which is well sampled while s < N·dx²/λ.
+   The image is a shadowgram of the pupil plane: lashes and lids resolve as
+   geometric shadows with Fresnel fringes, and the disc spans ~D/s rad. */
+function nearZ(l,withLca){const R=state.D/2;
+  let V=1000/Math.pow(10,state.nearLog)+4*S3*EC.defocus/(R*R);        /* dioptres */
+  if(withLca)V+=state.lcaStrength*dLCA(l);
+  if(Math.abs(V)<0.5)V=V<0?-0.5:0.5;
+  return 1000/V;}                                                       /* mm, signed */
+function nearZref(){return state.spectral?nearZ(LREF,state.lca):nearZ(state.lambda,false);}
+function nearField(l,z){fieldAtPupil(l,0);const N=state.N;fft2d(re,im,N);
+  const c=-Math.PI*(l*1e-6)*z;
+  for(let ky=0;ky<N;ky++){const fy=fbin[ky];for(let kx=0;kx<N;kx++){const fx=fbin[kx],i=ky*N+kx;
+    const ph=c*(fx*fx+fy*fy),Hr=Math.cos(ph),Hi=Math.sin(ph),ar=re[i],ai=im[i];
+    re[i]=ar*Hr-ai*Hi;im[i]=ar*Hi+ai*Hr;}}
+  ifft2d(re,im,N);}
+function plainIntensity(){const len=state.N*state.N;let pk=0;
+  for(let i=0;i<len;i++){const p=re[i]*re[i]+im[i]*im[i];psf[i]=p;if(p>pk)pk=p;}return pk;}
+/* angular size of one sim pixel on an n grid, arcsec */
+function arcAt(n){if(state.near)return L_WIN/n/Math.abs(nearZref())*ARCSEC;
+  return (state.spectral?LREF:state.lambda)*1e-9/(L_WIN*1e-3)*ARCSEC;}
+function arcPerPx(){return arcAt(state.N);}
 
 function dLCA(l){return 1.68524-633.46/(l-214.102);}
 function gG(x,m,s1,s2){const t=(x-m)*(x<m?s1:s2);return Math.exp(-0.5*t*t);}
@@ -483,36 +538,59 @@ function xbar(l){return 1.056*gG(l,599.8,.0264,.0323)+0.362*gG(l,442,.0624,.0374
 function ybar(l){return 0.821*gG(l,568.8,.0213,.0247)+0.286*gG(l,530.9,.0613,.0322);}
 function zbar(l){return 1.217*gG(l,437,.0845,.0278)+0.681*gG(l,459,.0385,.0725);}
 
-function recomputeMono(){fieldAtPupil(state.lambda,EC.defocus);fft2d(re,im,state.N);peak=shiftIntensity();strehl=sumA>0?Math.min(1,peak/(sumA*sumA)):0;
-  let s=0;const N=state.N;for(let i=0;i<N*N;i++)s+=psf[i];throughput=sumA>0?s/(N*N*sumA):1;}
-/* draft mode: while a control is in motion the polychromatic sum is the
-   dominant cost (one full 2D FFT per wavelength), so drop to a few samples
-   for interactive frames and re-run at full quality once things settle. */
+function recomputeMono(){ensureCpu();const N=state.N;
+  if(state.near){nearField(state.lambda,nearZref());plainIntensity();}
+  else{fieldAtPupil(state.lambda,EC.defocus);fft2d(re,im,N);shiftIntensity();}
+  let pk=0,s=0;for(let i=0;i<N*N;i++){const v=psf[i];s+=v;if(v>pk)pk=v;}
+  finishStats(pk,s,1);}
+/* draft mode: while a control is in motion, frames may run on a smaller
+   grid and the requested one returns once things settle. */
 let draft=false, draftT=0;
 function touchDraft(){draft=true;clearTimeout(draftT);
   draftT=setTimeout(()=>{draft=false;requestCompute();},200);}
-const DRAFT_MS=90;   /* if a full-quality pass fits in this, never degrade */
 /* Spectral fidelity is never traded away -- polychromatic structure is the
-   point of the image. While a control is in motion the GRID drops instead:
-   above DRAFT_ABOVE, draft frames run on a DRAFT_N grid at the full sample
-   count, and the requested grid returns once things settle. */
-const DRAFT_N=256, DRAFT_ABOVE=420;
+   point of the image. The GRID drops instead, and only as far as it must:
+   every compute is timed per (grid, mode), and a draft halves the grid until
+   its measured (or ~N²logN-extrapolated) cost fits DRAFT_MS. If the full grid
+   already fits, dragging runs at full quality. blit() draws by angle, so a
+   draft frame keeps the same on-screen scale as the full one. */
+const DRAFT_MS=70;   /* ~15 fps floor while dragging */
+const COST=new Map();
+function costKey(n){return n+'|'+(state.near?1:0)+'|'+(state.spectral?state.specSamples:0)+'|'+(state.gpu&&!gs.dead?1:0)+'|'+(state.sceneOn?1:0);}
 function effSamples(){return state.specSamples;}
-function effN(){return (draft&&state.Nreq>DRAFT_ABOVE)?DRAFT_N:state.Nreq;}
-function recomputeSpectral(){const N=state.N,len=N*N,R=state.D/2,ns=effSamples(),h=N>>1;
+const CPU_MAXN=2048;   /* above this only the GPU path is practical */
+/* scene glare reads the PSF back for a 512² convolution — 2048 is plenty */
+function fullN(){return Math.min(state.Nreq,(!state.gpu||gs.dead||state.sceneOn)?CPU_MAXN:gs.maxN);}
+function effN(){const n=fullN();if(!draft)return n;
+  let d=n,t=COST.get(costKey(n));
+  if(t===undefined)t=n>2048?1e9:0;          /* unmeasured: only the huge grids pre-emptively draft */
+  while(d>256){const m=COST.get(costKey(d));if(m!==undefined)t=m;if(t<=DRAFT_MS)break;d>>=1;t/=4.4;}
+  return d;}
+function recomputeSpectral(){ensureCpu();const N=state.N,len=N*N,R=state.D/2,ns=effSamples(),h=N>>1;
   accX.fill(0);accY.fill(0);accZ.fill(0);let ybSum=0;
+  const near=state.near,zr=near?nearZref():0;
   for(let s=0;s<ns;s++){const l=LMIN+(s+0.5)*(LMAX-LMIN)/ns;
-    const cDeff=EC.defocus+(state.lca?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
-    fieldAtPupil(l,cDeff);fft2d(re,im,N);shiftIntensity();
-    const wx=xbar(l),wy=ybar(l),wz=zbar(l);ybSum+=wy;const sc=LREF/l;
+    let sc;
+    if(near){const z=nearZ(l,state.lca);nearField(l,z);plainIntensity();sc=z/zr;}   /* geometric: only LCA rescales */
+    else{const cDeff=EC.defocus+(state.lca?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
+      fieldAtPupil(l,cDeff);fft2d(re,im,N);shiftIntensity();sc=LREF/l;}
+    const wx=xbar(l),wy=ybar(l),wz=zbar(l);ybSum+=wy;
     for(let iy=0;iy<N;iy++){const sy=h+(iy-h)*sc,y0=Math.floor(sy),fy=sy-y0,y1=y0+1,yIn=(y0>=0&&y1<N);
       for(let ix=0;ix<N;ix++){const sx=h+(ix-h)*sc,x0=Math.floor(sx),fx=sx-x0,x1=x0+1;let v=0;
         if(yIn&&x0>=0&&x1<N){const p00=psf[y0*N+x0],p10=psf[y0*N+x1],p01=psf[y1*N+x0],p11=psf[y1*N+x1];v=(p00*(1-fx)+p10*fx)*(1-fy)+(p01*(1-fx)+p11*fx)*fy;}
         const i=iy*N+ix;accX[i]+=wx*v;accY[i]+=wy*v;accZ[i]+=wz*v;}}}
-  peakY=0;for(let i=0;i<len;i++)if(accY[i]>peakY)peakY=accY[i];
-  peakYdl=sumA*sumA*ybSum;                 /* diffraction-limited luminance peak */
-  strehl=sumA>0?Math.min(1,peakY/(sumA*sumA*ybSum)):0;
-  let sY=0;for(let i=0;i<len;i++)sY+=accY[i];throughput=(sumA>0&&ybSum>0)?sY/(N*N*sumA*ybSum):1;}
+  finishSpectral(ybSum);}
+function finishSpectral(ybSum){const len=state.N*state.N;let pk=0,sY=0;
+  for(let i=0;i<len;i++){const v=accY[i];sY+=v;if(v>pk)pk=v;}
+  finishStats(pk,sY,ybSum);}
+/* shared by CPU + GPU, mono (ybSum=1) + spectral. Near-mode intensity is
+   relative to an open unit pupil (GPU folds its 1/N⁴ into the weights). */
+function finishStats(pk,sY,ybSum){const len=state.N*state.N;peak=peakY=pk;
+  if(state.near){peakYdl=ybSum;           /* geometric irradiance of the open pupil */
+    strehl=ybSum>0?pk/ybSum:0;throughput=(sumA>0&&ybSum>0)?sY/(sumA*ybSum):1;return;}
+  peakYdl=sumA*sumA*ybSum;                 /* diffraction-limited peak */
+  strehl=sumA>0?Math.min(1,pk/peakYdl):0;
+  throughput=(sumA>0&&ybSum>0)?sY/(len*sumA*ybSum):1;}
 
 function wlRGB(wl){let R=0,G=0,B=0;
   if(wl<440){R=-(wl-440)/60;B=1;}else if(wl<490){G=(wl-440)/50;B=1;}else if(wl<510){G=1;B=-(wl-510)/20;}
@@ -523,7 +601,7 @@ function wlRGB(wl){let R=0,G=0,B=0;
 /* ---- rendering --------------------------------------------------------- */
 const psfCanvas=document.getElementById("psf"),pctx=psfCanvas.getContext("2d");
 const wfCanvas=document.getElementById("wf"),wfctx=wfCanvas.getContext("2d");
-let off=document.createElement("canvas"),offctx=off.getContext("2d"),offImg=null,dispPx=520;
+var off=document.createElement("canvas"),offctx=off.getContext("2d"),offImg=null,dispPx=520;
 function dpr_(){return Math.min(2,window.devicePixelRatio||1);}
 function sizeCanvases(){const w=psfCanvas.clientWidth||520;dispPx=Math.round(w*dpr_());psfCanvas.width=dispPx;psfCanvas.height=dispPx;}
 function ensureOff(){const N=state.N;if(!off.width||off.width!==N){off.width=N;off.height=N;offImg=offctx.createImageData(N,N);}}
@@ -531,7 +609,7 @@ function drawMono(){ensureOff();const N=state.N,data=offImg.data,invG=1/state.ga
   /* relative: normalize to this frame's own peak (shape only).
      absolute: normalize to the diffraction-limited peak (sumA^2), so aberration
      spread AND occlusion throughput both show up as real dimming. */
-  const ip=state.absExp?(sumA>0?1/(sumA*sumA):1):1/peak;
+  const ip=state.absExp?(peakYdl>0?1/peakYdl:1):(peak>0?1/peak:1);
   let tr=255,tg=255,tb=255;if(state.tint){const c=wlRGB(state.lambda);tr=c[0];tg=c[1];tb=c[2];}
   for(let i=0;i<N*N;i++){let v=psf[i]*ip;v=Math.pow(v,invG)*E;if(v>1)v=1;if(v<0)v=0;const o=i<<2;data[o]=v*tr;data[o+1]=v*tg;data[o+2]=v*tb;data[o+3]=255;}
   offctx.putImageData(offImg,0,0);blit();}
@@ -559,15 +637,28 @@ function fadeOverlay(){const now=(performance||Date).now();
   pctx.save();pctx.globalAlpha=1-e;pctx.drawImage(FADE.cv,0,0,dispPx,dispPx);pctx.restore();}
 function blit(skipAux){const N=state.N,z=state.zoom;
   pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);
-  let scale;
-  if(z>=1){const src=N/z,s0=(N-src)/2;pctx.drawImage(off,s0,s0,src,src,0,0,dispPx,dispPx);scale=dispPx/src;}
-  else{const d=dispPx*z,o=(dispPx-d)/2;pctx.drawImage(off,0,0,N,N,o,o,d,d);scale=d/N;}
-  if(state.airyRing){const airySrcPx=1.22*L_WIN/state.D,rr=airySrcPx*scale;
+  /* laid out by ANGLE against the full (settled) grid, so a draft frame on a
+     smaller grid lands at the same on-screen scale instead of hopping */
+  const NF=fullN(),aC=arcAt(N),Th=NF*arcAt(NF);
+  const V=z>=1?Th/z:Th,dw=z>=1?dispPx:dispPx*z,scale=aC*dw/V;   /* dest px per sim px */
+  const vis=V/aC,s0=Math.max(0,(N-vis)/2),s1=Math.min(N,(N+vis)/2);
+  /* optical axis is the centre of pixel N/2 on every grid; pin it to where the
+     full grid puts it */
+  const scaleF=arcAt(NF)*dw/V,d0=dispPx/2+0.5*scaleF+(s0-N/2-0.5)*scale,dsz=(s1-s0)*scale;
+  let img=off,ix=s0,iw=s1-s0;
+  if(gs.frame){   /* GPU frame: tone only the visible crop, box-reduced to <= GS_MAXTONE */
+    const c0=Math.floor(s0),cs=Math.ceil(s1)-c0,k=Math.max(1,Math.ceil(cs/GS_MAXTONE));
+    if(gpuTone(c0,cs,k)){img=gs.cv;ix=(s0-c0)/k;iw=(s1-s0)/k;}
+    else{gpuReadback(gs.cur);gs.frame=false;draw();return;}}   /* canvas refused: CPU tone */
+  pctx.drawImage(img,ix,ix,iw,iw,d0,d0,dsz,dsz);
+  if(state.airyRing&&!state.near){const airySrcPx=1.22*L_WIN/state.D,rr=airySrcPx*scale;
     if(rr>1&&rr<dispPx*0.72){const cx=dispPx/2;pctx.save();pctx.strokeStyle="rgba(255,255,255,.30)";pctx.lineWidth=Math.max(1,dpr_());
       pctx.setLineDash([4*dpr_(),4*dpr_()]);pctx.beginPath();pctx.arc(cx,cx,rr,0,2*Math.PI);pctx.stroke();pctx.restore();}}
   if(FADE.on&&FADE.cv)fadeOverlay();
   if(!skipAux){if(state.showWf)renderWavefront();renderAperture();updateReadouts();}}
-function draw(){if(state.sceneOn){drawScene();return;} if(state.spectral)drawColor();else drawMono();}
+function draw(){if(state.sceneOn){drawScene();return;}
+  if(gs.frame){blit();return;}
+  if(state.spectral)drawColor();else drawMono();}
 function renderWavefront(){const dprW=Math.min(window.devicePixelRatio||1,3),M=Math.round(Math.min(112*dprW,336));
   if(wfCanvas.width!==M||wfCanvas.height!==M){wfCanvas.width=M;wfCanvas.height=M;}
   const img=wfctx.createImageData(M,M),d=img.data,c=EC;
@@ -599,8 +690,11 @@ function renderAperture(){const inset=document.getElementById("aptInset");
     if(!openAll&&rr2>rlim*rlim){d[o+3]=0;continue;}
     const edge=openAll?1:ss((R-Math.sqrt(rr2))/mmPerPx+0.5);   /* AA'd disc edge */
     if(edge<=0){d[o+3]=0;continue;}
-    let m=1;
-    if(CAM.on&&CAM.lum){
+    let m=1,cr=1,cg=1,cb2=1;
+    if(camColorOn()){const u=mx/L_WIN+0.5,v=-my/L_WIN+0.5,k=1/(2*Math.max(2e-3,state.camSoft));
+      const f=ch=>{let q=ss((camSampleC(u,v,ch)-state.camThresh)*k+0.5);return state.camInvert?1-q:q;};
+      cr=f(0);cg=f(1);cb2=f(2);const mm=Math.max(cr,cg,cb2);m*=mm;if(mm>0){cr/=mm;cg/=mm;cb2/=mm;}}
+    else if(CAM.on&&CAM.lum){
       let cm=ss((camSampleN(mx/L_WIN+0.5,-my/L_WIN+0.5)-state.camThresh)
                 /(2*Math.max(2e-3,state.camSoft))+0.5);
       if(state.camInvert)cm=1-cm;m*=cm;}
@@ -611,165 +705,213 @@ function renderAperture(){const inset=document.getElementById("aptInset");
       let t=L2>0?((mx-s.ax)*ex+(my-s.ay)*ey)/L2:0;t=t<0?0:t>1?1:t;
       const qx=mx-(s.ax+t*ex),qy=my-(s.ay+t*ey),dist=Math.sqrt(qx*qx+qy*qy);
       m*=ss(((dist-r)/soft)+0.5);if(m<=0.002)break;}
-    d[o]=255;d[o+1]=255;d[o+2]=255;d[o+3]=m*edge*72;}
+    d[o]=255*cr;d[o+1]=255*cg;d[o+2]=255*cb2;d[o+3]=m*edge*72;}
   aptctx.clearRect(0,0,M,M);aptctx.putImageData(img,0,0);
   aptctx.strokeStyle="rgba(255,255,255,.08)";aptctx.lineWidth=Math.max(1,dpr*0.75);
   aptctx.beginPath();aptctx.arc(cc,cc,R/W*cc,0,2*Math.PI);aptctx.stroke();}
 function updateReadouts(){const lam=state.spectral?LREF:state.lambda;
-  const dAlpha=(lam*1e-9)/(L_WIN*1e-3),arcsecPerPx=dAlpha*ARCSEC,fovArcmin=state.N*arcsecPerPx/60,airyArcmin=1.22*(lam*1e-9)/(state.D*1e-3)*ARCSEC/60;
+  const arcsecPerPx=arcPerPx(),fovArcmin=state.N*arcsecPerPx/60,airyArcmin=1.22*(lam*1e-9)/(state.D*1e-3)*ARCSEC/60;
   const rmsW=Math.sqrt(ZMODES.reduce((s,m)=>s+state.coeff[m.id]**2,0)),Rmm=state.D/2,diopt=4*S3*state.coeff.defocus/(Rmm*Rmm);
   document.getElementById("rStrehl").textContent=strehl.toFixed(3);
   document.getElementById("rRms").innerHTML=rmsW.toFixed(3)+' <small>µm · '+(rmsW/(lam/1000)).toFixed(2)+'λ</small>';
   document.getElementById("rAiry").innerHTML=airyArcmin.toFixed(2)+' <small>′'+(state.spectral?' @550':'')+'</small>';
   document.getElementById("rDiopt").innerHTML=(diopt>=0?'+':'')+diopt.toFixed(2)+' <small>D</small>';
-  document.getElementById("cScale").textContent=arcsecPerPx.toFixed(1)+' ″/px';
-  document.getElementById("cFov").textContent='FOV '+fovArcmin.toFixed(1)+'′';
+  document.getElementById("cScale").textContent=arcsecPerPx>=60?(arcsecPerPx/60).toFixed(2)+' ′/px':arcsecPerPx.toFixed(1)+' ″/px';
+  document.getElementById("cFov").textContent='FOV '+(fovArcmin>=120?(fovArcmin/60).toFixed(1)+'°':fovArcmin.toFixed(1)+'′');
+  if(state.near){const z=Math.abs(nearZref()),zmax=L_WIN*L_WIN/(state.N*LMAX*1e-6),
+      disc=state.D/z*180/Math.PI,nh=document.getElementById("nearHint");
+    const mm=Math.pow(10,state.nearLog);
+    if(nh)nh.textContent=(mm<100?mm.toFixed(1):mm.toFixed(0))+' mm · '+(z>zmax?'aliased — raise grid':'disc '+disc.toFixed(disc<10?1:0)+'°');}
   document.getElementById("cZoom").textContent='×'+state.zoom.toFixed(1);
   const pupilPx=state.D/dx,fh=document.getElementById("fillHint");fh.textContent=pupilPx<14?'pupil '+pupilPx.toFixed(0)+' px — raise grid':'pupil '+pupilPx.toFixed(0)+' px';}
 
 function applyAccent(){document.documentElement.style.setProperty('--spec','rgba(255,255,255,.55)');document.documentElement.style.setProperty('--spec-dim','rgba(255,255,255,.1)');}
 
-/* ---- GPU spectral PSF (WebGL2) ------------------------------------------
-   Same computation as recomputeSpectral: for each sampled wavelength build the
-   complex pupil A*exp(i*phi) at that lambda, 2D FFT, |.|^2, resample by LREF/l,
-   and accumulate weighted by the CIE bar functions. Everything except the FFT
-   and the resample is identical to the CPU path (CIE weights, LCA, ybSum), so
-   the polychromatic result matches to float precision.
+/* ---- GPU PSF (WebGL2) — resident ----------------------------------------
+   The whole frame stays on the GPU: the pupil (Zernike wavefront evaluated
+   per texel, occluder mask sampled from a texture), the FFT, the near-source
+   Fresnel step, the CIE-weighted accumulation, the tone map, and a max/sum
+   reduction for the readouts — only one 1×1 texel is read back per frame.
+   Every shader is the CPU formula transcribed, in float32 instead of float64.
 
-   The FFT here is the same decimation shader used for the scene convolution;
-   the win is that N^2 log N butterflies + the per-wavelength |.|^2 run on the
-   GPU in parallel, and only the final XYZ target is read back once. */
-const gs={ready:false,dead:false,N:0};
-function gsInit(N){
-  if(gs.ready&&gs.N===N)return true;
-  if(gs.dead)return false;                      /* context creation already failed */
-  gs.ready=false;
+   Mono runs the same pipeline as one sample with unit weights, so X=Y=Z=I.
+   Textures are cached per grid size (at most two: the draft grid and the
+   full one) so settling after a drag doesn't reallocate gigabytes. */
+const gs={dead:false,gl:null,cv:null,sets:new Map(),frame:false,cur:null,maxN:Infinity};
+const GS_VS='#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+function gsCtx(){
+  if(gs.gl)return true; if(gs.dead)return false;
   try{
-    /* One context and one set of programs for the whole page. Only the textures
-       depend on N, so switching between the draft grid and the full grid must
-       NOT allocate a new WebGL context each time -- browsers cap live contexts
-       at roughly 16 and silently drop the oldest once you exceed that. */
-    const reuse=!!gs.gl;
-    if(reuse){const g=gs.gl;
-      [gs.A,gs.B,gs.acc,gs.pwTex].forEach(t=>{if(t)g.deleteTexture(t);});
-      [gs.fA,gs.fB,gs.fAcc].forEach(f=>{if(f)g.deleteFramebuffer(f);});
-      gs.A=gs.B=gs.acc=gs.pwTex=gs.fA=gs.fB=gs.fAcc=null;
-      gs.cv.width=N;gs.cv.height=N;}
     if(!window.WebGL2RenderingContext)throw new Error('no webgl2');
-    const cv=reuse?gs.cv:document.createElement('canvas');
-    if(!reuse){cv.width=N;cv.height=N;}
-    const gl=reuse?gs.gl:cv.getContext('webgl2',{antialias:false,preserveDrawingBuffer:false});
+    const cv=document.createElement('canvas');cv.width=cv.height=16;
+    const gl=cv.getContext('webgl2',{antialias:false,alpha:false,depth:false,stencil:false,preserveDrawingBuffer:true});
     if(!gl)throw new Error('no webgl2');
-    if(!reuse&&!gl.getExtension('EXT_color_buffer_float'))throw new Error('no float render');
-    gs.gl=gl;gs.cv=cv;gs.N=N;
-    if(!reuse){const vao=gl.createVertexArray();gl.bindVertexArray(vao);
-      const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);
-      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);}
-    const tex=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,N,N,0,gl.RGBA,gl.FLOAT,null);return t;};
-    const fbo=t=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return f;};
-    gs.A=tex();gs.B=tex();gs.acc=tex();gs.fA=fbo(gs.A);gs.fB=fbo(gs.B);gs.fAcc=fbo(gs.acc);
+    if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('no float render');
+    const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+    const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+    const H='#version 300 es\nprecision highp float;precision highp int;\n';
     // decimation FFT stage (same math as scene FFT shader)
-    const FFT='#version 300 es\nprecision highp float;precision highp int;\nuniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec2 x=texelFetch(src,c0,0).rg;vec2 y=texelFetch(src,c1,0).rg;float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec2 t=vec2(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x);o=vec4(x+bs*t,0.0,0.0);}';
-    // build pupil A*exp(i*phi) from a packed input texture: rg = (mask, W_microns)
-    const PUP='#version 300 es\nprecision highp float;uniform sampler2D pw;uniform float k0;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);vec2 d=texelFetch(pw,fc,0).rg;float ph=k0*d.y;o=vec4(d.x*cos(ph),d.x*sin(ph),0.0,0.0);}';
-    // |.|^2 with fftshift, resample by scale about centre, add CIE-weighted into acc
-    const ACC='#version 300 es\nprecision highp float;precision highp int;\nuniform sampler2D fftT;uniform sampler2D accT;uniform int N;uniform float scl;uniform vec3 cie;uniform int first;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int h=N/2;\n// current pixel maps back into the (already shifted) intensity of this wavelength\nfloat sx=float(h)+(float(fc.x)-float(h))*scl;float sy=float(h)+(float(fc.y)-float(h))*scl;\nint x0=int(floor(sx));int y0=int(floor(sy));float fx=sx-float(x0);float fy=sy-float(y0);\nfloat v=0.0;\nif(x0>=0&&x0+1<N&&y0>=0&&y0+1<N){\n  // fftshift lookup: intensity at frequency coord = |FFT[(coord+h)%N]|^2\n  ivec2 s00=ivec2((x0+h)%N,(y0+h)%N);ivec2 s10=ivec2((x0+1+h)%N,(y0+h)%N);\n  ivec2 s01=ivec2((x0+h)%N,(y0+1+h)%N);ivec2 s11=ivec2((x0+1+h)%N,(y0+1+h)%N);\n  vec2 a00=texelFetch(fftT,s00,0).rg;vec2 a10=texelFetch(fftT,s10,0).rg;vec2 a01=texelFetch(fftT,s01,0).rg;vec2 a11=texelFetch(fftT,s11,0).rg;\n  float p00=dot(a00,a00),p10=dot(a10,a10),p01=dot(a01,a01),p11=dot(a11,a11);\n  v=(p00*(1.0-fx)+p10*fx)*(1.0-fy)+(p01*(1.0-fx)+p11*fx)*fy;}\nvec3 prev=(first==1)?vec3(0.0):texelFetch(accT,fc,0).rgb;\no=vec4(prev+cie*v,1.0);}';
-    const VS='#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+    const FFT=H+'uniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec2 x=texelFetch(src,c0,0).rg;vec2 y=texelFetch(src,c1,0).rg;float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec2 t=vec2(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x);o=vec4(x+bs*t,0.0,0.0);}';
+    // pupil A*exp(i*k0*W): buildBasis + fieldAtPupil, evaluated per texel
+    const PUP=H+'uniform sampler2D mk;uniform sampler2D cm;uniform int useCam;uniform vec3 cw;uniform int useMask;uniform int openAll;uniform int N;uniform float dx;uniform float R;uniform float a;uniform float k0;\n'+
+      'uniform float cD,cS,cA0,cA45,cCx,cCy,cTx,cTy;out vec4 o;\n'+
+      'const float S3=1.7320508075688772,S5=2.23606797749979,S6=2.449489742783178,S8=2.8284271247461903,TAU=6.283185307179586;\n'+
+      'void main(){ivec2 fc=ivec2(gl_FragCoord.xy);float c=float(N/2);float x=(float(fc.x)-c)*dx,y=(float(fc.y)-c)*dx;float r=sqrt(x*x+y*y);\n'+
+      ' float m=(useMask==1)?texelFetch(mk,fc,0).r:1.0;if(useCam==1)m*=dot(texelFetch(cm,fc,0).rgb,cw);\n'+
+      ' if(r<=R){float rho=a*r,rho2=rho*rho,rho3=rho2*rho,rho4=rho3*rho;float c1=r>0.0?x/r:1.0,s1=r>0.0?y/r:0.0;\n'+
+      '  float c2=c1*c1-s1*s1,s2=2.0*c1*s1,c3=c1*(4.0*c1*c1-3.0),s3=s1*(3.0-4.0*s1*s1),cc=3.0*rho3-2.0*rho;\n'+
+      '  float W=cD*S3*(2.0*rho2-1.0)+cS*S5*(6.0*rho4-6.0*rho2+1.0)+cA0*S6*rho2*c2+cA45*S6*rho2*s2+cCx*S8*cc*c1+cCy*S8*cc*s1+cTx*S8*rho3*c3+cTy*S8*rho3*s3;\n'+
+      '  float ph=k0*W;ph-=TAU*floor(ph/TAU);o=vec4(m*cos(ph),m*sin(ph),0.0,0.0);}\n'+
+      ' else if(openAll==1){o=vec4(m,0.0,0.0,0.0);} else {o=vec4(0.0);}}';
+    // near source: Fresnel transfer function exp(i*c*(kx^2+ky^2)), c=-pi*lambda*z/L^2
+    const CHP=H+'uniform sampler2D src;uniform int N;uniform float c;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int kx=fc.x<N/2?fc.x:fc.x-N;int ky=fc.y<N/2?fc.y:fc.y-N;float ph=c*float(kx*kx+ky*ky);ph-=6.283185307179586*floor(ph/6.283185307179586);vec2 a=texelFetch(src,fc,0).rg;float cs=cos(ph),sn=sin(ph);o=vec4(a.x*cs-a.y*sn,a.x*sn+a.y*cs,0.0,0.0);}';
+    // |.|^2 (fftshift by shf), resample by scl about centre, add weighted into acc
+    const ACC=H+'uniform sampler2D fftT;uniform sampler2D accT;uniform int N;uniform int shf;uniform float scl;uniform vec3 cie;uniform int first;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int h=N/2;int q=shf;\nfloat sx=float(h)+(float(fc.x)-float(h))*scl;float sy=float(h)+(float(fc.y)-float(h))*scl;\nint x0=int(floor(sx));int y0=int(floor(sy));float fx=sx-float(x0);float fy=sy-float(y0);\nfloat v=0.0;\nif(x0>=0&&x0+1<N&&y0>=0&&y0+1<N){\n  ivec2 s00=ivec2((x0+q)%N,(y0+q)%N);ivec2 s10=ivec2((x0+1+q)%N,(y0+q)%N);\n  ivec2 s01=ivec2((x0+q)%N,(y0+1+q)%N);ivec2 s11=ivec2((x0+1+q)%N,(y0+1+q)%N);\n  vec2 a00=texelFetch(fftT,s00,0).rg;vec2 a10=texelFetch(fftT,s10,0).rg;vec2 a01=texelFetch(fftT,s01,0).rg;vec2 a11=texelFetch(fftT,s11,0).rg;\n  float p00=dot(a00,a00),p10=dot(a10,a10),p01=dot(a01,a01),p11=dot(a11,a11);\n  v=(p00*(1.0-fx)+p10*fx)*(1.0-fy)+(p01*(1.0-fx)+p11*fx)*fy;}\nvec3 prev=(first==1)?vec3(0.0):texelFetch(accT,fc,0).rgb;\no=vec4(prev+cie*v,1.0);}';
+    // 2x2 (max, sum) reduction of Y
+    const RED=H+'uniform sampler2D src;uniform int first;out vec4 o;\nvec2 f(ivec2 p){vec4 t=texelFetch(src,p,0);return first==1?vec2(t.g):t.rg;}\nvoid main(){ivec2 p=ivec2(gl_FragCoord.xy)*2;vec2 a=f(p),b=f(p+ivec2(1,0)),c=f(p+ivec2(0,1)),d=f(p+ivec2(1,1));o=vec4(max(max(a.x,b.x),max(c.x,d.x)),(a.y+b.y)+(c.y+d.y),0.0,0.0);}';
+    // tone map: drawMono (mode 0) / drawColor (mode 1), rows flipped to image order
+    // (image row = acc row; canvas y is flipped). k>1 box-averages k×k toned
+    // pixels in encoded space, as a canvas downscale would.
+    const TON=H+'uniform sampler2D accT;uniform int N;uniform int M;uniform int c0;uniform int k;uniform int mode;uniform float ip;uniform float E;uniform float invG;uniform vec3 tint;out vec4 o;\n'+
+      'float s2s(float c){return c<=0.0031308?12.92*c:1.055*pow(c,1.0/2.4)-0.055;}\n'+
+      'vec3 tone(vec3 A){\n'+
+      ' if(mode==0){float v=pow(max(A.g*ip,0.0),invG)*E;v=clamp(v,0.0,1.0);return v*tint;}\n'+
+      ' float X=A.r,Y=A.g,Z=A.b;float r=3.2406*X-1.5372*Y-0.4986*Z,g=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;\n'+
+      ' r=max(r,0.0);g=max(g,0.0);b=max(b,0.0);float t=pow(clamp(Y*ip*E,0.0,1.0),invG);float f=t/(Y>1e-12?Y:1e-12);\n'+
+      ' r=min(r*f,1.0);g=min(g*f,1.0);b=min(b*f,1.0);return vec3(s2s(r),s2s(g),s2s(b));}\n'+
+      'void main(){ivec2 fc=ivec2(gl_FragCoord.xy);int col=c0+fc.x*k,row=c0+((M-1)-fc.y)*k;vec3 s=vec3(0.0);float n=0.0;\n'+
+      ' for(int j=0;j<k;j++)for(int i=0;i<k;i++){int x=col+i,y=row+j;if(x<N&&y<N){s+=tone(texelFetch(accT,ivec2(x,y),0).rgb);n+=1.0;}}\n'+
+      ' o=vec4(s/max(n,1.0),1.0);}';
     const mk=(fsSrc)=>{const c=(t,src)=>{const sh=gl.createShader(t);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
-      const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,VS));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fsSrc));gl.bindAttribLocation(pr,0,'p');gl.linkProgram(pr);
-      if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));return pr;};
-    if(!reuse){gs.pFFT=mk(FFT);gs.pPUP=mk(PUP);gs.pACC=mk(ACC);}
-    gs.pwTex=tex();gs.pack=new Float32Array(N*N*4);gs.readXYZ=new Float32Array(N*N*4);
-    gs.LOG2N=Math.round(Math.log2(N));
-    gs.ready=(1<<gs.LOG2N)===N;   // GPU FFT stage is radix-2 only
-  }catch(e){console.warn('GPU spectral init failed:',e.message);gs.ready=false;if(!gs.gl)gs.dead=true;}
-  return gs.ready;}
-function gsFFT(fromA,sign){const gl=gs.gl,n=gs.N;gl.useProgram(gs.pFFT);gl.viewport(0,0,n,n);
-  gl.uniform1i(gl.getUniformLocation(gs.pFFT,'N'),n);gl.uniform1i(gl.getUniformLocation(gs.pFFT,'src'),0);
-  gl.uniform1f(gl.getUniformLocation(gs.pFFT,'sgn'),sign);
-  const uL=gl.getUniformLocation(gs.pFFT,'L'),uAx=gl.getUniformLocation(gs.pFFT,'axis');
-  let srcA=fromA;
-  for(let axis=0;axis<2;axis++){gl.uniform1i(uAx,axis);
-    for(let L=1;L<n;L<<=1){gl.uniform1i(uL,L);
-      const srcT=srcA?gs.A:gs.B,dstF=srcA?gs.fB:gs.fA;
-      gl.bindFramebuffer(gl.FRAMEBUFFER,dstF);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,srcT);
-      gl.drawArrays(gl.TRIANGLES,0,3);srcA=!srcA;}}
-  return srcA; // true => result currently in A
-}
-function gpuSpectral(){const N=state.N;
-  if(!gsInit(N))return false;
-  try{
-    const gl=gs.gl,len=N*N,R=state.D/2,ns=effSamples(),h=N>>1,c=EC;
-    // if occluders present we need the (possibly Fresnel-propagated) mask; reuse CPU antMask
-    const haveOcc=state.occ, openAll=state.camPupil&&CAM.on;
-    // precompute static wavefront W(microns) per pixel (lambda-independent part)
-    // NOTE: LCA adds a lambda-dependent defocus, handled per-sample below.
-    let ybSum=0;
-    const pack=gs.pack;
-    // clear accumulator
-    gl.bindFramebuffer(gl.FRAMEBUFFER,gs.fAcc);gl.viewport(0,0,N,N);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
-    for(let s=0;s<ns;s++){const l=LMIN+(s+0.5)*(LMAX-LMIN)/ns;
-      const cDeff=c.defocus+(state.lca?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
-      const k0=2*Math.PI/(l/1000);
-      // pack (mask, W) into pwTex
-      for(let i=0;i<len;i++){const o=i*4;
-        if(gr.r[i]<=R||openAll){const W=cDeff*zb[0][i]+c.sph*zb[1][i]+c.astig0*zb[2][i]+c.astig45*zb[3][i]+c.comaX*zb[4][i]+c.comaY*zb[5][i]+c.trefX*zb[6][i]+c.trefY*zb[7][i];
-          pack[o]=haveOcc?antMask[i]:1;pack[o+1]=W;}
-        else{pack[o]=0;pack[o+1]=0;}
-        pack[o+2]=0;pack[o+3]=0;}
-      gl.bindTexture(gl.TEXTURE_2D,gs.pwTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,N,N,0,gl.RGBA,gl.FLOAT,pack);
-      // build pupil field -> A
-      gl.useProgram(gs.pPUP);gl.bindFramebuffer(gl.FRAMEBUFFER,gs.fA);gl.viewport(0,0,N,N);
-      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gs.pwTex);
-      gl.uniform1i(gl.getUniformLocation(gs.pPUP,'pw'),0);gl.uniform1f(gl.getUniformLocation(gs.pPUP,'k0'),k0);
-      gl.drawArrays(gl.TRIANGLES,0,3);
-      // FFT (forward). result in A or B
-      const inA=gsFFT(true,-1.0);
-      // accumulate weighted intensity into acc (ping via a temp read of acc)
-      const wx=xbar(l),wy=ybar(l),wz=zbar(l);ybSum+=wy;const scl=LREF/l;
-      gl.useProgram(gs.pACC);
-      // render into the *other* acc? we accumulate in-place by reading accT and writing to a temp, then swap.
-      // simpler: read acc into B-less temp not available; use ping-pong: draw to fA2? Instead read+write same is UB.
-      // Use gs.B/gs.A whichever is free as scratch target, then copy. We render to fAcc reading acc is UB,
-      // so bounce through gs.fB (free after FFT result in A) -> then copy to acc.
-      const fftTex=inA?gs.A:gs.B, freeF=inA?gs.fB:gs.fA, freeTex=inA?gs.B:gs.A;
-      gl.bindFramebuffer(gl.FRAMEBUFFER,freeF);gl.viewport(0,0,N,N);
-      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,fftTex);gl.uniform1i(gl.getUniformLocation(gs.pACC,'fftT'),0);
-      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,gs.acc);gl.uniform1i(gl.getUniformLocation(gs.pACC,'accT'),1);
-      gl.uniform1i(gl.getUniformLocation(gs.pACC,'N'),N);gl.uniform1f(gl.getUniformLocation(gs.pACC,'scl'),scl);
-      gl.uniform3f(gl.getUniformLocation(gs.pACC,'cie'),wx,wy,wz);gl.uniform1i(gl.getUniformLocation(gs.pACC,'first'),s===0?1:0);
-      gl.drawArrays(gl.TRIANGLES,0,3);
-      // copy freeTex -> acc via blit
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER,freeF);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,gs.fAcc);
-      gl.blitFramebuffer(0,0,N,N,0,0,N,N,gl.COLOR_BUFFER_BIT,gl.NEAREST);
-      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-    }
-    // read back XYZ
-    gl.bindFramebuffer(gl.FRAMEBUFFER,gs.fAcc);gl.readPixels(0,0,N,N,gl.RGBA,gl.FLOAT,gs.readXYZ);
-    let pkY=0;for(let i=0;i<len;i++){const X=gs.readXYZ[i*4],Y=gs.readXYZ[i*4+1],Z=gs.readXYZ[i*4+2];
-      accX[i]=X;accY[i]=Y;accZ[i]=Z;if(Y>pkY)pkY=Y;}
-    peakY=pkY;peakYdl=sumA*sumA*ybSum;
-    strehl=sumA>0?Math.min(1,peakY/(sumA*sumA*ybSum)):0;
-    let sY=0;for(let i=0;i<len;i++)sY+=accY[i];throughput=(sumA>0&&ybSum>0)?sY/(N*N*sumA*ybSum):1;
+      const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,GS_VS));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fsSrc));gl.bindAttribLocation(pr,0,'p');gl.linkProgram(pr);
+      if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));
+      const U={};pr.u=n=>(n in U)?U[n]:(U[n]=gl.getUniformLocation(pr,n));return pr;};
+    gs.pFFT=mk(FFT);gs.pPUP=mk(PUP);gs.pCHP=mk(CHP);gs.pACC=mk(ACC);gs.pRED=mk(RED);gs.pTON=mk(TON);
+    gs.gl=gl;gs.cv=cv;gs.px=new Float32Array(4);
     return true;
-  }catch(e){console.warn('GPU spectral failed, CPU fallback:',e.message);gs.ready=false;return false;}
-}
+  }catch(e){console.warn('GPU PSF init failed:',e.message);gs.dead=true;return false;}}
+function gsFree(S){const gl=gs.gl;
+  S.tex.forEach(t=>gl.deleteTexture(t));S.fbo.forEach(f=>gl.deleteFramebuffer(f));}
+function gsSet(N){let S=gs.sets.get(N);
+  if(S){gs.sets.delete(N);gs.sets.set(N,S);return S;}            /* LRU touch */
+  while(gs.sets.size>=2){const k=gs.sets.keys().next().value;gsFree(gs.sets.get(k));gs.sets.delete(k);}
+  const gl=gs.gl;while(gl.getError()!==gl.NO_ERROR){}   /* drain stale errors */
+  S={N,tex:[],fbo:[],maskVer:-1};
+  const tex=(n,ifmt,fmt)=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texStorage2D(gl.TEXTURE_2D,1,ifmt,n,n);S.tex.push(t);return t;};
+  const fbo=t=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error('fbo incomplete');S.fbo.push(f);return f;};
+  S.A=tex(N,gl.RG32F);S.B=tex(N,gl.RG32F);S.fA=fbo(S.A);S.fB=fbo(S.B);          /* complex field: rg only */
+  S.acc=[tex(N,gl.RGBA32F),tex(N,gl.RGBA32F)];S.fAcc=S.acc.map(fbo);S.cur=0;    /* XYZ, ping-pong */
+  S.mask=tex(N,gl.R32F);S.cam=null;S.camVer=-1;   /* colour camera: allocated on first use */
+  S.pyr=[];for(let n=N>>1;n>=1;n>>=1){const t=tex(n,gl.RG32F);S.pyr.push({n,t,f:fbo(t)});}
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  const err=gl.getError();if(err!==gl.NO_ERROR){gsFree(S);gs.maxN=N>>1;throw new Error('allocation failed at '+N+' (gl error '+err+')');}
+  gs.sets.set(N,S);return S;}
+function gsQuad(){gs.gl.drawArrays(gs.gl.TRIANGLES,0,3);}
+function gsFFT(S,fromA,sign){const gl=gs.gl,n=S.N,P=gs.pFFT;gl.useProgram(P);gl.viewport(0,0,n,n);
+  gl.uniform1i(P.u('N'),n);gl.uniform1i(P.u('src'),0);gl.uniform1f(P.u('sgn'),sign);gl.activeTexture(gl.TEXTURE0);
+  let srcA=fromA;
+  for(let axis=0;axis<2;axis++){gl.uniform1i(P.u('axis'),axis);
+    for(let L=1;L<n;L<<=1){gl.uniform1i(P.u('L'),L);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,srcA?S.fB:S.fA);gl.bindTexture(gl.TEXTURE_2D,srcA?S.A:S.B);
+      gsQuad();srcA=!srcA;}}
+  return srcA;}   // true => result in A
+function gpuCompute(){const N=state.N;
+  if((N&(N-1))!==0||!gsCtx())return false;
+  try{
+    const gl=gs.gl,S=gsSet(N),len=N*N,R=state.D/2,h=N>>1,c=EC;
+    const spectral=state.spectral,ns=spectral?effSamples():1,near=state.near,zr=near?nearZref():0;
+    const useMask=state.occ&&!!antMask;
+    if(useMask&&S.maskVer!==maskVer){gl.bindTexture(gl.TEXTURE_2D,S.mask);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RED,gl.FLOAT,antMask);S.maskVer=maskVer;}
+    const useCam=camColorOn()&&!!camM;
+    if(useCam&&S.camVer!==camVer){
+      if(!S.cam){S.cam=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,S.cam);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+        gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,N,N);S.tex.push(S.cam);}
+      gl.bindTexture(gl.TEXTURE_2D,S.cam);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RGBA,gl.FLOAT,camM);S.camVer=camVer;}
+    const P=gs.pPUP,A=gs.pACC,C=gs.pCHP;
+    gl.useProgram(P);gl.uniform1i(P.u('mk'),1);gl.uniform1i(P.u('cm'),2);gl.uniform1i(P.u('useCam'),useCam?1:0);
+    gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,useCam?S.cam:S.mask);gl.uniform1i(P.u('useMask'),useMask?1:0);
+    gl.uniform1i(P.u('openAll'),(state.camPupil&&CAM.on)?1:0);gl.uniform1i(P.u('N'),N);
+    gl.uniform1f(P.u('dx'),dx);gl.uniform1f(P.u('R'),R);gl.uniform1f(P.u('a'),2/state.D);
+    gl.uniform1f(P.u('cS'),c.sph);gl.uniform1f(P.u('cA0'),c.astig0);gl.uniform1f(P.u('cA45'),c.astig45);
+    gl.uniform1f(P.u('cCx'),c.comaX);gl.uniform1f(P.u('cCy'),c.comaY);gl.uniform1f(P.u('cTx'),c.trefX);gl.uniform1f(P.u('cTy'),c.trefY);
+    let ybSum=0,cur=S.cur;
+    for(let s=0;s<ns;s++){const l=spectral?LMIN+(s+0.5)*(LMAX-LMIN)/ns:state.lambda;
+      const lcaOn=spectral&&state.lca,zl=near?nearZ(l,lcaOn):0;
+      const cDeff=near?0:c.defocus+(lcaOn?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
+      // pupil field -> A
+      gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,N,N);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,S.mask);
+      if(useCam){const w=camW(l);gl.uniform3f(P.u('cw'),w[0],w[1],w[2]);}
+      gl.uniform1f(P.u('k0'),2*Math.PI/(l/1000));gl.uniform1f(P.u('cD'),cDeff);gsQuad();
+      let inA=gsFFT(S,true,-1.0);
+      if(near){   // Fresnel step: chirp into the free buffer, then inverse FFT back to space
+        gl.useProgram(C);gl.bindFramebuffer(gl.FRAMEBUFFER,inA?S.fB:S.fA);
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);
+        gl.uniform1i(C.u('src'),0);gl.uniform1i(C.u('N'),N);
+        gl.uniform1f(C.u('c'),-Math.PI*(l*1e-6)*zl/(L_WIN*L_WIN));gsQuad();
+        inA=gsFFT(S,!inA,1.0);}
+      const wx=spectral?xbar(l):1,wy=spectral?ybar(l):1,wz=spectral?zbar(l):1;ybSum+=wy;
+      const scl=near?zl/zr:(spectral?LREF/l:1);
+      const g=near?1/(len*len):1;   /* unnormalised fwd+inv FFT: field ×N², intensity ×N⁴ */
+      gl.useProgram(A);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fAcc[1-cur]);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,S.acc[cur]);
+      gl.uniform1i(A.u('fftT'),0);gl.uniform1i(A.u('accT'),1);gl.uniform1i(A.u('N'),N);
+      gl.uniform1f(A.u('scl'),scl);gl.uniform1i(A.u('shf'),near?0:h);
+      gl.uniform3f(A.u('cie'),wx*g,wy*g,wz*g);gl.uniform1i(A.u('first'),s===0?1:0);gsQuad();
+      cur=1-cur;}
+    S.cur=cur;
+    // max / sum of Y down to one texel
+    const Rd=gs.pRED;gl.useProgram(Rd);gl.uniform1i(Rd.u('src'),0);gl.activeTexture(gl.TEXTURE0);
+    let src=S.acc[cur];
+    for(let i=0;i<S.pyr.length;i++){const L=S.pyr[i];gl.bindFramebuffer(gl.FRAMEBUFFER,L.f);gl.viewport(0,0,L.n,L.n);
+      gl.bindTexture(gl.TEXTURE_2D,src);gl.uniform1i(Rd.u('first'),i===0?1:0);gsQuad();src=L.t;}
+    gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,gs.px);
+    finishStats(gs.px[0],gs.px[1],ybSum);
+    gs.cur=S;gs.frame=true;
+    if(state.sceneOn)gpuReadback(S);   /* scene kernels are built on the CPU */
+    return true;
+  }catch(e){console.warn('GPU PSF failed, CPU fallback:',e.message);gs.frame=false;return false;}}
+function gpuReadback(S){const gl=gs.gl,N=S.N,len=N*N;ensureOut();
+  const buf=new Float32Array(len*4);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fAcc[S.cur]);
+  gl.readPixels(0,0,N,N,gl.RGBA,gl.FLOAT,buf);
+  for(let i=0;i<len;i++){accX[i]=buf[i*4];accY[i]=psf[i]=buf[i*4+1];accZ[i]=buf[i*4+2];}}
+/* tone map the visible crop of the resident frame into gs.cv — at k=1 the
+   same pixels drawMono/drawColor would put in `off`; blit() then scales it. */
+const GS_MAXTONE=4096;
+function gpuTone(c0,cs,k){const S=gs.cur,gl=gs.gl;if(!S)return false;const N=S.N,M=Math.ceil(cs/k);
+  if(gs.cv.width!==M){gs.cv.width=M;gs.cv.height=M;}
+  if(gl.drawingBufferWidth!==M)return false;    /* canvas refused this size */
+  const T=gs.pTON;gl.useProgram(T);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,M,M);
+  gl.uniform1i(T.u('M'),M);gl.uniform1i(T.u('c0'),c0);gl.uniform1i(T.u('k'),k);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,S.acc[S.cur]);
+  const mono=!state.spectral,ip=state.absExp?(peakYdl>0?1/peakYdl:1):(peakY>0?1/peakY:1);
+  let t=[1,1,1];if(mono&&state.tint){const w=wlRGB(state.lambda);t=[w[0]/255,w[1]/255,w[2]/255];}
+  gl.uniform1i(T.u('accT'),0);gl.uniform1i(T.u('N'),N);gl.uniform1i(T.u('mode'),mono?0:1);
+  gl.uniform1f(T.u('ip'),ip);gl.uniform1f(T.u('E'),state.exposure);gl.uniform1f(T.u('invG'),1/state.gamma);
+  gl.uniform3f(T.u('tint'),t[0],t[1],t[2]);gsQuad();return true;}
 
 /* ---- scheduler --------------------------------------------------------- */
 let rafC=0,pend=0;
-function isHeavy(){const N=effN();return N>=1024 || state.sceneOn || (state.spectral&&(N>=512||state.specSamples>=15)) || (state.occ&&state.depth>0&&(state.spectral||N>=512));}
+function isHeavy(){const N=effN(),t=COST.get(costKey(N));if(t!==undefined)return t>DRAFT_MS*1.5;
+  return N>=4096 || (state.near&&(state.spectral||N>=512)) || state.sceneOn || (state.spectral&&(N>=512||state.specSamples>=15)) || (state.occ&&state.depth>0&&(state.spectral||N>=512));}
 function setBusy(on){document.getElementById("busy").classList.toggle("on",on);}
 function runCompute(){
   const wantN=effN();
   if(state.N!==wantN){setupGrid(wantN);basisDirty=true;antDirty=true;kernDirty=true;}
   if(basisDirty){buildBasis();basisDirty=false;} if(antDirty){buildAnterior();antDirty=false;}
   computeEC();
-  if(state.spectral){ if(!(state.gpu&&gpuSpectral()))recomputeSpectral(); }
-  else recomputeMono();
+  if(!(state.gpu&&gpuCompute())){gs.frame=false;
+    if(state.N>CPU_MAXN){gs.maxN=Math.min(gs.maxN,state.N>>1);requestCompute();return;}   /* GPU refused this size: step down */
+    if(state.spectral)recomputeSpectral();else recomputeMono();}
   kernDirty=true;
   if(state.sceneOn)sceneCompute();else draw();}
 function requestCompute(){
@@ -778,7 +920,9 @@ function requestCompute(){
      cleared before it ever fired and nothing would recompute at all -- with a
      continuous source, coalesce on rAF instead and let the rate float up to
      whatever the machine actually sustains. */
-  if(isHeavy()&&!CAM.on){setBusy(true);clearTimeout(pend);pend=setTimeout(()=>{runCompute();setBusy(false);},140);}
+  /* heavy frames are throttled, not debounced: a drag keeps producing frames
+     instead of waiting for the pointer to stop */
+  if(isHeavy()&&!CAM.on){setBusy(true);if(!pend)pend=setTimeout(()=>{pend=0;runCompute();setBusy(false);},60);}
   else{if(rafC)return;rafC=requestAnimationFrame(()=>{rafC=0;runCompute();});}}
 
 /* ---- spring layer -------------------------------------------------------
@@ -789,7 +933,7 @@ function requestCompute(){
    but shorten it: K=.15/damp=.45 → 95% in 0.35s, settled in ~1s, no overshoot. */
 const SPRING_K=0.15, SPRING_DAMP=0.45, SPRING_SNAP=1e-4;
 let springs=[], springOn=true;
-function springReg(store,k,kind){const s={store,k,tgt:store[k],vel:0,kind:kind||''};springs.push(s);return s;}
+function springReg(store,k,kind){const e=springOf(store,k);if(e)return e;const s={store,k,tgt:store[k],vel:0,kind:kind||''};springs.push(s);return s;}
 function springOf(store,k){for(let i=0;i<springs.length;i++)if(springs[i].store===store&&springs[i].k===k)return springs[i];return null;}
 function springTarget(store,k,v){const s=springOf(store,k);if(s){s.tgt=v;if(!springOn){store[k]=v;markKind(s.kind);}}else store[k]=v;}
 function markKind(kind){if(kind==='ant')antDirty=true;else if(kind==='basis'){basisDirty=true;antDirty=true;}}
@@ -846,7 +990,7 @@ function buildPad(container,spec){
   function commit(ax,ay){const vx=snap(vX(ax),X), vy=snap(vY(ay),Y);
     if(sx)sx.tgt=vx;else S[X.k]=vx;
     if(sy)sy.tgt=vy;else S[Y.k]=vy;
-    spec.paint();if(spec.ant)antDirty=true;touchDraft();requestCompute();}
+    spec.paint();if(spec.ant)antDirty=true;if(spec.after)spec.after();touchDraft();requestCompute();}
   function setFromEvent(e){const r=field.getBoundingClientRect();
     let ax=(e.clientX-r.left)/r.width*2-1, ay=1-(e.clientY-r.top)/r.height*2;
     if(spec.round){let rad=Math.hypot(ax,ay);
@@ -862,7 +1006,7 @@ function buildPad(container,spec){
   field.addEventListener('dblclick',e=>{e.preventDefault();active=false;
     if(sx)sx.tgt=defX;else S[X.k]=defX;
     if(sy)sy.tgt=defY;else S[Y.k]=defY;
-    spec.paint();if(spec.ant)antDirty=true;requestCompute();});
+    spec.paint();if(spec.ant)antDirty=true;if(spec.after)spec.after();requestCompute();});
   return spec;}
 const Zf=v=>(v>=0?'+':'')+v.toFixed(2),I0=v=>v.toFixed(0),F2=v=>v.toFixed(2),F1=v=>v.toFixed(1),za={min:-1,max:1,step:0.01,fmt:Zf};
 const ALLPADS=[
@@ -885,6 +1029,12 @@ const _sLidU=springReg(state,"lidUpper","ant"), _sLidL=springReg(state,"lidLower
 function syncZernikeUI(){ALLPADS.forEach(P=>P.paint());if(window.paintMainPad)window.paintMainPad();}
 
 slider("D","D",v=>v.toFixed(1),{basis:true,ant:true,spring:true});
+/* near source: distance (log) × pupil, sharing the pupil slider's spring */
+const nearPad=buildPad(document.getElementById("nearpads"),{title:"Distance · Pupil",store:state,
+  x:{k:"nearLog",min:0.7,max:2.6,step:0.002},y:{k:"D",min:1.5,max:8,step:0.01},
+  after:()=>{document.getElementById("D").value=String(tgtOf(state,'D'));refreshNums();}});
+ALLPADS.push(nearPad);
+document.getElementById("D").addEventListener('input',()=>nearPad.paint());
 slider("lambda","lambda",v=>v.toFixed(0),{before:()=>{document.getElementById("lamval").textContent=state.lambda;applyAccent();}});
 document.getElementById("lambda").addEventListener('input',()=>{ if(state.spectral){/*ignored*/} });
 
@@ -918,6 +1068,11 @@ bindToggle("swSpec",el=>{state.spectral=!state.spectral;el.setAttribute('aria-pr
 bindToggle("swLca",el=>{state.lca=!state.lca;el.setAttribute('aria-pressed',state.lca);refreshSpectralUI();requestCompute();});
 slider("lcaS","lcaStrength",v=>v.toFixed(1)+'×');document.getElementById("lcaS").addEventListener('input',()=>{document.getElementById("lcaSval").textContent=state.lcaStrength.toFixed(1)+'×';});
 (function(){const s=document.getElementById("specSamples");s.addEventListener('input',()=>{state.specSamples=parseInt(s.value);document.getElementById("n_specSamples").textContent=state.specSamples;document.getElementById("specHint").textContent=state.specSamples+' λ';if(state.spectral){kernDirty=true;requestCompute();}});})();
+
+function refreshNearUI(){document.getElementById("nearBody").classList.toggle("dim",!state.near);
+  if(!state.near)document.getElementById("nearHint").textContent='off';}
+bindToggle("swNear",el=>{state.near=!state.near;el.setAttribute('aria-pressed',state.near);refreshNearUI();kernDirty=true;touchDraft();requestCompute();});
+
 
 function refreshOccUI(){document.getElementById("lashBody").classList.toggle("dim",!state.lashOn);document.getElementById("lashHint").textContent=state.lashOn?state.lashCount+' lashes':'off';
   document.getElementById("lidBody").classList.toggle("dim",!state.lidOn);document.getElementById("lidHint").textContent=state.lidOn?'slit mask':'off';}
@@ -969,7 +1124,7 @@ Object.keys(PRESETS).forEach(name=>{const b=document.createElement("button");b.t
 
 /* grid size: 5-smooth ladder — powers of two use the radix-2 path,
    the rest go through the mixed-radix transform */
-const NSIZES=[128,192,256,320,384,512,640,768,1024];
+const NSIZES=[128,192,256,320,384,512,640,768,1024,2048,4096,8192];
 (function(){const el=document.getElementById("gridN"),num=document.getElementById("n_gridN");
   const show=()=>{num.textContent=state.Nreq;};
   el.value=String(NSIZES.indexOf(state.Nreq)<0?2:NSIZES.indexOf(state.Nreq));show();
@@ -1079,7 +1234,7 @@ function resampleKernel(srcArr,Nsrc,ratio,Kre,Kim,gain){const n=NC,h=n>>1,hs=Nsr
   if(sum<=0)sum=1;const inv=gain/sum;
   for(let ky=0;ky<n;ky++)for(let kx=0;kx<n;kx++){Kre[((ky+h)%n)*n+((kx+h)%n)]=tmp[ky*n+kx]*inv;}
   fft2d(Kre,Kim,n);}
-function buildKernels(){const arcPsf=(state.spectral?LREF:state.lambda)*1e-9/(L_WIN*1e-3)*ARCSEC;
+function buildKernels(){const arcPsf=arcPerPx();
   const arcScene=state.sceneFov*3600/NC,ratio=arcScene/arcPsf;const ch=psfChannels();const g=throughput;
   resampleKernel(ch.R,ch.N,ratio,KreR,KimR,g);resampleKernel(ch.G,ch.N,ratio,KreG,KimG,g);resampleKernel(ch.B,ch.N,ratio,KreB,KimB,g);}
 
@@ -1357,7 +1512,8 @@ let scenePend=0;
 function requestScene(){setBusy(true);clearTimeout(scenePend);scenePend=setTimeout(()=>{sceneCompute();setBusy(false);},120);}
 function refreshSceneUI(){document.getElementById("sceneBody").classList.toggle("dim",!state.sceneOn);document.getElementById("sceneHint").textContent=state.sceneOn?(state.sceneGlare?'glare on':'in-focus'):'off';}
 bindToggle("swScene",el=>{state.sceneOn=!state.sceneOn;el.setAttribute('aria-pressed',state.sceneOn);refreshSceneUI();
-  if(state.sceneOn){kernDirty=true;viewDirty=true;requestCompute();}else{draw();}});
+  if(state.sceneOn){kernDirty=true;viewDirty=true;requestCompute();}
+  else if(effN()!==state.N)requestCompute(); else draw();});   /* leaving the scene grid cap */
 bindToggle("swGlare",el=>{state.sceneGlare=!state.sceneGlare;el.setAttribute('aria-pressed',state.sceneGlare);refreshSceneUI();if(state.sceneOn)requestScene();});
 function refreshGpuUI(){const sub=document.getElementById("gpuSub");sub.textContent=state.gpu?(gpu.tried&&!gpu.ready?'unavailable — CPU':'WebGL2 FFT'):'CPU';}
 bindToggle("swGpu",el=>{state.gpu=!state.gpu;if(state.gpu&&!gpuTryInit()){state.gpu=false;}el.setAttribute('aria-pressed',state.gpu);refreshGpuUI();if(state.sceneOn)requestScene();});
@@ -1467,12 +1623,15 @@ let rz=0;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()
 let refreshNums=()=>{};
 const PERF={hist:new Float32Array(100),n:0,fps:60,compute:0,fullMs:0,last:0};
 (function(){const orig=runCompute;
-  runCompute=function(){const wasDraft=draft&&PERF.fullMs>DRAFT_MS;
+  runCompute=function(){const wasDraft=draft&&effN()!==fullN();
     const prevN=state.N;
     fadeCapture();                    /* the frame currently on screen */
     const t0=(performance||Date).now();orig.apply(this,arguments);
     const dt=(performance||Date).now()-t0;PERF.compute=dt;
-    if(!wasDraft)PERF.fullMs=dt;      /* calibrate on full-quality passes only */
+    if(!wasDraft)PERF.fullMs=dt;
+    /* min(new, smoothed): a one-off slow pass (allocation, shader compile)
+       decays, a genuinely faster measurement is believed at once */
+    {const k=costKey(state.N),p=COST.get(k);COST.set(k,p===undefined?dt:Math.min(dt,0.5*(p+dt)));}
     if(prevN&&state.N>prevN&&FADE.cv&&!state.sceneOn){
       FADE.on=true;FADE.t0=(performance||Date).now();}
   };})();
@@ -1554,8 +1713,8 @@ function paintPerf(){
    storage, so a set travels with you and nothing is written behind your back. */
 const SNAP_KEYS=['D','lambda','lashOn','lashPos','lashIncursion','lashSpacing','lashThick',
   'lashAngle','lashAngleJit','lashSpaceJit','lidOn','lidUpper','lidLower',
-  'spectral','specSamples','lca','lcaStrength','absExp'];
-const KEY_TOGGLE={lashOn:'swLash',lidOn:'swLid',spectral:'swSpec',lca:'swLca',absExp:'swAbs'};
+  'spectral','specSamples','lca','lcaStrength','absExp','near','nearLog'];
+const KEY_TOGGLE={lashOn:'swLash',lidOn:'swLid',spectral:'swSpec',lca:'swLca',absExp:'swAbs',near:'swNear'};
 const SLIDER_SRC={
   D:()=>tgtOf(state,'D'), lambda:()=>tgtOf(state,'lambda'), gamma:()=>tgtOf(state,'gamma'),
   exp:()=>Math.log2(Math.max(1e-9,tgtOf(state,'exposure'))), zoom:()=>tgtOf(state,'zoom'),
@@ -1654,7 +1813,7 @@ function camEnsure(){
     if(!CAM.cv)CAM.cv=document.createElement('canvas');
     CAM.cv.width=W;CAM.cv.height=W;
     CAM.ctx=CAM.cv.getContext('2d',{willReadFrequently:true});
-    CAM.lum=new Float32Array(W*W);}
+    CAM.lum=new Float32Array(W*W);CAM.rgb=new Float32Array(W*W*3);}
   return W;}
 function camSampleN(u,v){                      /* bilinear, u/v normalised 0..1 */
   const W=CAM.W,L=CAM.lum;
@@ -1669,8 +1828,9 @@ function camGrab(){const v=CAM.video;if(!v||!v.videoWidth)return false;
   const side=Math.min(v.videoWidth,v.videoHeight);              /* centre square crop */
   const sx=(v.videoWidth-side)/2, sy=(v.videoHeight-side)/2, c=CAM.ctx;
   c.save();c.scale(-1,1);c.drawImage(v,sx,sy,side,side,-W,0,W,W);c.restore();  /* mirrored */
-  const d=c.getImageData(0,0,W,W).data,L=CAM.lum;
-  for(let i=0,p=0;i<L.length;i++,p+=4)L[i]=(0.2126*d[p]+0.7152*d[p+1]+0.0722*d[p+2])/255;
+  const d=c.getImageData(0,0,W,W).data,L=CAM.lum,C=CAM.rgb;
+  for(let i=0,p=0;i<L.length;i++,p+=4){L[i]=(0.2126*d[p]+0.7152*d[p+1]+0.0722*d[p+2])/255;
+    C[i*3]=d[p]/255;C[i*3+1]=d[p+1]/255;C[i*3+2]=d[p+2]/255;}
   const tag='live '+W+(CAM.native?' / '+CAM.native:'');
   if(tag!==CAM.hint){CAM.hint=tag;camSay(tag);}     /* avoid a DOM write per frame */
   return true;}
@@ -1705,7 +1865,31 @@ function camStop(){CAM.on=false;
   CAM.vfc=0;
   if(CAM.stream){CAM.stream.getTracks().forEach(t=>t.stop());CAM.stream=null;}
   if(CAM.video)CAM.video.srcObject=null;CAM.hint='';camSay('off');}
-function applyCam(){if(!CAM.on||!CAM.lum)return;
+/* colour: each channel is thresholded on its own into camM (rgb per texel),
+   and fieldAtPupil / the PUP shader turn that into a transmission at each
+   wavelength with camW(λ) — the camera becomes a coloured filter. */
+let camM=null,camVer=0;
+function camOn(){return CAM.on&&!!CAM.lum;}
+function camColorOn(){return camOn()&&state.camColor;}
+function camSampleC(u,v,ch){const W=CAM.W,C=CAM.rgb;
+  let x=u*W-0.5,y=v*W-0.5;if(!(x>0))x=0;if(!(y>0))y=0;if(x>W-1)x=W-1;if(y>W-1)y=W-1;
+  const x0=x|0,y0=y|0,x1=x0+1<W?x0+1:x0,y1=y0+1<W?y0+1:y0,fx=x-x0,fy=y-y0;
+  const a=C[(y0*W+x0)*3+ch],b=C[(y0*W+x1)*3+ch],c2=C[(y1*W+x0)*3+ch],d=C[(y1*W+x1)*3+ch];
+  return (a*(1-fx)+b*fx)*(1-fy)+(c2*(1-fx)+d*fx)*fy;}
+/* share of wavelength l seen by each sRGB channel: linear sRGB of the CIE
+   colour-matching functions, clipped at zero, normalised to sum 1 */
+function camW(l){const X=xbar(l),Y=ybar(l),Z=zbar(l);
+  let r=Math.max(0,3.2406*X-1.5372*Y-0.4986*Z),g=Math.max(0,-0.9689*X+1.8758*Y+0.0415*Z),b=Math.max(0,0.0557*X-0.2040*Y+1.0570*Z);
+  const t=r+g+b;return t>0?[r/t,g/t,b/t]:[1/3,1/3,1/3];}
+function applyCamColor(){const N=state.N,len=N*N,thr=state.camThresh,soft=Math.max(2e-3,state.camSoft),inv=state.camInvert,k=1/(2*soft);
+  if(!camM||camM.length!==len*4)camM=new Float32Array(len*4);
+  for(let iy=0;iy<N;iy++){const vy=(iy+0.5)/N;
+    for(let ix=0;ix<N;ix++){const u=(ix+0.5)/N,o=(iy*N+ix)*4;
+      for(let ch=0;ch<3;ch++){let m=ss((camSampleC(u,vy,ch)-thr)*k+0.5);if(inv)m=1-m;camM[o+ch]=m;}
+      camM[o+3]=1;}}
+  camVer++;}
+function applyCam(){if(!camOn())return;
+  if(state.camColor){applyCamColor();return;}
   const N=state.N,W=CAM.W,thr=state.camThresh,soft=Math.max(2e-3,state.camSoft),
         inv=state.camInvert,L=CAM.lum,k=1/(2*soft);
   if(W===N){                                   /* 1:1, no resampling needed */
@@ -1721,6 +1905,8 @@ bindToggle("swCam",async el=>{
   else{camStop();el.setAttribute('aria-pressed','false');}
   document.getElementById("camBody").classList.toggle("dim",!CAM.on);
   antDirty=true;requestCompute();});
+bindToggle("swCamColor",el=>{state.camColor=!state.camColor;
+  el.setAttribute('aria-pressed',state.camColor);antDirty=true;requestCompute();});
 bindToggle("swCamInv",el=>{state.camInvert=!state.camInvert;
   el.setAttribute('aria-pressed',state.camInvert);antDirty=true;requestCompute();});
 bindToggle("swCamPupil",el=>{state.camPupil=!state.camPupil;
@@ -1731,6 +1917,8 @@ slider("camRes","camRes",v=>v.toFixed(0),{ant:true});
 
 /* ---- boot -------------------------------------------------------------- */
 ['optics','aberration','view','lashes','lids','camera','spectral','display','scene','presets','perf','next'].forEach(nm=>{const el=document.querySelector('.card[data-card="'+nm+'"]');if(el)el.parentElement.appendChild(el);});
+/* default grid 2048 when the GPU path is available, else the CPU-friendly 256 */
+if(!gsCtx()){state.Nreq=256;const gn=document.getElementById("gridN");gn.value=String(NSIZES.indexOf(256));gn.defaultValue=gn.value;document.getElementById("n_gridN").textContent=256;refreshNums();}
 applyAccent();refreshSpectralUI();refreshOccUI();sizeCanvases();setupGrid(256);setupScene();loadProcedural();refreshSceneUI();refreshGpuUI();runCompute();
 </script>
 </body>
