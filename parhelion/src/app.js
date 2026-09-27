@@ -33,7 +33,6 @@ const CONFIG = {
   lowitzSpin: 30, // σ of the rotation about the horizontal a-axis, degrees
   crystalSize: 0, // µm; > 0 adds diffraction blur ∝ λ/D
   sunDisk: true,
-  lowDiscrepancy: true,
   plateAspect: 0.2,
   columnAspect: 2,
 
@@ -61,8 +60,9 @@ export function start(renderer) {
   springs.fadeFactor = new Spring(CONFIG.fadeFactor);
   const typeSprings = TYPE_KEYS.map(k => new Spring(CONFIG[k] ? 1 : 0));
 
-  let shapeDirty = true;
-  let postDirty = true;
+  let shapeDirty = true; // crystal proportions changed
+  let traceDirty = false; // a non-sprung switch changed where light lands
+  let postDirty = true; // only the display mapping changed
   const gui = new GUI();
   const refresh = () => refreshControllers(gui);
 
@@ -161,8 +161,7 @@ export function start(renderer) {
   physics.add(CONFIG, 'crystalSize', 0, 200).step(1).name('Crystal Size (µm)').onChange(syncTargets);
   physics.add(CONFIG, 'plateAspect', 0.02, 1).step(0.01).name('Plate c/a').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'columnAspect', 1, 8).step(0.05).name('Column c/a').onChange(() => { shapeDirty = true; });
-  physics.add(CONFIG, 'sunDisk').name('Sun Disk').onChange(() => { shapeDirty = true; });
-  physics.add(CONFIG, 'lowDiscrepancy').name('Sobol Sampling').onChange(() => { shapeDirty = true; });
+  physics.add(CONFIG, 'sunDisk').name('Sun Disk').onChange(() => { traceDirty = true; });
   const output = gui.addFolder('Output');
   output.add(CONFIG, 'settle').name('Converge at Rest');
   if (renderer.hdr) output.add(CONFIG, 'headroom', 1, 16).step(0.1).name('HDR Headroom').onChange(() => { postDirty = true; });
@@ -258,7 +257,8 @@ export function start(renderer) {
 
     const springy = CONFIG.enableSprings;
     const frames = 60 * Math.max(dt, 1 / 240); // tolerances are per 60 Hz frame
-    let moving = false;
+    let moving = traceDirty;
+    traceDirty = false;
     if (shapeDirty) {
       applyShape();
       moving = true;
@@ -289,7 +289,6 @@ export function start(renderer) {
     state.saturation = springs.saturation.value;
     state.headroom = CONFIG.headroom;
     state.sunDisk = CONFIG.sunDisk;
-    state.lowDiscrepancy = CONFIG.lowDiscrepancy;
     if (renderer.width !== lastSize[0] || renderer.height !== lastSize[1]) {
       lastSize = [renderer.width, renderer.height];
       moving = true;
@@ -316,7 +315,8 @@ export function start(renderer) {
   function set(values) {
     Object.assign(CONFIG, values);
     if ('exposure' in values) exposureProxy.log = Math.log10(CONFIG.exposure);
-    if (['plateAspect', 'columnAspect', 'sunDisk', 'lowDiscrepancy'].some(k => k in values)) shapeDirty = true;
+    if (['plateAspect', 'columnAspect'].some(k => k in values)) shapeDirty = true;
+    if ('sunDisk' in values) traceDirty = true;
     postDirty = true;
     syncTargets();
     refresh();

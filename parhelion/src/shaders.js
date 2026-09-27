@@ -4,8 +4,7 @@ import { SPECTRUM_LUT } from './optics.js';
 
 export const TRACE_WORKGROUP = 64;
 
-export function traceShader(sobol) {
-  const dirs = Array.from(sobol, v => `${v}u`).join(', ');
+export function traceShader() {
   return /* wgsl */ `
 struct Params {
   sunDir: vec3f, sunRadius: f32,
@@ -14,7 +13,7 @@ struct Params {
   camFwd: vec3f, samplesPerThread: u32,
   center: vec2f, res: vec2u,
   iorScale: f32, tilt: f32, polySpin: f32, lowitz: f32,
-  diffraction: f32, fixedScale: f32, qmc: u32, maxBounces: u32,
+  diffraction: f32, fixedScale: f32, _p2: u32, maxBounces: u32,
   typeCdf: array<vec4f, 3>,
   totalSamples: u32, seed: u32, _p0: u32, _p1: u32,
 }
@@ -30,11 +29,13 @@ struct SpectrumEntry { a: vec4f, xyz: vec4f } // a = (λ nm, n_ice, limb u, 0)
 
 const PI = 3.14159265359;
 const TAU = 6.28318530718;
-const HERO = 4u;
-const SOBOL = array<u32, 128>(${dirs});
+// Wavelengths traced per crystal, stratified half a spectrum apart: each
+// crystal deposits a balanced colour pair, which removes most chroma noise
+// without the luminance clumping of more correlated wavelengths.
+const HERO = 2u;
 
 // --- Random numbers --------------------------------------------------------
-// PCG (O'Neill) for everything that isn't worth stratifying.
+// PCG (O'Neill): integer state, so no float precision collapse at large seeds.
 var<private> rngState: u32;
 fn pcgHash(v: u32) -> u32 {
   let s = v * 747796405u + 2891336453u;
@@ -47,43 +48,7 @@ fn rand() -> f32 {
   w = (w >> 22u) ^ w;
   return f32(w >> 8u) * (1.0 / 16777216.0);
 }
-
-// Shuffled, Owen-scrambled Sobol (Burley 2020, "Practical Hash-based Owen
-// Scrambling"). Each group of four dimensions shuffles the index with its own
-// seed so groups decorrelate; a fresh per-frame seed re-randomises the set.
-fn lkPermute(xIn: u32, seed: u32) -> u32 {
-  var x = xIn + seed;
-  x ^= x * 0x6c50b47cu;
-  x ^= x * 0xb82f1e52u;
-  x ^= x * 0xc7afe638u;
-  x ^= x * 0x8d22f6e6u;
-  return x;
-}
-fn owen(x: u32, seed: u32) -> u32 {
-  return reverseBits(lkPermute(reverseBits(x), seed));
-}
-fn sobol(indexIn: u32, dim: u32) -> u32 {
-  var index = indexIn;
-  var r = 0u;
-  loop {
-    if (index == 0u) { break; }
-    let b = firstTrailingBit(index);
-    r ^= SOBOL[dim * 32u + b];
-    index &= index - 1u;
-  }
-  return r;
-}
-var<private> sampleIndex: u32;
-fn qmc4(group: u32) -> vec4f {
-  if (P.qmc == 0u) { return vec4f(rand(), rand(), rand(), rand()); }
-  let seed = pcgHash(P.seed ^ pcgHash(group + 0x9e3779b9u));
-  let i = owen(sampleIndex, seed);
-  var o = vec4u(0u);
-  for (var d = 0u; d < 4u; d++) {
-    o[d] = owen(sobol(i, d), pcgHash(seed + d));
-  }
-  return vec4f(o >> vec4u(8u)) * (1.0 / 16777216.0);
-}
+fn rand4() -> vec4f { return vec4f(rand(), rand(), rand(), rand()); }
 
 // Standard normal via inverse CDF (Giles' single-precision erfinv).
 fn gauss(uIn: f32) -> f32 {
@@ -260,11 +225,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   rngState = pcgHash(tid ^ pcgHash(P.seed));
   dither = rand();
   for (var k = 0u; k < P.samplesPerThread; k++) {
-    sampleIndex = tid * P.samplesPerThread + k;
-    if (sampleIndex >= P.totalSamples) { return; }
-    let qa = qmc4(0u); // orientation
-    let qb = qmc4(1u); // entry face, entry point, wavelength
-    let qc = qmc4(2u); // crystal type, sun disk
+    if (tid * P.samplesPerThread + k >= P.totalSamples) { return; }
+    let qa = rand4(); // orientation
+    let qb = rand4(); // entry face, entry point, wavelength
+    let qc = rand4(); // crystal type, sun disk
 
     let c = crystals[pickType(qc.x)];
     let R = orientation(c.orient, qa);

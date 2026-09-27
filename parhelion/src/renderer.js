@@ -4,7 +4,7 @@
 // tone-maps to an extended-range Display P3 canvas.
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
-import { buildCrystals, buildSpectrum, displayMatrix, sobolDirections, ICE_N_REF } from './optics.js';
+import { buildCrystals, buildSpectrum, displayMatrix, ICE_N_REF } from './optics.js';
 
 const MIN_SAMPLES = 1 << 15;
 const MAX_SAMPLES = 1 << 23;
@@ -42,7 +42,7 @@ export class Renderer {
 
     this.tracePipeline = device.createComputePipeline({
       layout: 'auto',
-      compute: { module: device.createShaderModule({ code: traceShader(sobolDirections()) }), entryPoint: 'main' },
+      compute: { module: device.createShaderModule({ code: traceShader() }), entryPoint: 'main' },
     });
     const presentModule = device.createShaderModule({ code: presentShader() });
     this.presentPipeline = device.createRenderPipeline({
@@ -177,7 +177,6 @@ export class Renderer {
       // Gaussian diffraction blur σ ≈ 0.44 λ/D  (λ in nm, D in µm)
       f[24] = s.crystalSize > 0 ? 0.44e-3 / s.crystalSize : 0;
       f[25] = fixedScale;
-      u[26] = s.lowDiscrepancy ? 1 : 0;
       u[27] = 16;
       const total = s.typeWeights.reduce((a, b) => a + b, 0) || 1;
       let acc = 0;

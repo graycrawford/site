@@ -1,6 +1,6 @@
-// Physical tables for the tracer: crystal plane sets, the spectral LUT, the
-// XYZ -> Display P3 matrix, and Sobol direction numbers. Everything here is
-// computed once on the CPU and uploaded; the GPU only reads it.
+// Physical tables for the tracer: crystal plane sets, the spectral LUT and the
+// XYZ -> Display P3 matrix. Everything here is computed once on the CPU and
+// uploaded; the GPU only reads it.
 
 // --- Crystal habits --------------------------------------------------------
 // Local frame: c-axis = +Y. Prism normals sit at azimuth a = k·60° measured
@@ -267,29 +267,6 @@ function invert3(m) {
   const det = dot(a, cross(b, c));
   const cols = [cross(b, c), cross(c, a), cross(a, b)];
   return [0, 1, 2].map(i => [0, 1, 2].map(j => cols[j][i] / det));
-}
-
-// --- Sobol -----------------------------------------------------------------
-// Direction numbers for the first four Sobol dimensions (Joe & Kuo), used by
-// the shuffled, Owen-scrambled 4D sampler in the tracer (Burley 2020).
-export function sobolDirections() {
-  const params = [null, { s: 1, a: 0, m: [1] }, { s: 2, a: 1, m: [1, 3] }, { s: 3, a: 1, m: [1, 3, 1] }];
-  const out = new Uint32Array(4 * 32);
-  for (let i = 0; i < 32; i++) out[i] = (1 << (31 - i)) >>> 0;
-  for (let d = 1; d < 4; d++) {
-    const { s, a, m } = params[d];
-    const v = new Uint32Array(32);
-    for (let i = 0; i < 32; i++) {
-      if (i < s) v[i] = (m[i] << (31 - i)) >>> 0;
-      else {
-        let x = (v[i - s] ^ (v[i - s] >>> s)) >>> 0;
-        for (let k = 1; k < s; k++) if ((a >>> (s - 1 - k)) & 1) x = (x ^ v[i - k]) >>> 0;
-        v[i] = x;
-      }
-    }
-    out.set(v, d * 32);
-  }
-  return out;
 }
 
 // Minimum deviation of a 60° ice prism, used by Lock Zoom.
