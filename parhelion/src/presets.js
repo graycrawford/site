@@ -60,3 +60,68 @@ export const PRESETS = {
     crystalTilt: 7.18, ior: 1.06, exposure: 0.0147, fadeFactor: 0.059, saturation: 1.23 },
 };
 
+
+// --- Saved presets ----------------------------------------------------------
+// Everything a preset can set. Built-ins predate the physics keys, so missing
+// keys load as these defaults rather than keeping whatever was on screen.
+export const PRESET_KEYS = [
+  'sunElevation', 'camElevation', 'lockSunCenter', 'zoom', 'crystalTilt', 'polyhedralSpin', 'ior',
+  'exposure', 'fadeFactor', 'saturation', 'lowitzSpin', 'crystalSize', 'plateAspect', 'columnAspect', 'sunDisk',
+];
+export const PRESET_DEFAULTS = {
+  lockSunCenter: true, polyhedralSpin: 0, lowitzSpin: 30, crystalSize: 0, plateAspect: 0.2, columnAspect: 2, sunDisk: true,
+};
+
+const STORE = 'parhelion.presets';
+
+// Presets saved in this browser, in the order they were made.
+export function savedPresets() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE));
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSaved(presets) {
+  try { localStorage.setItem(STORE, JSON.stringify(presets)); } catch { /* private mode: session only */ }
+}
+
+export function allPresets() {
+  return { ...PRESETS, ...savedPresets() };
+}
+
+// Continues the "Preset N" numbering past every existing name.
+export function nextPresetName() {
+  const n = Object.keys(allPresets()).map(k => /^Preset (\d+)$/.exec(k)?.[1]).filter(Boolean).map(Number);
+  return `Preset ${Math.max(0, ...n) + 1}`;
+}
+
+export function capturePreset(config, typeKeys) {
+  const p = {};
+  for (const k of PRESET_KEYS) {
+    const v = config[k];
+    p[k] = typeof v === 'number' ? Number(v.toPrecision(4)) : v;
+  }
+  p.types = typeKeys.filter(k => config[k]).map(k => k.slice(6).toLowerCase());
+  return p;
+}
+
+export function savePreset(name, preset) {
+  writeSaved({ ...savedPresets(), [name]: preset });
+}
+
+export function removePreset(name) {
+  const saved = savedPresets();
+  delete saved[name];
+  writeSaved(saved);
+}
+
+// Saved presets as entries to paste into PRESETS above.
+export function presetsAsCode(presets) {
+  return Object.entries(presets).map(([name, p]) => {
+    const fields = Object.entries(p).map(([k, v]) => `${k}: ${Array.isArray(v) ? `[${v.map(t => `'${t}'`).join(', ')}]` : v}`);
+    return `  '${name}': { ${fields.join(', ')} },`;
+  }).join('\n');
+}

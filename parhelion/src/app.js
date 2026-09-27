@@ -1,5 +1,8 @@
 import { GUI } from 'dat.gui';
-import { PRESETS, DEFAULT_PRESET } from './presets.js';
+import {
+  DEFAULT_PRESET, PRESET_KEYS, PRESET_DEFAULTS, allPresets, savedPresets, nextPresetName,
+  capturePreset, savePreset, removePreset, presetsAsCode,
+} from './presets.js';
 import { TYPE_KEYS, haloAngle, iorFromHaloAngle } from './optics.js';
 import { Spring } from './spring.js';
 
@@ -65,6 +68,8 @@ const PX_PER_UNIT = {
 };
 // Sprung simulation values. diffraction = 1/crystalSize (0 = off), so the
 // blur eases away as crystals grow instead of passing through D = 0.
+const SAVE = '\u0000save';
+const REMOVE = '\u0000remove';
 const TRACE_KEYS = ['sunElevation', 'camElevation', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction'];
 const traceTarget = (k, c) => (k === 'diffraction' ? (c.crystalSize > 0 ? 1 / c.crystalSize : 0) : c[k]);
 const POST_KEYS = ['logExposure', 'saturation'];
@@ -93,13 +98,15 @@ export function start(renderer) {
 
   // --- Presets ---
   function loadPreset(name) {
-    const p = PRESETS[name];
+    const p = allPresets()[name];
     if (!p) return;
     CONFIG.preset = name;
-    for (const k of ['sunElevation', 'camElevation', 'lockSunCenter', 'zoom', 'crystalTilt', 'ior', 'exposure', 'fadeFactor', 'saturation']) {
-      if (p[k] !== undefined) CONFIG[k] = p[k];
-    }
+    const shape = [CONFIG.plateAspect, CONFIG.columnAspect];
+    const sunDisk = CONFIG.sunDisk;
+    for (const k of PRESET_KEYS) CONFIG[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
     for (const k of TYPE_KEYS) CONFIG[k] = p.types.includes(k.slice(6).toLowerCase());
+    if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect) shapeDirty = true;
+    if (sunDisk !== CONFIG.sunDisk) traceDirty = true;
     exposureProxy.log = Math.log10(CONFIG.exposure);
     if (CONFIG.lockZoom) lockZoom();
     syncTargets();
@@ -151,9 +158,9 @@ export function start(renderer) {
 
   // --- dat.gui panel (behind the gear) ---
   const exposureProxy = { log: Math.log10(CONFIG.exposure) };
-  gui.add(CONFIG, 'preset', Object.keys(PRESETS)).name('Preset').onChange(name => {
+  const presetController = gui.add(CONFIG, 'preset', Object.keys(allPresets())).name('Preset').onChange(name => {
     loadPreset(name);
-    picker.value = name;
+    fillPicker();
   });
   gui.add(CONFIG, 'sunElevation', -90, 90).name('Sun Elevation').onChange(v => { setSunElevation(v); refresh(); pad.update(); });
   gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(v => { setCamElevation(v); refresh(); pad.update(); });
@@ -188,6 +195,7 @@ export function start(renderer) {
   renderer.hdrQuery.addEventListener('change', () => { postDirty = true; });
   output.add(CONFIG, 'resolution', 0.5, window.devicePixelRatio || 1).step(0.25).name('Resolution').onChange(resize);
   gui.add(CONFIG, 'enableSprings').name('Springs');
+  gui.add({ copy: () => copySavedPresets() }, 'copy').name('Copy Saved Presets');
 
   // Gear toggle
   const guiToggle = document.getElementById('gui-toggle');
@@ -213,14 +221,51 @@ export function start(renderer) {
       position: 'absolute', top: `${t.top - p.top}px`, left: `${t.left - p.left}px`,
       width: '20px', height: '20px', opacity: '0', cursor: 'pointer', zIndex: '10',
     });
-    for (const name of Object.keys(PRESETS)) picker.add(new Option(name, name));
-    picker.value = CONFIG.preset;
-    picker.addEventListener('change', e => loadPreset(e.target.value));
+    picker.addEventListener('change', e => {
+      const v = e.target.value;
+      if (v === SAVE) saveCurrent();
+      else if (v === REMOVE) removeCurrent();
+      else loadPreset(v);
+      fillPicker();
+    });
     picker.addEventListener('mousedown', e => e.stopPropagation());
     presetToggle.addEventListener('click', e => {
       e.stopPropagation();
       try { picker.showPicker(); } catch { picker.focus(); picker.click(); }
     });
+  }
+
+  // --- Saving presets (from the same menu) ---
+  // The menu ends with "save as Preset N" and, on a preset saved here,
+  // "remove". Saved presets live in this browser's storage; "Copy Saved
+  // Presets" (gear panel) gives them as code to bake into presets.js.
+  function fillPicker() {
+    picker.replaceChildren();
+    for (const name of Object.keys(allPresets())) picker.add(new Option(name, name));
+    const divider = new Option('───────', '');
+    divider.disabled = true;
+    picker.add(divider);
+    picker.add(new Option(`save as ${nextPresetName()}`, SAVE));
+    if (CONFIG.preset in savedPresets()) picker.add(new Option(`remove ${CONFIG.preset}`, REMOVE));
+    picker.value = CONFIG.preset in allPresets() ? CONFIG.preset : '';
+    const gs = presetController.__select;
+    gs.replaceChildren(...Object.keys(allPresets()).map(n => new Option(n, n)));
+    presetController.updateDisplay();
+    pad.setMarkers(allPresets());
+  }
+  function saveCurrent() {
+    const name = nextPresetName();
+    savePreset(name, capturePreset(CONFIG, TYPE_KEYS));
+    CONFIG.preset = name;
+  }
+  function removeCurrent() {
+    removePreset(CONFIG.preset);
+    CONFIG.preset = '';
+  }
+  function copySavedPresets() {
+    const code = presetsAsCode(savedPresets());
+    navigator.clipboard?.writeText(code).catch(() => {});
+    console.log(code);
   }
 
   // --- XY pad and rails ---
@@ -257,6 +302,7 @@ export function start(renderer) {
   resize();
 
   loadPreset(CONFIG.preset);
+  fillPicker();
   for (const s of [...Object.values(springs), ...typeSprings]) s.jump(s.target);
 
   // --- Frame loop ---
@@ -439,14 +485,17 @@ function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onToggle }
   });
 
   // Preset ghost dots.
-  for (const [name, p] of Object.entries(PRESETS)) {
-    const m = document.createElement('div');
-    m.className = 'preset-marker';
-    m.style.left = `${inset(norm(p.ior, IOR)) * 100}%`;
-    m.style.top = `${inset(1 - norm(p.sunElevation, SUN)) * 100}%`;
-    m.title = name;
-    padEl.insertBefore(m, knob);
+  function setMarkers(presets) {
+    padEl.querySelectorAll('.preset-marker').forEach(m => m.remove());
+    for (const [name, p] of Object.entries(presets)) {
+      const m = document.createElement('div');
+      m.className = 'preset-marker';
+      m.style.left = `${inset(norm(p.ior, IOR)) * 100}%`;
+      m.style.top = `${inset(1 - norm(p.sunElevation, SUN)) * 100}%`;
+      m.title = name;
+      padEl.insertBefore(m, knob);
+    }
   }
 
-  return { update };
+  return { update, setMarkers };
 }
