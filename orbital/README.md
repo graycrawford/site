@@ -1,6 +1,6 @@
 # Orbital
 
-Static WebGPU build from graycrawford/orbital at 3e4972a (branch density-consolidation: preset schema 2, per-dot sphere fog, visual preset bank). Served at https://graycrawford.com/orbital/. Requires WebGPU in a secure HTTPS context.
+Static WebGPU build from graycrawford/orbital at cc15a15 (branch density-consolidation: preset schema 2, per-dot sphere fog, visual preset bank). Served at https://graycrawford.com/orbital/. Requires WebGPU in a secure HTTPS context.
 
 The engine files match the upstream web build. Site integration adds a home link, page metadata and the 38 supplied Mac presets, alongside the two original looks and the six built-in atom shapes. All 46 are available in the preset bank and contribute pad reference dots. The last "tri" session is marked `startup`, so a first visit without a saved session opens on it. User-created presets remain in browser storage.
 

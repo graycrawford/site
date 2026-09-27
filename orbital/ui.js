@@ -912,7 +912,8 @@ export class UI {
     if (p.builtin) {
       let video = $("video");
       Object.assign(video, { muted: true, loop: true, playsInline: true, preload: "none" });
-      video.src = `./assets/loops/${p.id}.mp4`;
+      // Loop files are named by lowercase id; hosts can be case-sensitive.
+      video.src = `./assets/loops/${p.id.toLowerCase()}.mp4`;
       video.onerror = () => {
         video.remove();
         this.drawnLoop(media, p);
