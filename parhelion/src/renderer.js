@@ -18,6 +18,7 @@ export class Renderer {
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
     if (!adapter) throw new Error('No WebGPU adapter');
     const device = await adapter.requestDevice({
+      requiredFeatures: adapter.features.has('timestamp-query') ? ['timestamp-query'] : [],
       requiredLimits: {
         maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
         maxBufferSize: adapter.limits.maxBufferSize,
@@ -46,13 +47,21 @@ export class Renderer {
     this.presentData = new ArrayBuffer(112);
 
     this.frameIndex = 0;
-    this.weightMotion = 0; // Σ fade-weighted frames in the motion history
-    this.weightRest = 0; // frames in the running mean since motion stopped
+    // GPU timestamps around the trace pass drive the ray budget; without them,
+    // frame pacing does (submit-to-done latency includes a presentation delay).
+    if (device.features.has('timestamp-query')) {
+      this.querySet = device.createQuerySet({ type: 'timestamp', count: 2 });
+      this.queryResolve = device.createBuffer({ size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+      this.queryReads = [];
+      this.queryReadsMade = 0;
+    }
+    this.weightMotion = 0; // Σ fade-weighted frames in the trail history
+    this.weightRest = 0; // Σ weighted frames in the clean mean
+    this.wasStill = false;
     // Rays per frame, adapted to GPU time separately for motion (stay
     // responsive) and rest (nothing moves, so spend more per frame).
     this.samplesFor = { motion: 1 << 18, rest: 1 << 19 };
     this.restSamples = 0; // rays in the rest mean
-    this.timing = false;
     this.width = 0;
     this.height = 0;
     device.lost.then(info => console.warn('WebGPU device lost:', info.message));
@@ -160,21 +169,27 @@ export class Renderer {
     };
   }
 
-  // Frames folded into the rest mean, and how much of the display still
-  // comes from the fading motion history.
-  get restFrames() { return this.weightRest; }
+  // Share of the display still coming from the fading trail history.
   get historyShare() {
     const w = this.weightMotion + this.weightRest;
     return w > 0 ? this.weightMotion / w : 0;
   }
 
-  // s: simulation state. trace: dispatch rays this frame.
-  // rest: nothing that moves light is changing; new frames go to the rest mean.
-  // decay: per-frame fade of the motion history.
-  // gain: at rest, rescales everything shown by an exposure change.
-  render(s, { trace, rest, decay, gain = 1 }) {
+  // Two accumulators per pixel, displayed as (E + R) / (wE + wR):
+  //  E, trails: fades at the user's fade rate and takes new frames while
+  //    anything moves (always, when the clean mean is off).
+  //  R, clean mean: remembers only as far back as the image has held still to
+  //    within a fraction of a pixel, so it resolves progressively as motion
+  //    slows and becomes a plain running mean when nothing moves.
+  // When motion resumes, R seeds E (capped at the fade's steady-state weight)
+  // so trails start from the resolved image.
+  // trace: dispatch rays. still: nothing that moves light is changing.
+  // slow: motion is slow enough to spend the larger rest ray budget.
+  // fade: per-frame decay of E. mean: per-frame decay of R (null = no clean
+  // mean). gain: exposure change applied to everything shown (when still).
+  render(s, { trace, still, slow = still, fade, mean = null, gain = 1 }) {
     if (!this.traceGroup) return;
-    const mode = rest ? 'rest' : 'motion';
+    const mode = slow ? 'rest' : 'motion'; // ray budget
     const d = this.device;
     const v = this.view(s);
     const samples = this.samplesFor[mode];
@@ -208,26 +223,21 @@ export class Renderer {
       d.queue.writeBuffer(this.traceUniforms, 0, this.traceData);
     }
 
-    // Motion: history fades and takes the new frame; a rest mean being left
-    // behind is merged in, capped at the fade's steady-state weight so the
-    // response to new motion stays as quick as the fade says.
-    // Rest: history keeps fading, new frames build an unfaded mean.
-    let decayMotion, keepRest, merge = 0;
-    if (!rest) {
-      const steady = decay < 1 ? 1 / (1 - decay) : Infinity;
-      merge = this.weightRest > 0 ? Math.min(1, steady / this.weightRest) : 0;
-      this.weightMotion = this.weightMotion * decay + this.weightRest * merge + (trace ? 1 : 0);
-      this.weightRest = 0;
-      this.restSamples = 0;
-      decayMotion = decay;
-      keepRest = 0;
-    } else {
-      this.weightMotion *= decay;
-      this.weightRest += trace ? 1 : 0;
-      this.restSamples += trace ? samples : 0;
-      decayMotion = decay * gain;
-      keepRest = gain;
+    const useMean = mean !== null;
+    const frame = trace ? 1 : 0;
+    const toHistory = still && useMean ? 0 : 1;
+    let merge = 0;
+    if (!still && this.wasStill && useMean && this.weightRest > 0) {
+      const steady = fade < 1 ? 1 / (1 - fade) : Infinity;
+      merge = Math.min(1, steady / this.weightRest);
     }
+    const keep = useMean ? mean : 0;
+    this.weightMotion = this.weightMotion * fade + this.weightRest * merge + toHistory * frame;
+    this.weightRest = this.weightRest * keep + (useMean ? frame : 0);
+    this.restSamples = this.restSamples * keep + (useMean ? frame * samples : 0);
+    this.wasStill = still;
+    const decayMotion = fade * gain;
+    const keepRest = keep * gain;
     const weight = this.weightMotion + this.weightRest;
     const pf = new Float32Array(this.presentData);
     const pu = new Uint32Array(this.presentData);
@@ -238,7 +248,8 @@ export class Renderer {
     pf.set([s.saturation, this.hdr ? s.headroom : 1], 20);
     pu[22] = this.frameIndex;
     pu[23] = this.width;
-    pu[24] = (trace || decayMotion !== 1 || keepRest !== 1 || merge !== 0 ? 1 : 0) | (rest ? 2 : 0);
+    const writeBack = trace || decayMotion !== 1 || keepRest !== 1 || merge !== 0;
+    pu[24] = (writeBack ? 1 : 0) | (toHistory ? 2 : 0) | (useMean ? 4 : 0);
     if (s.saturation !== this.limitSaturation) {
       this.limitSaturation = s.saturation;
       this.gamutLimit = gamutLimit(this.matrix, s.saturation);
@@ -247,12 +258,22 @@ export class Renderer {
     d.queue.writeBuffer(this.presentUniforms, 0, this.presentData);
 
     const enc = d.createCommandEncoder();
+    let timing = null;
     if (trace) {
-      const pass = enc.beginComputePass();
+      if (this.querySet && (this.queryReads.length || this.queryReadsMade < 3)) {
+        timing = this.queryReads.pop() ?? (this.queryReadsMade++, d.createBuffer({ size: 16, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST }));
+      }
+      const pass = enc.beginComputePass(timing ? {
+        timestampWrites: { querySet: this.querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 },
+      } : undefined);
       pass.setPipeline(this.tracePipeline);
       pass.setBindGroup(0, this.traceGroup);
       pass.dispatchWorkgroups(Math.ceil(threads / TRACE_WORKGROUP));
       pass.end();
+      if (timing) {
+        enc.resolveQuerySet(this.querySet, 0, 2, this.queryResolve, 0);
+        enc.copyBufferToBuffer(this.queryResolve, 0, timing, 0, 16);
+      }
     }
     const pass = enc.beginRenderPass({
       colorAttachments: [{ view: this.context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }],
@@ -262,7 +283,17 @@ export class Renderer {
     pass.draw(3);
     pass.end();
     d.queue.submit([enc.finish()]);
-    if (trace) this.adapt(mode, samples);
+    if (timing) {
+      timing.mapAsync(GPUMapMode.READ).then(() => {
+        const t = new BigInt64Array(timing.getMappedRange());
+        const ms = Number(t[1] - t[0]) / 1e6;
+        timing.unmap();
+        this.queryReads.push(timing);
+        if (ms > 0) this.adapt(mode, samples, ms);
+      }, () => {});
+    } else if (trace && !this.querySet) {
+      this.adaptToPacing(mode, samples);
+    }
   }
 
   // Displayed per-pixel XYZ energy (exposure-weighted), for verification.
@@ -281,19 +312,23 @@ export class Renderer {
     return { data, width: this.width, height: this.height, view: this.view.bind(this) };
   }
 
-  // Keep GPU time per frame inside a budget by scaling the ray count.
-  adapt(mode, samples) {
-    if (this.timing) return;
-    this.timing = true;
-    const t0 = performance.now();
-    this.device.queue.onSubmittedWorkDone().then(() => {
-      this.timing = false;
-      const n = this.samplesFor[mode];
-      if (samples !== n) return;
-      const ms = performance.now() - t0;
-      const budget = (mode === 'rest' ? this.restBudgetMs : this.budgetMs) ?? 9;
-      if (ms > budget) this.samplesFor[mode] = Math.max(MIN_SAMPLES, Math.round(n * Math.max(0.7, budget / ms)));
-      else if (ms < budget * 0.7) this.samplesFor[mode] = Math.min(MAX_SAMPLES, Math.round(n * 1.1));
-    });
+  // Scale the ray count so the trace pass takes the budgeted GPU time: 70% of
+  // the display interval while moving, more at rest (set by the app).
+  adapt(mode, samples, ms) {
+    const n = this.samplesFor[mode];
+    if (samples !== n) return;
+    const budget = (mode === 'rest' ? this.restBudgetMs : this.budgetMs) ?? 9;
+    const k = Math.min(1.5, Math.max(0.6, (0.9 * budget) / ms));
+    this.samplesFor[mode] = Math.min(MAX_SAMPLES, Math.max(MIN_SAMPLES, Math.round(n * k)));
+  }
+
+  // Without timestamps: back off when frames run late, grow while on time.
+  adaptToPacing(mode, samples) {
+    const n = this.samplesFor[mode];
+    if (samples !== n || !this.frameMs || !this.refreshMs) return;
+    const late = this.frameMs / this.refreshMs;
+    const allowed = mode === 'rest' ? 1.8 : 1.2;
+    if (late > allowed) this.samplesFor[mode] = Math.max(MIN_SAMPLES, Math.round(n * 0.85));
+    else if (late < 1.1) this.samplesFor[mode] = Math.min(MAX_SAMPLES, Math.round(n * 1.04));
   }
 }

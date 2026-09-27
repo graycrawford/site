@@ -320,7 +320,7 @@ struct Present {
   center: vec2f, scale: f32, invNorm: f32,
   decayMotion: f32, keepRest: f32, merge: f32, invWeight: f32,
   saturation: f32, headroom: f32, frame: u32, width: u32,
-  mode: u32, // bit 0: write back, bit 1: at rest
+  mode: u32, // bit 0: write back, bit 1: frame -> trails, bit 2: frame -> clean mean
   gamutLimit: f32, _p0: f32, _p1: f32, // chroma ratio of the spectral locus past P3
 }
 @group(0) @binding(0) var<uniform> U: Present;
@@ -388,9 +388,8 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
       for (var k = 0u; k < 6u; k++) { hist[b + k] = 0u; }
     }
     let frame = h * U.invNorm;
-    let atRest = (U.mode & 2u) != 0u;
-    motion = motion * U.decayMotion + rest * U.merge + select(frame, vec3f(0.0), atRest);
-    rest = rest * U.keepRest + select(vec3f(0.0), frame, atRest);
+    motion = motion * U.decayMotion + rest * U.merge + select(vec3f(0.0), frame, (U.mode & 2u) != 0u);
+    rest = rest * U.keepRest + select(vec3f(0.0), frame, (U.mode & 4u) != 0u);
     accum[2u * i] = vec4f(motion, 0.0);
     accum[2u * i + 1u] = vec4f(rest, 0.0);
   }

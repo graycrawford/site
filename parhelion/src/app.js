@@ -46,10 +46,22 @@ const CONFIG = {
   preset: DEFAULT_PRESET,
 };
 
-// Change per 60 Hz frame below which a parameter counts as settled (deg / index / µm).
-const MOVE_TOLERANCE = {
-  sunElevation: 1e-3, camElevation: 1e-3, crystalTilt: 1e-3, polyhedralSpin: 1e-3,
-  ior: 1e-5, lowitzSpin: 1e-3, diffraction: 1e-5,
+// The clean mean remembers as many frames as the image has drifted less than
+// this many pixels over, so it resolves progressively as springs slow down.
+// The slight blur this allows in a spring's tail washes out as frames pile up.
+const DRIFT_PX = 1.5;
+// Below this many pixels per frame, motion counts as slow: rays get the rest
+// budget, since responsiveness no longer needs short frames.
+const SLOW_PX = 1;
+// ... and as many as crystal mix changes stay under this fraction over.
+const MIX_TOLERANCE = 0.01;
+// Pixels per unit change of each sprung value (per accumulation-pixel scale):
+// angles in degrees move light by ~(π/180)·scale·0.75 (stereographic, a little
+// more toward the edges), index by ~2 rad per unit, diffraction by 0.24 rad per
+// 1/µm. Zoom is handled separately (it scales the whole image).
+const PX_PER_UNIT = {
+  sunElevation: Math.PI / 180, camElevation: Math.PI / 180, crystalTilt: Math.PI / 180,
+  polyhedralSpin: Math.PI / 180, lowitzSpin: Math.PI / 180, ior: 2, diffraction: 0.242,
 };
 // Sprung simulation values. diffraction = 1/crystalSize (0 = off), so the
 // blur eases away as crystals grow instead of passing through D = 0.
@@ -264,30 +276,41 @@ export function start(renderer) {
     if (intervals.length > 120) intervals.shift();
     // GPU time per frame: 70% of the display interval while moving; at rest up
     // to twice that (≤ 14 ms), since only convergence speed is at stake.
-    renderer.budgetMs = Math.max(4, 0.7 * 1000 * Math.min(...intervals.filter(x => x > 0.003), 1 / 30));
+    renderer.refreshMs = 1000 * Math.min(...intervals.filter(x => x > 0.003), 1 / 30);
+    renderer.frameMs = 1000 * dt;
+    renderer.budgetMs = Math.max(4, 0.7 * renderer.refreshMs);
     renderer.restBudgetMs = Math.max(renderer.budgetMs, Math.min(14, 2 * renderer.budgetMs));
 
     const springy = CONFIG.enableSprings;
-    const frames = 60 * Math.max(dt, 1 / 240); // tolerances are per 60 Hz frame
-    let moving = traceDirty;
+    let jump = traceDirty; // discontinuities: restart the clean mean
     traceDirty = false;
     if (shapeDirty) {
       applyShape();
-      moving = true;
+      jump = true;
     }
-    // Moving = anything that changes where light lands, beyond a per-frame
-    // tolerance small enough that the spring's slow tail can't smear.
+    if (renderer.width !== lastSize[0] || renderer.height !== lastSize[1]) {
+      lastSize = [renderer.width, renderer.height];
+      jump = true;
+    }
+    // How far light moved on screen this frame, from each spring's step.
+    const scale = springs.zoom.value * Math.min(renderer.width, renderer.height) / 2;
+    let drift = 0;
     for (const k of TRACE_KEYS) {
-      const s = springs[k];
-      const before = s.value;
-      s.step(dt, springy);
-      const tol = (k === 'zoom' ? 1e-4 * s.value : MOVE_TOLERANCE[k]) * frames;
-      if (Math.abs(s.value - before) > tol && !s.snapped) moving = true;
+      const sp = springs[k];
+      const before = sp.value;
+      sp.step(dt, springy);
+      if (sp.snapped) continue;
+      const delta = Math.abs(sp.value - before);
+      drift += k === 'zoom'
+        ? delta / sp.value * 0.5 * Math.hypot(renderer.width, renderer.height)
+        : delta * PX_PER_UNIT[k] * 0.75 * scale;
     }
-    typeSprings.forEach(s => {
-      const before = s.value;
-      s.step(dt, springy);
-      if (Math.abs(s.value - before) > 1e-4 * frames && !s.snapped) moving = true;
+    let mixChange = 0;
+    const mixTotal = typeSprings.reduce((a, sp) => a + Math.max(0, sp.value), 0) || 1;
+    typeSprings.forEach(sp => {
+      const before = sp.value;
+      sp.step(dt, springy);
+      if (!sp.snapped) mixChange += Math.abs(sp.value - before) / mixTotal;
     });
     let post = postDirty;
     postDirty = false;
@@ -295,30 +318,33 @@ export function start(renderer) {
     springs.fadeFactor.step(dt, springy);
 
     for (const k of TRACE_KEYS) state[k] = springs[k].value;
-    typeSprings.forEach((s, i) => { state.typeWeights[i] = Math.max(0, s.value); });
+    typeSprings.forEach((sp, i) => { state.typeWeights[i] = Math.max(0, sp.value); });
     const exposure = 10 ** springs.logExposure.value;
     state.exposure = exposure;
     state.saturation = springs.saturation.value;
     state.headroom = CONFIG.headroom;
     state.sunDisk = CONFIG.sunDisk;
-    if (renderer.width !== lastSize[0] || renderer.height !== lastSize[1]) {
-      lastSize = [renderer.width, renderer.height];
-      moving = true;
-    }
 
-    // Frames are deposited at their own exposure, so motion trails keep the
+    // Frames are deposited at their own exposure, so trails keep the
     // brightness they were drawn with and fade at the fade rate (frame-rate
-    // independent). At rest a running mean converges underneath the fading
-    // trails and tracing stops once the mean is converged and the trails are
-    // gone. Whenever nothing moves, exposure changes apply to everything shown.
-    const rest = CONFIG.settle && !moving;
-    const decay = (1 - springs.fadeFactor.value) ** (60 * Math.min(dt, 0.1));
-    const gain = moving ? 1 : exposure / lastExposure;
+    // independent). Underneath, the clean mean keeps every frame that still
+    // lines up to within DRIFT_PX; once nothing moves it is a plain running
+    // mean, trails fade out, exposure changes apply to everything shown, and
+    // tracing stops when the mean has converged.
+    const still = !jump && drift < 1e-3 && mixChange < 1e-6;
+    const fade = (1 - springs.fadeFactor.value) ** (60 * Math.min(dt, 0.1));
+    let mean = null;
+    if (CONFIG.settle) {
+      if (jump) mean = 0;
+      else if (still) mean = 1;
+      else mean = Math.max(0, 1 - 1 / Math.min(DRIFT_PX / Math.max(drift, 1e-9), MIX_TOLERANCE / Math.max(mixChange, 1e-12)));
+    }
+    const gain = still ? exposure / lastExposure : 1;
     lastExposure = exposure;
-    const settled = renderer.restSamples >= SETTLE_SAMPLES || renderer.restFrames >= SETTLE_MAX_FRAMES;
-    const converged = rest && settled && (decay === 1 || renderer.historyShare < 1e-3);
+    const settled = renderer.restSamples >= SETTLE_SAMPLES || renderer.weightRest >= SETTLE_MAX_FRAMES;
+    const converged = still && CONFIG.settle && settled && (fade === 1 || renderer.historyShare < 1e-3);
     if (converged && !post) return;
-    renderer.render(state, { trace: !converged, rest, decay, gain });
+    renderer.render(state, { trace: !converged, still, slow: drift < SLOW_PX && !jump, fade, mean, gain });
   }
   let lastExposure = 10 ** springs.logExposure.value;
   let lastSize = [renderer.width, renderer.height];
