@@ -146,6 +146,23 @@
     color:rgba(255,255,255,.3);background-color:rgba(255,255,255,.1);
     border:none;border-radius:4px;height:20px;padding:0 8px;cursor:pointer;transition:all .2s ease}
   .presets button:hover{background-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)}
+  /* preset library: live PSF thumbnails, two columns */
+  .lib{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tile{position:relative}
+  .tile canvas,.tile .add{display:block;width:100%;aspect-ratio:1;border-radius:10px;background-color:rgba(255,255,255,.05);cursor:pointer;
+    outline:1px solid transparent;transition:outline-color .2s ease}
+  .tile canvas:hover,.tile .add:hover{outline-color:rgba(255,255,255,.2)}
+  .tile.current canvas{outline-color:rgba(255,255,255,.4)}
+  .tile .add{display:flex;align-items:center;justify-content:center;font:300 18px/1 sans-serif;color:rgba(255,255,255,.3)}
+  .tile .nm{font:400 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.4);
+    margin:5px 2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;outline:none}
+  .tile .nm[contenteditable=true]{color:rgba(255,255,255,.7);text-overflow:clip}
+  .tile .parts{display:flex;gap:6px;margin:0 2px}
+  .tile .parts span{font:400 7px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.2);cursor:pointer}
+  .tile .parts span:hover{color:rgba(255,255,255,.6)}
+  .tile .x{position:absolute;top:4px;right:6px;font:400 11px/1 sans-serif;color:rgba(255,255,255,.2);cursor:pointer;opacity:0;transition:opacity .2s ease}
+  .tile:hover .x{opacity:1}
+  .tile .x:hover{color:rgba(255,255,255,.7)}
   .roadmap{font:400 8px/1.5 sans-serif;letter-spacing:.06em;color:rgba(255,255,255,.18);text-transform:uppercase}
   .card>h2{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px}
   .xyorigin{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.05);
@@ -280,17 +297,16 @@
       </div></div>
     </div>
 
-    <div class="card collapsed" data-card="presets">
-      <h2><span class="chev">▾</span><span class="ttl">presets</span><span class="hint" id="pHint"></span></h2>
-      <div class="body"><div class="presets" id="presets"></div>
-        <div class="presets" id="presetbar" style="margin-top:6px">
-          <button id="pAdd" title="save current settings">+</button>
-          <button id="pExp" title="export presets as json">export</button>
+    <div class="card" data-card="presets">
+      <h2><span class="chev">▾</span><span class="ttl">library</span><span class="hint" id="pHint"></span></h2>
+      <div class="body"><div class="lib" id="lib"></div>
+        <div class="presets" id="presetbar" style="margin-top:8px">
+          <button id="pExp" title="export saved presets as json">export</button>
           <button id="pImp" title="import presets from json">import</button>
         </div>
-        <div id="pNameRow" style="display:none"><input type="text" id="pName" placeholder="name" autocomplete="off" spellcheck="false"></div>
         <input type="file" id="pFile" accept="application/json,.json" style="display:none">
       </div>
+    </div>
     </div>
 
   </div>
@@ -599,7 +615,7 @@ function wlRGB(wl){let R=0,G=0,B=0;
   return [Math.round(255*Math.pow(Math.max(0,R)*f,g)),Math.round(255*Math.pow(Math.max(0,G)*f,g)),Math.round(255*Math.pow(Math.max(0,B)*f,g))];}
 
 /* ---- rendering --------------------------------------------------------- */
-const psfCanvas=document.getElementById("psf"),pctx=psfCanvas.getContext("2d");
+const psfCanvas=document.getElementById("psf");var pctx=psfCanvas.getContext("2d");
 const wfCanvas=document.getElementById("wf"),wfctx=wfCanvas.getContext("2d");
 var off=document.createElement("canvas"),offctx=off.getContext("2d"),offImg=null,dispPx=520;
 function dpr_(){return Math.min(2,window.devicePixelRatio||1);}
@@ -635,11 +651,13 @@ function fadeOverlay(){const now=(performance||Date).now();
   let a=(now-FADE.t0)/FADE.dur; if(a>=1){FADE.on=false;return;}
   if(a<0)a=0; const e=a*a*(3-2*a);                    /* smoothstep ease in-out */
   pctx.save();pctx.globalAlpha=1-e;pctx.drawImage(FADE.cv,0,0,dispPx,dispPx);pctx.restore();}
-function blit(skipAux){const N=state.N,z=state.zoom;
+/* ctx/size default to the main view; the library passes a thumbnail */
+function blit(skipAux,ctx,size,frameN){const N=state.N,z=state.zoom,main=!ctx;
+  const pctx=ctx||window.pctx,dispPx=size||window.dispPx;
   pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);
   /* laid out by ANGLE against the full (settled) grid, so a draft frame on a
      smaller grid lands at the same on-screen scale instead of hopping */
-  const NF=fullN(),aC=arcAt(N),Th=NF*arcAt(NF);
+  const NF=frameN||fullN(),aC=arcAt(N),Th=NF*arcAt(NF);
   const V=z>=1?Th/z:Th,dw=z>=1?dispPx:dispPx*z,scale=aC*dw/V;   /* dest px per sim px */
   const vis=V/aC,s0=Math.max(0,(N-vis)/2),s1=Math.min(N,(N+vis)/2);
   /* optical axis is the centre of pixel N/2 on every grid; pin it to where the
@@ -649,11 +667,12 @@ function blit(skipAux){const N=state.N,z=state.zoom;
   if(gs.frame){   /* GPU frame: tone only the visible crop, box-reduced to <= GS_MAXTONE */
     const c0=Math.floor(s0),cs=Math.ceil(s1)-c0,k=Math.max(1,Math.ceil(cs/GS_MAXTONE));
     if(gpuTone(c0,cs,k)){img=gs.cv;ix=(s0-c0)/k;iw=(s1-s0)/k;}
-    else{gpuReadback(gs.cur);gs.frame=false;draw();return;}}   /* canvas refused: CPU tone */
+    else{if(!main)return;gpuReadback(gs.cur);gs.frame=false;draw();return;}}   /* canvas refused: CPU tone */
   pctx.drawImage(img,ix,ix,iw,iw,d0,d0,dsz,dsz);
   if(state.airyRing&&!state.near){const airySrcPx=1.22*L_WIN/state.D,rr=airySrcPx*scale;
     if(rr>1&&rr<dispPx*0.72){const cx=dispPx/2;pctx.save();pctx.strokeStyle="rgba(255,255,255,.30)";pctx.lineWidth=Math.max(1,dpr_());
       pctx.setLineDash([4*dpr_(),4*dpr_()]);pctx.beginPath();pctx.arc(cx,cx,rr,0,2*Math.PI);pctx.stroke();pctx.restore();}}
+  if(!main)return;
   if(FADE.on&&FADE.cv)fadeOverlay();
   if(!skipAux){if(state.showWf)renderWavefront();renderAperture();updateReadouts();}}
 function draw(){if(state.sceneOn){drawScene();return;}
@@ -1083,9 +1102,6 @@ function applyPreset(name){const p=PRESETS[name];if(!p)return;
   ZMODES.forEach(m=>springTarget(state.coeff,m.id,0));
   Object.keys(p).forEach(k=>springTarget(state.coeff,k,p[k]));
   syncZernikeUI();requestCompute();}
-const presetWrap=document.getElementById("presets");
-Object.keys(PRESETS).forEach(name=>{const b=document.createElement("button");b.textContent=name;
-  b.addEventListener('click',()=>applyPreset(name));presetWrap.appendChild(b);});
 
 /* ---- primary cluster: gear panel, xy pad, preset picker ---------------- */
 (function(){const g=document.getElementById("gui-toggle"),p=document.getElementById("panel"),
@@ -1713,8 +1729,8 @@ function paintPerf(){
    storage, so a set travels with you and nothing is written behind your back. */
 const SNAP_KEYS=['D','lambda','lashOn','lashPos','lashIncursion','lashSpacing','lashThick',
   'lashAngle','lashAngleJit','lashSpaceJit','lidOn','lidUpper','lidLower',
-  'spectral','specSamples','lca','lcaStrength','absExp','near','nearLog'];
-const KEY_TOGGLE={lashOn:'swLash',lidOn:'swLid',spectral:'swSpec',lca:'swLca',absExp:'swAbs',near:'swNear'};
+  'spectral','specSamples','lca','lcaStrength','absExp','near','nearLog','exposure','gamma','zoom','tint'];
+const KEY_TOGGLE={lashOn:'swLash',lidOn:'swLid',spectral:'swSpec',lca:'swLca',absExp:'swAbs',near:'swNear',tint:'swTint'};
 const SLIDER_SRC={
   D:()=>tgtOf(state,'D'), lambda:()=>tgtOf(state,'lambda'), gamma:()=>tgtOf(state,'gamma'),
   exp:()=>Math.log2(Math.max(1e-9,tgtOf(state,'exposure'))), zoom:()=>tgtOf(state,'zoom'),
@@ -1724,7 +1740,20 @@ const SLIDER_SRC={
   sceneFov:()=>state.sceneFov, sceneYaw:()=>state.sceneYaw,
   scenePitch:()=>state.scenePitch, sceneExp:()=>state.sceneExp};
 const tgtOf=(store,k)=>{const sp=springOf(store,k);return sp?sp.tgt:store[k];};
-const USER={};
+/* ---- preset library -------------------------------------------------------
+   Same model as orbital's bank: built-ins plus your own, kept in this
+   browser and round-tripped as JSON. Loading never jumps — every continuous
+   value is handed to its spring as a new setpoint, so the view glides from
+   wherever it is to the preset (toggles switch). Each tile can also load just
+   one part: optics (aberrations, pupil, spectrum, near source), eye (lashes,
+   lids) or look (exposure, tone, zoom). Thumbnails are the real PSF, rendered
+   on the resident GPU path. */
+const PARTS={
+  optics:['coeff','D','lambda','spectral','specSamples','lca','lcaStrength','near','nearLog'],
+  eye:['lashOn','lashPos','lashIncursion','lashSpacing','lashThick','lashAngle','lashAngleJit','lashSpaceJit','lidOn','lidUpper','lidLower'],
+  look:['exposure','gamma','zoom','absExp','tint']};
+const LIB_STORE='engiscope.library';
+let LIB=[], libCurrent='';
 function snapshot(){const o={coeff:{}};
   ZMODES.forEach(m=>o.coeff[m.id]=+(+tgtOf(state.coeff,m.id)).toFixed(6));
   SNAP_KEYS.forEach(k=>{const v=tgtOf(state,k);o[k]=(typeof v==='number')?+v.toFixed(6):v;});
@@ -1740,56 +1769,115 @@ function syncSlidersFromState(){
   Object.keys(SLIDER_SRC).forEach(id=>{const el=document.getElementById(id);
     if(el){const v=SLIDER_SRC[id]();if(isFinite(v))el.value=String(v);}});
   refreshNums();}
-function applySnapshot(o){if(!o)return;
-  if(o.coeff)Object.keys(o.coeff).forEach(k=>{if(k in state.coeff)springTarget(state.coeff,k,o.coeff[k]);});
-  SNAP_KEYS.forEach(k=>{if(!(k in o))return;
+function applySnapshot(o,part){if(!o)return;
+  const keys=part?PARTS[part]:null,want=k=>!keys||keys.includes(k);
+  if(o.coeff&&want('coeff'))ZMODES.forEach(m=>springTarget(state.coeff,m.id,o.coeff[m.id]||0));
+  SNAP_KEYS.forEach(k=>{if(!(k in o)||!want(k))return;
     if(KEY_TOGGLE[k])setToggle(KEY_TOGGLE[k],o[k]);
     else springTarget(state,k,o[k]);});
-  basisDirty=true;antDirty=true;syncZernikeUI();syncSlidersFromState();requestCompute();}
+  basisDirty=true;antDirty=true;syncZernikeUI();syncSlidersFromState();touchDraft();requestCompute();}
 (function(){
-  const wrap=document.getElementById("presets"),hint=document.getElementById("pHint"),
-        addB=document.getElementById("pAdd"),expB=document.getElementById("pExp"),
-        impB=document.getElementById("pImp"),file=document.getElementById("pFile"),
-        row=document.getElementById("pNameRow"),nameIn=document.getElementById("pName");
-  if(!wrap||!addB)return;
+  const wrap=document.getElementById("lib"),hint=document.getElementById("pHint"),
+        expB=document.getElementById("pExp"),impB=document.getElementById("pImp"),file=document.getElementById("pFile");
+  if(!wrap)return;
   const say=t=>{if(hint){hint.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>hint.textContent='',2600);}};
-  function render(){
-    wrap.querySelectorAll('.userpreset').forEach(n=>n.remove());
-    Object.keys(USER).forEach(nm=>{const b=document.createElement('button');
-      b.className='userpreset';b.textContent=nm;b.title=nm+'  (shift-click to remove)';
-      b.addEventListener('click',e=>{
-        if(e.shiftKey){delete USER[nm];render();say('removed');return;}
-        applySnapshot(USER[nm]);});
-      wrap.appendChild(b);});}
-  function add(nm,snap){nm=String(nm||'').trim();if(!nm||!snap)return 'skip';
-    const h=canon(snap);
-    for(const k in USER)if(canon(USER[k])===h)return 'dup';   /* identical values */
-    let name=nm,i=2;while(USER[name])name=nm+' '+(i++);       /* name collision only */
-    USER[name]=snap;return 'ok';}
-  addB.addEventListener('click',()=>{const open=row.style.display==='none';
-    row.style.display=open?'':'none';if(open){nameIn.value='';nameIn.focus();}});
-  nameIn.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){const r=add(nameIn.value,snapshot());row.style.display='none';
-      render();say(r==='dup'?'already saved':r==='ok'?'saved':'needs a name');}
-    else if(e.key==='Escape')row.style.display='none';});
+  /* built-ins: the old aberration presets (all other modes zeroed) + scenes */
+  const zero=()=>{const c={};ZMODES.forEach(m=>c[m.id]=0);return c;};
+  const BUILTIN=Object.keys(PRESETS).map(nm=>({id:'b:'+nm,name:nm,builtin:true,snap:{coeff:Object.assign(zero(),PRESETS[nm]),near:false}}));
+  BUILTIN.push(
+    {id:'b:speck',name:'Speck on glasses',builtin:true,snap:{coeff:zero(),near:true,nearLog:1.176,D:4,lashOn:true,lidOn:false,zoom:3}},
+    {id:'b:squint',name:'Squint',builtin:true,snap:{coeff:Object.assign(zero(),{defocus:0.25}),near:false,D:4,lashOn:true,lidOn:true,lidUpper:0.6,lidLower:0.6}});
+  try{const raw=JSON.parse(localStorage.getItem(LIB_STORE)||'[]');if(Array.isArray(raw))LIB=raw.filter(p=>p&&p.name&&p.snap);}catch(_){}
+  const save=()=>{try{localStorage.setItem(LIB_STORE,JSON.stringify(LIB));}catch(_){/* private mode: session only */}};
+  const all=()=>BUILTIN.concat(LIB);
+  const nextName=()=>{let i=1;const names=new Set(all().map(p=>p.name));while(names.has('preset '+i))i++;return 'preset '+i;};
+  function add(name,snap){const h=canon(snap);
+    if(all().some(p=>canon(p.snap)===h))return 'dup';
+    let nm=String(name||'').trim()||nextName(),i=2;const names=new Set(all().map(p=>p.name));
+    while(names.has(nm))nm=String(name).trim()+' '+(i++);
+    LIB.push({id:'u:'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:nm,snap});save();return 'ok';}
+
+  /* thumbnails: swap the preset in directly (no springs), compute, draw by
+     angle into the tile, then put every value back and recompute the view */
+  const thumbs=new Map();   /* id -> {key, bitmap} */
+  const TH=220;
+  function thumbKey(p){return canon(p.snap);}
+  function renderThumb(p){
+    const keepS=Object.assign({},state),keepC=Object.assign({},state.coeff),keepN=state.N,keepD=draft;
+    try{const o=p.snap;
+      if(o.coeff)ZMODES.forEach(m=>state.coeff[m.id]=o.coeff[m.id]||0);
+      SNAP_KEYS.forEach(k=>{if(k in o)state[k]=o[k];});
+      /* the preset's own look, else a plain one — not whatever the view has */
+      state.zoom=o.zoom||1;state.exposure=o.exposure||1;state.gamma=o.gamma||1;state.absExp=!!o.absExp;
+      /* far field: frame the classic 256-grid field (~30′) so the PSF reads;
+         near source: the whole shadowgram */
+      draft=false;const n=state.near?Math.min(fullN(),1024):512,frame=state.near?n:256;
+      setupGrid(n);buildBasis();buildAnterior();computeEC();
+      if(!gpuCompute())return null;
+      const cv=document.createElement('canvas');cv.width=cv.height=TH;
+      blit(true,cv.getContext('2d'),TH,frame);return cv;}
+    finally{Object.assign(state,keepS);Object.assign(state.coeff,keepC);draft=keepD;
+      setupGrid(keepN);basisDirty=true;antDirty=true;kernDirty=true;}}
+  /* one synchronous batch, then one recompute: the view never draws a frame
+     from a thumbnail's buffers */
+  function fill(){if(!state.gpu||gs.dead||state.sceneOn)return;let did=false;
+    try{for(const p of all()){const k=thumbKey(p),hit=thumbs.get(p.id);
+        if(hit&&hit.key===k)continue;
+        const cv=renderThumb(p);did=true;if(!cv)break;
+        thumbs.set(p.id,{key:k,cv});paint(p.id);}}
+    finally{if(did)runCompute();}}
+  function paint(id){const t=thumbs.get(id),c=wrap.querySelector('canvas[data-id="'+CSS.escape(id)+'"]');
+    if(t&&c){c.getContext('2d').drawImage(t.cv,0,0,c.width,c.height);}}
+  function load(p,part){applySnapshot(p.snap,part);if(!part){libCurrent=p.id;
+      wrap.querySelectorAll('.tile').forEach(t=>t.classList.toggle('current',t.dataset.id===p.id));}}
+  function render(){wrap.replaceChildren();
+    for(const p of all()){const t=document.createElement('div');t.className='tile'+(p.id===libCurrent?' current':'');t.dataset.id=p.id;
+      const c=document.createElement('canvas');c.width=c.height=TH;c.dataset.id=p.id;c.title='load '+p.name;
+      c.addEventListener('click',()=>load(p));
+      const nm=document.createElement('div');nm.className='nm';nm.textContent=p.name.toLowerCase();nm.title=p.name;
+      if(!p.builtin){nm.title+='  (double-click to rename)';
+        nm.addEventListener('dblclick',()=>{nm.contentEditable='true';nm.textContent=p.name;nm.focus();
+          const r=document.createRange();r.selectNodeContents(nm);const sl=getSelection();sl.removeAllRanges();sl.addRange(r);});
+        const done=keep=>{if(nm.contentEditable!=='true')return;nm.contentEditable='false';
+          const v=nm.textContent.trim();if(keep&&v&&!all().some(q=>q!==p&&q.name===v)){p.name=v;save();}
+          nm.textContent=p.name.toLowerCase();};
+        nm.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();done(true);}else if(e.key==='Escape')done(false);});
+        nm.addEventListener('blur',()=>done(true));}
+      const parts=document.createElement('div');parts.className='parts';
+      Object.keys(PARTS).forEach(part=>{if(!PARTS[part].some(k=>k in p.snap))return;
+        const w=document.createElement('span');w.textContent=part;w.title='load only the '+part+' of '+p.name;
+        w.addEventListener('click',()=>load(p,part));parts.appendChild(w);});
+      t.append(c,nm,parts);
+      if(!p.builtin){const x=document.createElement('span');x.className='x';x.textContent='×';x.title='remove '+p.name;
+        x.addEventListener('click',()=>{LIB=LIB.filter(q=>q!==p);thumbs.delete(p.id);save();render();say('removed');});t.appendChild(x);}
+      wrap.appendChild(t);paint(p.id);}
+    const t=document.createElement('div');t.className='tile';
+    const a=document.createElement('div');a.className='add';a.textContent='+';a.title='save current';
+    a.addEventListener('click',()=>{const r=add('',snapshot());if(r==='ok'){libCurrent=LIB[LIB.length-1].id;}render();fill();say(r==='dup'?'already saved':'saved');});
+    t.appendChild(a);wrap.appendChild(t);}
   expB.addEventListener('click',()=>{
-    if(!Object.keys(USER).length){say('nothing to export');return;}
-    const blob=new Blob([JSON.stringify({format:'wavefront-presets',version:1,presets:USER},null,1)],
+    if(!LIB.length){say('nothing to export');return;}
+    const blob=new Blob([JSON.stringify({format:'engiscope-library',version:2,presets:LIB.map(p=>({name:p.name,snap:p.snap}))},null,1)],
       {type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download='wavefront-presets.json';document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),2000);say('exported '+Object.keys(USER).length);});
+    a.download='engiscope-presets.json';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);say('exported '+LIB.length);});
   impB.addEventListener('click',()=>file.click());
   file.addEventListener('change',()=>{const f=file.files&&file.files[0];if(!f)return;
     const r=new FileReader();
     r.onload=()=>{let added=0,dup=0;
       try{const j=JSON.parse(r.result),P=(j&&j.presets)||j;
-        Object.keys(P).forEach(nm=>{add(nm,P[nm])==='ok'?added++:dup++;});
-        render();say('+'+added+(dup?' · '+dup+' dup':''));}
+        /* v2: [{name,snap}]; v1 (wavefront-presets): {name: snap} */
+        const list=Array.isArray(P)?P:Object.keys(P).map(nm=>({name:nm,snap:P[nm]}));
+        list.forEach(q=>{if(q&&q.snap&&typeof q.snap==='object')add(q.name,q.snap)==='ok'?added++:dup++;});
+        render();fill();say('+'+added+(dup?' · '+dup+' dup':''));}
       catch(err){say('bad json');}
       file.value='';};
     r.readAsText(f);});
   render();
+  /* thumbnails once the first frame is up; again if the grid changes */
+  setTimeout(fill,600);
+  window.libFill=fill;
 })();
 
 /* ---- webcam as a live aperture ------------------------------------------
