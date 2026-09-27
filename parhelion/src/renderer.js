@@ -4,7 +4,7 @@
 // tone-maps to an extended-range Display P3 canvas.
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
-import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF } from './optics.js';
+import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF, TYPE_KEYS } from './optics.js';
 
 const MIN_SAMPLES = 1 << 15;
 const MAX_SAMPLES = 1 << 24;
@@ -158,12 +158,15 @@ export class Renderer {
   }
 
   // Projection shared by the tracer and the radiance normalisation.
+  // camYaw turns the camera about the vertical: 0 faces the sun, 180 faces away.
   view(s) {
     const pitch = (s.camElevation - 90) * Math.PI / 180;
+    const yaw = (s.camYaw ?? 0) * Math.PI / 180;
+    const turn = ([x, y, z]) => [x * Math.cos(yaw) + z * Math.sin(yaw), y, -x * Math.sin(yaw) + z * Math.cos(yaw)];
     return {
-      right: [-1, 0, 0],
-      down: [0, Math.sin(pitch), Math.cos(pitch)],
-      fwd: [0, Math.cos(pitch), -Math.sin(pitch)],
+      right: turn([-1, 0, 0]),
+      down: turn([0, Math.sin(pitch), Math.cos(pitch)]),
+      fwd: turn([0, Math.cos(pitch), -Math.sin(pitch)]),
       scale: s.zoom * Math.min(this.width, this.height) / 2,
       center: [this.width / 2, this.height / 2],
     };
@@ -216,7 +219,7 @@ export class Renderer {
       let acc = 0;
       for (let i = 0; i < 12; i++) {
         acc += (s.typeWeights[i] || 0) / total;
-        f[28 + i] = i < 8 ? acc : 1;
+        f[28 + i] = i < TYPE_KEYS.length - 1 ? acc : 1;
       }
       u[40] = samples;
       u[41] = Math.floor(Math.random() * 2 ** 32) >>> 0;

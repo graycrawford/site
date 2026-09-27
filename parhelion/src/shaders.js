@@ -1,6 +1,8 @@
 // WGSL for the tracer (compute) and the resolve/present pass (fragment).
 
-import { SPECTRUM_LUT, OKLAB } from './optics.js';
+import { SPECTRUM_LUT, OKLAB, TYPE_KEYS } from './optics.js';
+
+const TYPE_COUNT = TYPE_KEYS.length;
 
 export const TRACE_WORKGROUP = 64;
 
@@ -14,15 +16,15 @@ struct Params {
   center: vec2f, res: vec2u,
   iorScale: f32, tilt: f32, polySpin: f32, lowitz: f32,
   diffraction: f32, fixedScale: f32, _p2: u32, maxBounces: u32,
-  typeCdf: array<vec4f, 3>,
+  typeCdf: array<vec4f, 3>, // cumulative type weights (${TYPE_COUNT} types)
   totalSamples: u32, seed: u32, _p0: u32, _p1: u32,
 }
 
-struct Crystal { box: vec4f, offset: u32, count: u32, orient: u32, _p: u32 }
-struct SpectrumEntry { a: vec4f, xyz: vec4f } // a = (λ nm, n_ice, limb u, 0)
+struct Crystal { box: vec4f, offset: u32, count: u32, orient: u32, kind: u32 } // kind 0: planes, 1: sphere
+struct SpectrumEntry { a: vec4f, xyz: vec4f } // a = (λ nm, n_ice, limb u, n_water)
 
 @group(0) @binding(0) var<uniform> P: Params;
-@group(0) @binding(1) var<storage, read> crystals: array<Crystal, 9>;
+@group(0) @binding(1) var<storage, read> crystals: array<Crystal, ${TYPE_COUNT}>;
 @group(0) @binding(2) var<storage, read> planes: array<vec4f>;
 @group(0) @binding(3) var<storage, read> spectrum: array<SpectrumEntry, ${SPECTRUM_LUT}>;
 @group(0) @binding(4) var<storage, read_write> hist: array<atomic<u32>>;
@@ -122,7 +124,7 @@ fn orientation(mode: u32, q: vec4f) -> mat3x3f {
 
 fn pickType(u: f32) -> u32 {
   var t = 0u;
-  for (var i = 0u; i < 8u; i++) {
+  for (var i = 0u; i < ${TYPE_COUNT - 1}u; i++) {
     if (u >= P.typeCdf[i / 4u][i % 4u]) { t = i + 1u; }
   }
   return t;
@@ -188,8 +190,7 @@ fn splat(dirLocal: vec3f, xyz: vec3f, lambda: f32) {
 // Follow one wavelength through the crystal. Every interface is split
 // deterministically: the reflected part at entry and the transmitted part at
 // each internal hit leave as splats, the rest continues. TIR keeps it all.
-fn trace(c: Crystal, rIn: vec3f, entry: vec3f, face: u32, n: f32, xyzIn: vec3f, lambda: f32) {
-  let N0 = planes[face].xyz;
+fn trace(c: Crystal, rIn: vec3f, entry: vec3f, N0: vec3f, n: f32, xyzIn: vec3f, lambda: f32) {
   let cosI0 = -dot(rIn, N0);
   let eta0 = 1.0 / n;
   let f0 = fresnel(cosI0, eta0);
@@ -199,19 +200,26 @@ fn trace(c: Crystal, rIn: vec3f, entry: vec3f, face: u32, n: f32, xyzIn: vec3f, 
   var w = 1.0 - f0.R;
   var p = entry;
   for (var b = 0u; b < P.maxBounces; b++) {
-    var tMin = 1e9;
-    var hit = face;
-    for (var i = 0u; i < c.count; i++) {
-      let pl = planes[c.offset + i];
-      let nd = dot(pl.xyz, dir);
-      if (nd > 1e-6) {
-        let t = (pl.w - dot(pl.xyz, p)) / nd;
-        if (t < tMin) { tMin = t; hit = c.offset + i; }
+    var N: vec3f;
+    if (c.kind == 1u) {
+      // Unit sphere: the chord from a surface point along an inward ray.
+      p += dir * max(-2.0 * dot(p, dir), 0.0);
+      N = normalize(p);
+    } else {
+      var tMin = 1e9;
+      var hit = 0u;
+      for (var i = 0u; i < c.count; i++) {
+        let pl = planes[c.offset + i];
+        let nd = dot(pl.xyz, dir);
+        if (nd > 1e-6) {
+          let t = (pl.w - dot(pl.xyz, p)) / nd;
+          if (t < tMin) { tMin = t; hit = c.offset + i; }
+        }
       }
+      if (tMin > 1e8) { return; }
+      p += dir * max(tMin, 0.0);
+      N = planes[hit].xyz;
     }
-    if (tMin > 1e8) { return; }
-    p += dir * max(tMin, 0.0);
-    let N = planes[hit].xyz;
     let cosI = dot(dir, N);
     let f = fresnel(cosI, n);
     if (f.R < 1.0) {
@@ -254,11 +262,25 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let Rt = transpose(R);
     let r = Rt * -sunW; // incident propagation direction, local
 
+    var entry: vec3f;
+    var N0: vec3f;
+    var area: f32;
+    if (c.kind == 1u) {
+      // Drop: uniform over its projected disk (area π, so the weight is 1).
+      let t1 = normalize(cross(r, select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(r.x) > 0.9)));
+      let t2 = cross(r, t1);
+      let rr = sqrt(qb.y);
+      let phi = TAU * qb.z;
+      let o = rr * (cos(phi) * t1 + sin(phi) * t2);
+      entry = o - r * sqrt(max(0.0, 1.0 - rr * rr));
+      N0 = entry;
+      area = 0.25 * PI;
+    } else {
     // Uniform entry over the projected bounding box: choose a front box face
     // by projected area, a point on it, then intersect the crystal.
     let b = c.box.xyz;
     let proj = vec3f(b.y * b.z * abs(r.x), b.x * b.z * abs(r.y), b.x * b.y * abs(r.z));
-    let area = proj.x + proj.y + proj.z;
+    area = proj.x + proj.y + proj.z;
     let pickA = qb.x * area;
     var axis = 2u;
     if (pickA < proj.x) { axis = 0u; } else if (pickA < proj.x + proj.y) { axis = 1u; }
@@ -287,7 +309,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       }
     }
     if (!inside || tIn >= tOut) { continue; }
-    let entry = start + r * tIn;
+    entry = start + r * tIn;
+    N0 = planes[face].xyz;
+    }
 
     // Camera basis in crystal space so splat() skips the world transform.
     toCam = transpose(mat3x3f(Rt * P.camRight, Rt * P.camDown, Rt * P.camFwd));
@@ -304,7 +328,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       let xyz = mix(s0.xyz.xyz, s1.xyz.xyz, t);
       let limb = (1.0 - a.z * (1.0 - mu)) / (1.0 - a.z / 3.0);
       let w = weight * select(1.0, limb, P.sunRadius > 0.0);
-      trace(c, r, entry, face, a.y * P.iorScale, xyz * w, a.x);
+      let n = select(a.y, a.w, c.kind == 1u) * P.iorScale;
+      trace(c, r, entry, N0, n, xyz * w, a.x);
     }
   }
 }

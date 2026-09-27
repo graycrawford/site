@@ -23,6 +23,9 @@ const CONFIG = {
   enableCuboctahedral: false,
   enableLowitz: false,
   enableDodecahedral: false,
+  enablePyramidalPlate: false,
+  enablePyramidalRandom: false,
+  enableRaindrop: false,
   crystalTilt: 20,
   polyhedralSpin: 0,
   ior: 1.31,
@@ -32,6 +35,7 @@ const CONFIG = {
   lockSunCenter: false,
   lockZoom: false,
   zoom: 1,
+  lookAway: false, // camera faces away from the sun (antisolar point)
   enableSprings: true,
 
   // Physics
@@ -40,6 +44,7 @@ const CONFIG = {
   sunDisk: true,
   plateAspect: 0.2,
   columnAspect: 2,
+  tumble: false, // polyhedra tumble (random orientation) instead of holding a pose
 
   // Output
   settle: true,
@@ -64,14 +69,18 @@ const MIX_TOLERANCE = 0.01;
 // 1/µm. Zoom is handled separately (it scales the whole image).
 const PX_PER_UNIT = {
   sunElevation: Math.PI / 180, camElevation: Math.PI / 180, crystalTilt: Math.PI / 180,
-  polyhedralSpin: Math.PI / 180, lowitzSpin: Math.PI / 180, ior: 2, diffraction: 0.242,
+  camYaw: Math.PI / 180, polyhedralSpin: Math.PI / 180, lowitzSpin: Math.PI / 180, ior: 2, diffraction: 0.242,
 };
 // Sprung simulation values. diffraction = 1/crystalSize (0 = off), so the
 // blur eases away as crystals grow instead of passing through D = 0.
 const SAVE = '\u0000save';
 const REMOVE = '\u0000remove';
-const TRACE_KEYS = ['sunElevation', 'camElevation', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction'];
-const traceTarget = (k, c) => (k === 'diffraction' ? (c.crystalSize > 0 ? 1 / c.crystalSize : 0) : c[k]);
+const TRACE_KEYS = ['sunElevation', 'camElevation', 'camYaw', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction'];
+const traceTarget = (k, c) => {
+  if (k === 'diffraction') return c.crystalSize > 0 ? 1 / c.crystalSize : 0;
+  if (k === 'camYaw') return c.lookAway ? 180 : 0;
+  return c[k];
+};
 const POST_KEYS = ['logExposure', 'saturation'];
 
 export function start(renderer) {
@@ -101,11 +110,11 @@ export function start(renderer) {
     const p = allPresets()[name];
     if (!p) return;
     CONFIG.preset = name;
-    const shape = [CONFIG.plateAspect, CONFIG.columnAspect];
+    const shape = [CONFIG.plateAspect, CONFIG.columnAspect, CONFIG.tumble];
     const sunDisk = CONFIG.sunDisk;
     for (const k of PRESET_KEYS) CONFIG[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
     for (const k of TYPE_KEYS) CONFIG[k] = p.types.includes(k.slice(6).toLowerCase());
-    if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect) shapeDirty = true;
+    if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect || shape[2] !== CONFIG.tumble) shapeDirty = true;
     if (sunDisk !== CONFIG.sunDisk) traceDirty = true;
     exposureProxy.log = Math.log10(CONFIG.exposure);
     if (CONFIG.lockZoom) lockZoom();
@@ -115,15 +124,25 @@ export function start(renderer) {
   }
 
   // --- Coupled controls ---
+  // Lock Center keeps the sun centred, or the antisolar point when looking away.
+  const facing = () => (CONFIG.lookAway ? -1 : 1);
   function setSunElevation(v) {
     CONFIG.sunElevation = v;
-    if (CONFIG.lockSunCenter) CONFIG.camElevation = v;
+    if (CONFIG.lockSunCenter) CONFIG.camElevation = facing() * v;
     syncTargets();
   }
   function setCamElevation(v) {
     CONFIG.camElevation = v;
-    if (CONFIG.lockSunCenter) CONFIG.sunElevation = v;
+    if (CONFIG.lockSunCenter) CONFIG.sunElevation = facing() * v;
     syncTargets();
+  }
+  function setLookAway(on) {
+    CONFIG.lookAway = on;
+    if (CONFIG.lockSunCenter) CONFIG.camElevation = facing() * CONFIG.sunElevation;
+    else CONFIG.camElevation = -CONFIG.camElevation;
+    syncTargets();
+    refresh();
+    pad.update();
   }
   // Lock Zoom holds the 22° halo's screen radius, zoom · tan(θ/2), fixed.
   let lockZoomConstant = 0;
@@ -165,13 +184,15 @@ export function start(renderer) {
   gui.add(CONFIG, 'sunElevation', -90, 90).name('Sun Elevation').onChange(v => { setSunElevation(v); refresh(); pad.update(); });
   gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(v => { setCamElevation(v); refresh(); pad.update(); });
   gui.add(CONFIG, 'lockSunCenter').name('Lock Center');
+  gui.add(CONFIG, 'lookAway').name('Look Away').onChange(v => setLookAway(v));
   gui.add(CONFIG, 'lockZoom').name('Lock Zoom').onChange(on => {
     if (on) lockZoom();
   });
   gui.add(CONFIG, 'zoom', 0.5, 20).name('Zoom').onChange(v => { setZoom(v); refresh(); pad.update(); });
   const types = gui.addFolder('Crystal Types');
   types.open();
-  const typeNames = ['Random', 'Plates', 'Columns', 'Parry', 'Pyramidal', 'Octahedral', 'Cuboctahedral', 'Lowitz', 'Dodecahedral'];
+  const typeNames = ['Random', 'Plates', 'Columns', 'Parry', 'Pyramidal', 'Octahedral', 'Cuboctahedral', 'Lowitz', 'Dodecahedral',
+    'Pyramidal Plates', 'Random Pyramids', 'Raindrops'];
   TYPE_KEYS.forEach((k, i) => types.add(CONFIG, k).name(typeNames[i]).onChange(() => {
     CONFIG[k] = !CONFIG[k];
     toggleType(k);
@@ -189,6 +210,7 @@ export function start(renderer) {
   physics.add(CONFIG, 'plateAspect', 0.02, 1).step(0.01).name('Plate c/a').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'columnAspect', 1, 8).step(0.05).name('Column c/a').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'sunDisk').name('Sun Disk').onChange(() => { traceDirty = true; });
+  physics.add(CONFIG, 'tumble').name('Polyhedra Tumble').onChange(() => { shapeDirty = true; });
   const output = gui.addFolder('Output');
   output.add(CONFIG, 'settle').name('Converge at Rest');
   if (renderer.extended) output.add(CONFIG, 'headroom', 1, 16).step(0.1).name('HDR Headroom').onChange(() => { postDirty = true; });
@@ -234,6 +256,14 @@ export function start(renderer) {
       try { picker.showPicker(); } catch { picker.focus(); picker.click(); }
     });
   }
+
+  // --- Look away: turn to face the antisolar point (button or F) ---
+  const flip = document.getElementById('look-away');
+  const flipTo = on => { setLookAway(on); flip.classList.toggle('active', on); };
+  flip.addEventListener('click', e => { e.stopPropagation(); flipTo(!CONFIG.lookAway); });
+  window.addEventListener('keydown', e => {
+    if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && e.target === document.body) flipTo(!CONFIG.lookAway);
+  });
 
   // --- Saving presets (from the same menu) ---
   // The menu ends with "save as Preset N" and, on a preset saved here,
@@ -286,7 +316,7 @@ export function start(renderer) {
   function applyShape() {
     renderer.setCrystals({
       randomAspect: 1, plateAspect: CONFIG.plateAspect, columnAspect: CONFIG.columnAspect,
-      pyramidPrism: 0.5, pyramidCap: 0.6,
+      pyramidPrism: 0.5, pyramidCap: 0.6, tumble: CONFIG.tumble,
     });
     shapeDirty = false;
   }
@@ -308,7 +338,7 @@ export function start(renderer) {
   // --- Frame loop ---
   let last = performance.now();
   const intervals = [];
-  const state = { typeWeights: new Array(9).fill(0) };
+  const state = { typeWeights: new Array(TYPE_KEYS.length).fill(0) };
 
   function frame(now) {
     requestAnimationFrame(frame);

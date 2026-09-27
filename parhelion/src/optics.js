@@ -11,6 +11,7 @@
 export const TYPE_KEYS = [
   'enableRandom', 'enablePlate', 'enableColumn', 'enableParry', 'enablePyramidal',
   'enableOctahedral', 'enableCuboctahedral', 'enableLowitz', 'enableDodecahedral',
+  'enablePyramidalPlate', 'enablePyramidalRandom', 'enableRaindrop',
 ];
 
 // Orientation modes understood by the tracer.
@@ -141,11 +142,24 @@ export function buildCrystals(shape) {
     { planes: cuboctahedron(), orient: ORIENT.polyhedral },
     { planes: hexPrism(shape.plateAspect), orient: ORIENT.lowitz },
     { planes: dodecahedron(), orient: ORIENT.polyhedral },
+    // Thin pyramidal crystals lying flat: odd-radius parhelia (9°, 18°, 20°, 23°, 24°, 35°).
+    { planes: pyramidal(0.15, shape.pyramidCap, shape.pyramidCap), orient: ORIENT.plate },
+    // Pyramidal crystals tumbling: the odd-radius halo rings.
+    { planes: pyramidal(shape.pyramidPrism, shape.pyramidCap, shape.pyramidCap), orient: ORIENT.random },
+    // Raindrops: spheres, traced analytically (no planes).
+    { sphere: true, orient: ORIENT.random },
   ];
+  if (shape.tumble) for (const t of [5, 6, 8]) defs[t].orient = ORIENT.random;
   const info = new Uint32Array(defs.length * 8);
   const infoF = new Float32Array(info.buffer);
   const planeData = [];
   defs.forEach((def, t) => {
+    if (def.sphere) {
+      // Unit sphere: box = radius, 4/S = 1/π.
+      infoF.set([1, 1, 1, 1 / Math.PI], t * 8);
+      info.set([0, 0, def.orient, 1], t * 8 + 4);
+      return;
+    }
     const a = analyze(def.planes);
     const offset = planeData.length / 4;
     for (const f of a.faces) planeData.push(f.plane.n[0], f.plane.n[1], f.plane.n[2], f.plane.d);
@@ -196,6 +210,15 @@ export function iceIndex(l) {
   return ICE_N[i] * (1 - t) + ICE_N[i + 1] * t;
 }
 
+// Water at 20 °C (Daimon & Masumura 2007), linear between measured lines.
+const WATER_N = [[404.7, 1.34349], [435.8, 1.34040], [486.1, 1.33712], [546.1, 1.33447], [589.3, 1.33299], [656.3, 1.33115], [706.5, 1.33002]];
+export function waterIndex(l) {
+  let i = 0;
+  while (i < WATER_N.length - 2 && l > WATER_N[i + 1][0]) i++;
+  const [l0, n0] = WATER_N[i], [l1, n1] = WATER_N[i + 1];
+  return n0 + (n1 - n0) * (l - l0) / (l1 - l0);
+}
+
 // Solar limb-darkening coefficient u(λ), I(μ) = 1 − u(1 − μ) (Neckel & Labs).
 function limbU(l) {
   return Math.max(0.35, 0.83 - 0.00103 * (l - 400));
@@ -231,7 +254,7 @@ export function buildSpectrum() {
     const l = ls[j] + t * step;
     const p = pdf[j] + t * (pdf[j + 1] - pdf[j]);
     const c = cie1931(l).map(v => Math.max(v, 0) * planck(l) / p);
-    lut.set([l, iceIndex(l), limbU(l), 0, c[0], c[1], c[2], 0], k * 8);
+    lut.set([l, iceIndex(l), limbU(l), waterIndex(l), c[0], c[1], c[2], 0], k * 8);
     for (let i = 0; i < 3; i++) white[i] += c[i] / SPECTRUM_LUT;
   }
   for (let k = 0; k < SPECTRUM_LUT; k++) for (let i = 0; i < 3; i++) lut[k * 8 + 4 + i] /= white[1];

@@ -269,6 +269,36 @@
         fill: rgba(255, 255, 255, 0.8);
       }
       
+      /* Look-away toggle: a filled sun, a ring while facing away */
+      #look-away {
+        position: absolute;
+        bottom: 10px;
+        right: 40px;
+        width: 20px;
+        height: 20px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        transition: background-color 0.2s;
+      }
+      #look-away:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      #look-away svg {
+        width: 12px;
+        height: 12px;
+        fill: rgba(255, 255, 255, 0.4);
+        stroke: rgba(255, 255, 255, 0.4);
+        stroke-width: 2;
+      }
+      #look-away.active svg {
+        fill: none;
+      }
+
       /* Hide default close button */
       .dg .close-button {
         display: none !important;
@@ -306,16 +336,24 @@
         <div class="crystal-toggle" data-type="enableColumn" title="column" style="left: 60px; bottom: 0px;">Col</div>
         <div class="crystal-toggle" data-type="enableParry" title="Parry" style="left: 80px; bottom: 0px;">Pa</div>
         <div class="crystal-toggle" data-type="enableLowitz" title="lowitz" style="left: 100px; bottom: 0px;">Lo</div>
+        <div class="crystal-toggle" data-type="enableRaindrop" title="raindrops" style="left: 120px; bottom: 0px;">Rn</div>
         <!-- Top row: Py, Oc, Co, Do (equilateral triangle offset: 10px horizontal from bottom row, 17.32px vertical) -->
-        <div class="crystal-toggle" data-type="enablePyramidal" title="pyramidal" style="left: 30px; bottom: 17.32px;">Py</div>
-        <div class="crystal-toggle" data-type="enableOctahedral" title="octahedral (ammonia)" style="left: 50px; bottom: 17.32px;">Oc</div>
-        <div class="crystal-toggle" data-type="enableCuboctahedral" title="cuboctahedral (co2)" style="left: 70px; bottom: 17.32px;">Co</div>
-        <div class="crystal-toggle" data-type="enableDodecahedral" title="dodecahedral" style="left: 90px; bottom: 17.32px;">Do</div>
+        <div class="crystal-toggle" data-type="enablePyramidal" title="pyramidal columns" style="left: 30px; bottom: 17.32px;">Py</div>
+        <div class="crystal-toggle" data-type="enablePyramidalPlate" title="pyramidal plates" style="left: 50px; bottom: 17.32px;">Pp</div>
+        <div class="crystal-toggle" data-type="enablePyramidalRandom" title="random pyramids" style="left: 70px; bottom: 17.32px;">Pr</div>
+        <div class="crystal-toggle" data-type="enableOctahedral" title="octahedral (ammonia)" style="left: 90px; bottom: 17.32px;">Oc</div>
+        <div class="crystal-toggle" data-type="enableCuboctahedral" title="cuboctahedral (co2)" style="left: 110px; bottom: 17.32px;">Co</div>
+        <div class="crystal-toggle" data-type="enableDodecahedral" title="dodecahedral" style="left: 130px; bottom: 17.32px;">Do</div>
       </div>
       <!-- Native preset picker (positioned dynamically over preset-toggle button) -->
       <select id="preset-picker"></select>
     </div>
     
+    <!-- Look away from the sun (F) -->
+    <div id="look-away" title="look away from the sun (F)">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5"/></svg>
+    </div>
+
     <!-- Custom GUI Toggle -->
     <div id="gui-toggle">
         <!-- Gear Icon -->

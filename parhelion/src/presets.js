@@ -67,9 +67,11 @@ export const PRESETS = {
 export const PRESET_KEYS = [
   'sunElevation', 'camElevation', 'lockSunCenter', 'zoom', 'crystalTilt', 'polyhedralSpin', 'ior',
   'exposure', 'fadeFactor', 'saturation', 'lowitzSpin', 'crystalSize', 'plateAspect', 'columnAspect', 'sunDisk',
+  'lookAway', 'tumble',
 ];
 export const PRESET_DEFAULTS = {
   lockSunCenter: true, polyhedralSpin: 0, lowitzSpin: 30, crystalSize: 0, plateAspect: 0.2, columnAspect: 2, sunDisk: true,
+  lookAway: false, tumble: false,
 };
 
 const STORE = 'parhelion.presets';
