@@ -489,7 +489,9 @@ export class UI {
       option.value = name;
       mode.append(option);
     }
-    bandPad.hidden = true;
+    // Open on the band pad, as the native app does; the edges pad stays one choice away.
+    edgePad.hidden = true;
+    mode.value = "band";
     mode.onchange = () => {
       edgePad.hidden = mode.value !== "edges";
       bandPad.hidden = mode.value !== "band";
