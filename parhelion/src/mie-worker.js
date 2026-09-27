@@ -3,8 +3,8 @@
 import { phaseFunction, bandLambda } from './mie.js';
 import { waterIndex } from './optics.js';
 
-onmessage = ({ data: { job, band, r0, sigma } }) => {
+onmessage = ({ data: { job, band, r0, sigma, iorScale } }) => {
   const l = bandLambda(band);
-  const p = Float32Array.from(phaseFunction(l, waterIndex(l), r0, sigma));
+  const p = Float32Array.from(phaseFunction(l, waterIndex(l) * iorScale, r0, sigma));
   postMessage({ job, band, p }, [p.buffer]);
 };

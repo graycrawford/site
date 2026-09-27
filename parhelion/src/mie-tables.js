@@ -8,21 +8,34 @@ export class MieTables {
   constructor(onReady) {
     this.onReady = onReady;
     const n = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
-    this.workers = Array.from({ length: n }, () => new Worker(new URL('./mie-worker.js', import.meta.url), { type: 'module' }));
-    this.workers.forEach(w => { w.onmessage = e => this.receive(e.data); });
+    this.count = n;
+    this.spawn();
     this.job = 0;
+    this.pending = 0;
     this.key = '';
   }
 
-  request(r0, sigma) {
-    const key = `${r0} ${sigma}`;
+  spawn() {
+    this.workers = Array.from({ length: this.count }, () => new Worker(new URL('./mie-worker.js', import.meta.url), { type: 'module' }));
+    this.workers.forEach(w => { w.onmessage = e => this.receive(e.data); });
+  }
+
+  // iorScale multiplies water's index, like the IOR rail does for ice: the
+  // same exact theory for a hypothetical liquid.
+  request(r0, sigma, iorScale = 1) {
+    const key = `${r0} ${sigma} ${iorScale}`;
     if (key === this.key) return;
     this.key = key;
+    // Abandon work still queued for an older request.
+    if (this.pending > 0) {
+      this.workers.forEach(w => w.terminate());
+      this.spawn();
+    }
     this.job++;
     this.pending = MIE_BANDS;
     this.data = new Float32Array(MIE_BANDS * MIE_ANGLES * 2);
     // Interleave bands so every worker spans the spectrum.
-    for (let b = 0; b < MIE_BANDS; b++) this.workers[b % this.workers.length].postMessage({ job: this.job, band: b, r0, sigma });
+    for (let b = 0; b < MIE_BANDS; b++) this.workers[b % this.workers.length].postMessage({ job: this.job, band: b, r0, sigma, iorScale });
   }
 
   receive({ job, band, p }) {

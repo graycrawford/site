@@ -43,7 +43,7 @@ export function skyBands() {
 
 export function skyShader() {
   return /* wgsl */ `
-struct Sky { sunElevation: f32, altitude: f32, albedo: f32, haze: f32, cloudHeight: f32, layer: f32, _p1: f32, _p2: f32 }
+struct Sky { sunElevation: f32, altitude: f32, albedo: f32, haze: f32, cloudHeight: f32, layer: f32, clear: f32, _p2: f32 }
 struct Band { beta: vec4f, xyz: vec4f }
 @group(0) @binding(0) var<uniform> S: Sky;
 @group(0) @binding(1) var<storage, read> bands: array<Band, ${SKY_BANDS}>;
@@ -51,13 +51,13 @@ struct Band { beta: vec4f, xyz: vec4f }
 // Ψ_ms per (height, sun zenith cosine) and band: Hillaire's (2020) isotropic
 // multiple-scattering estimate, L_2 / (1 − f_ms).
 @group(0) @binding(3) var<storage, read_write> ms: array<f32>;
-// Per view elevation and band: transmittance of halo light, sun -> cloud
-// layer -> observer. Read by the tracer.
+// Per view elevation and band: transmittance of halo light (sun -> crystals
+// -> observer). Read by the tracer.
 @group(0) @binding(4) var<storage, read_write> haloT: array<f32>;
 
 const PI = 3.14159265359;
 const R_GROUND = 6360e3;
-const R_TOP = 6460e3;
+const TOP = 100e3; // atmosphere thickness
 const H_RAYLEIGH = 8000.0;
 const H_MIE = 1200.0;
 const AEROSOL_ALBEDO = 0.9; // single-scattering albedo of continental haze
@@ -65,33 +65,61 @@ const MIE_G = 0.8;
 const VIEW_STEPS = 48;
 const SUN_STEPS = 12;
 
-// (Rayleigh, Mie, ozone) densities at height h (m).
+// (Rayleigh, Mie, ozone) densities at height h (m). Below the ground there is
+// no air (only reached when the planet is transparent).
 fn density(h: f32) -> vec3f {
+  if (h < 0.0) { return vec3f(0.0); }
   return vec3f(exp(-h / H_RAYLEIGH), exp(-h / H_MIE), max(0.0, 1.0 - abs(h - 25000.0) / 15000.0));
 }
 
-// Distances to a sphere of radius r about the planet centre; x < 0 if missed.
-fn sphere(o: vec3f, d: vec3f, r: f32) -> vec2f {
-  let b = dot(o, d);
-  let c = dot(o, o) - r * r;
+// Distances along unit d from p to the sphere at height H. Written in terms
+// of heights so float32 keeps its precision at planetary radius (|p|² − R²
+// directly loses it for grazing rays). (−1, −1) if missed.
+fn shell(p: vec3f, d: vec3f, H: f32) -> vec2f {
+  let r = length(p);
+  let h = r - R_GROUND;
+  let b = dot(p, d);
+  let c = (h - H) * (2.0 * R_GROUND + h + H);
   let disc = b * b - c;
   if (disc < 0.0) { return vec2f(-1.0); }
   let q = sqrt(disc);
   return vec2f(-b - q, -b + q);
 }
 
-// Optical depth (Rayleigh, Mie, ozone densities × length) from p to space
-// along the sun; very large if the planet is in the way.
-fn toSun(p: vec3f, sun: vec3f) -> vec3f {
-  let g = sphere(p, sun, R_GROUND);
-  if (g.x > 0.0) { return vec3f(1e12); }
-  let len = sphere(p, sun, R_TOP).y;
-  let dt = len / f32(SUN_STEPS);
+// Where a ray from p (inside the atmosphere) meets the ground ahead: the
+// entry and exit distances, or (−1, −1) if it doesn't.
+fn groundHit(p: vec3f, d: vec3f) -> vec2f {
+  if (dot(p, d) >= 0.0) { return vec2f(-1.0); }
+  let g = shell(p, d, 0.0);
+  if (g.y <= 0.0) { return vec2f(-1.0); }
+  return vec2f(max(g.x, 0.0), g.y);
+}
+
+// Air segments along a ray to space: (a0, a1, b0, b1). A solid ground ends
+// the ray at the ground; a transparent one is vacuum between entry and exit.
+fn segments(p: vec3f, d: vec3f) -> vec4f {
+  let top = shell(p, d, TOP).y;
+  let g = groundHit(p, d);
+  if (g.y < 0.0) { return vec4f(0.0, top, 0.0, 0.0); }
+  if (S.clear == 0.0) { return vec4f(0.0, g.x, 0.0, 0.0); }
+  return vec4f(0.0, g.x, g.y, top);
+}
+
+fn depthOver(p: vec3f, d: vec3f, t0: f32, t1: f32, n: i32) -> vec3f {
+  if (t1 <= t0) { return vec3f(0.0); }
+  let dt = (t1 - t0) / f32(n);
   var depth = vec3f(0.0);
-  for (var i = 0; i < SUN_STEPS; i++) {
-    depth += density(length(p + sun * (f32(i) + 0.5) * dt) - R_GROUND) * dt;
-  }
+  for (var i = 0; i < n; i++) { depth += density(length(p + d * (t0 + (f32(i) + 0.5) * dt)) - R_GROUND) * dt; }
   return depth;
+}
+
+// Optical depth (Rayleigh, Mie, ozone densities × length) from p to space
+// along the sun; very large if a solid planet is in the way.
+fn toSun(p: vec3f, sun: vec3f) -> vec3f {
+  let g = groundHit(p, sun);
+  if (g.y >= 0.0 && S.clear == 0.0) { return vec3f(1e12); }
+  let seg = segments(p, sun);
+  return depthOver(p, sun, seg.x, seg.y, SUN_STEPS) + depthOver(p, sun, seg.z, seg.w, SUN_STEPS / 2);
 }
 
 fn mieScatter(b: u32) -> f32 { return S.haze / H_MIE * bands[b].beta.z; }
@@ -103,7 +131,7 @@ fn scattering(rho: vec3f, b: u32) -> f32 { return bands[b].beta.x * rho.x + mieS
 
 // Bilinear Ψ_ms lookup at height h and sun zenith cosine mu.
 fn msLookup(h: f32, mu: f32, b: u32) -> f32 {
-  let f = vec2f((mu * 0.5 + 0.5) * ${MS_SIZE - 1}.0, clamp(h / (R_TOP - R_GROUND), 0.0, 1.0) * ${MS_SIZE - 1}.0);
+  let f = vec2f((mu * 0.5 + 0.5) * ${MS_SIZE - 1}.0, clamp(h / TOP, 0.0, 1.0) * ${MS_SIZE - 1}.0);
   let i = vec2u(clamp(floor(f), vec2f(0.0), vec2f(${MS_SIZE - 2}.0)));
   let t = clamp(f - vec2f(i), vec2f(0.0), vec2f(1.0));
   let at = (i.y * ${MS_SIZE}u + i.x) * ${SKY_BANDS}u + b;
@@ -116,8 +144,8 @@ fn msLookup(h: f32, mu: f32, b: u32) -> f32 {
 fn msMain(@builtin(global_invocation_id) id: vec3u) {
   if (id.x >= ${MS_SIZE}u || id.y >= ${MS_SIZE}u) { return; }
   let mu = f32(id.x) / ${MS_SIZE - 1}.0 * 2.0 - 1.0;
-  let h = f32(id.y) / ${MS_SIZE - 1}.0 * (R_TOP - R_GROUND);
-  let o = vec3f(0.0, R_GROUND + max(h, 1.0), 0.0);
+  let h = f32(id.y) / ${MS_SIZE - 1}.0 * TOP;
+  let o = vec3f(0.0, R_GROUND + clamp(h, 1.0, TOP - 1.0), 0.0);
   let sun = vec3f(sqrt(max(0.0, 1.0 - mu * mu)), mu, 0.0);
   var L2: array<f32, ${SKY_BANDS}>;
   var fms: array<f32, ${SKY_BANDS}>;
@@ -128,26 +156,30 @@ fn msMain(@builtin(global_invocation_id) id: vec3u) {
     let r = sqrt(max(0.0, 1.0 - z * z));
     let phi = f32(k) * 2.39996323;
     let dir = vec3f(r * cos(phi), z, r * sin(phi));
-    let g = sphere(o, dir, R_GROUND);
-    let hits = g.x > 0.0;
-    let tEnd = select(sphere(o, dir, R_TOP).y, g.x, hits);
-    let dt = tEnd / 20.0;
+    let seg = segments(o, dir);
     var depth = vec3f(0.0);
-    for (var i = 0; i < 20; i++) {
-      let p = o + dir * (f32(i) + 0.5) * dt;
-      let rho = density(length(p) - R_GROUND);
-      depth += rho * 0.5 * dt;
-      let sunDepth = toSun(p, sun);
-      for (var b = 0u; b < ${SKY_BANDS}u; b++) {
-        let tv = transmittance(depth, b);
-        let sig = scattering(rho, b);
-        L2[b] += tv * sig * transmittance(sunDepth, b) / (4.0 * PI) * dt;
-        fms[b] += tv * sig * dt;
+    for (var part = 0; part < 2; part++) {
+      let t0 = select(seg.z, seg.x, part == 0);
+      let t1 = select(seg.w, seg.y, part == 0);
+      if (t1 <= t0) { continue; }
+      if (part == 1) { depth += depthOver(o, dir, seg.y, seg.z, 1); }
+      let dt = (t1 - t0) / 20.0;
+      for (var i = 0; i < 20; i++) {
+        let p = o + dir * (t0 + (f32(i) + 0.5) * dt);
+        let rho = density(length(p) - R_GROUND);
+        depth += rho * 0.5 * dt;
+        let sunDepth = toSun(p, sun);
+        for (var b = 0u; b < ${SKY_BANDS}u; b++) {
+          let tv = transmittance(depth, b);
+          let sig = scattering(rho, b);
+          L2[b] += tv * sig * transmittance(sunDepth, b) / (4.0 * PI) * dt;
+          fms[b] += tv * sig * dt;
+        }
+        depth += rho * 0.5 * dt;
       }
-      depth += rho * 0.5 * dt;
     }
-    if (hits) {
-      let p = o + dir * tEnd;
+    if (S.clear == 0.0 && groundHit(o, dir).y >= 0.0) {
+      let p = o + dir * seg.y;
       let cosSun = max(0.0, dot(normalize(p), sun));
       let sunDepth = toSun(p, sun);
       for (var b = 0u; b < ${SKY_BANDS}u; b++) {
@@ -167,32 +199,27 @@ fn msMain(@builtin(global_invocation_id) id: vec3u) {
 // the sunlight reaching them is attenuated, and halos show in every
 // direction, in front of the ground. A cloud layer at S.cloudHeight
 // (S.layer = 1): sunlight to the layer, then the path to the observer along
-// each view elevation; zero where the ground is in the way or the view never
-// meets the layer.
+// each view elevation; zero where a solid ground is in the way or the view
+// never meets the layer.
 @compute @workgroup_size(64)
 fn haloMain(@builtin(global_invocation_id) id: vec3u) {
   if (id.x >= ${HALO_T_BINS}u) { return; }
   let el = (f32(id.x) / ${HALO_T_BINS - 1}.0 - 0.5) * PI;
   let dir = vec3f(0.0, sin(el), cos(el));
   let o = vec3f(0.0, R_GROUND + S.altitude, 0.0);
-  let rc = R_GROUND + S.cloudHeight;
   let sun = vec3f(0.0, sin(S.sunElevation), cos(S.sunElevation));
   if (S.layer == 0.0) {
-    let near = toSun(vec3f(0.0, R_GROUND + S.altitude, 0.0), sun);
+    let near = toSun(o, sun);
     for (var b = 0u; b < ${SKY_BANDS}u; b++) { haloT[id.x * ${SKY_BANDS}u + b] = transmittance(near, b); }
     return;
   }
-  let sunDepth = toSun(vec3f(0.0, rc, 0.0), sun);
-  let c = sphere(o, dir, rc);
-  let g = sphere(o, dir, R_GROUND);
+  let sunDepth = toSun(vec3f(0.0, R_GROUND + S.cloudHeight, 0.0), sun);
+  let c = shell(o, dir, S.cloudHeight);
   var t = -1.0;
   if (S.altitude < S.cloudHeight) { t = c.y; } else if (c.x > 0.0) { t = c.x; }
-  let blocked = t <= 0.0 || (g.x > 0.0 && g.x < t);
-  var depth = vec3f(0.0);
-  if (!blocked) {
-    let dt = t / 16.0;
-    for (var i = 0; i < 16; i++) { depth += density(length(o + dir * (f32(i) + 0.5) * dt) - R_GROUND) * dt; }
-  }
+  let g = groundHit(o, dir);
+  let blocked = t <= 0.0 || (S.clear == 0.0 && g.y >= 0.0 && g.x < t);
+  let depth = select(depthOver(o, dir, 0.0, t, 16), vec3f(0.0), blocked);
   for (var b = 0u; b < ${SKY_BANDS}u; b++) {
     haloT[id.x * ${SKY_BANDS}u + b] = select(transmittance(depth + sunDepth, b), 0.0, blocked);
   }
@@ -208,9 +235,6 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
   let sun = vec3f(0.0, sin(S.sunElevation), cos(S.sunElevation));
   let o = vec3f(0.0, R_GROUND + S.altitude, 0.0);
 
-  let ground = sphere(o, dir, R_GROUND);
-  let hitsGround = ground.x > 0.0;
-  let tEnd = select(sphere(o, dir, R_TOP).y, ground.x, hitsGround);
   let mu = dot(dir, sun);
   let phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
   let g2 = MIE_G * MIE_G;
@@ -218,23 +242,31 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
 
   var radiance: array<f32, ${SKY_BANDS}>;
   var viewDepth = vec3f(0.0);
-  let dt = tEnd / f32(VIEW_STEPS);
-  for (var i = 0; i < VIEW_STEPS; i++) {
-    let p = o + dir * (f32(i) + 0.5) * dt;
-    let rho = density(length(p) - R_GROUND);
-    viewDepth += rho * 0.5 * dt;
-    let sunDepth = toSun(p, sun);
-    for (var b = 0u; b < ${SKY_BANDS}u; b++) {
-      let scatter = bands[b].beta.x * rho.x * phaseR + mieScatter(b) * rho.y * phaseM;
-      let mu = dot(normalize(p), sun);
-      let multiple = scattering(rho, b) * msLookup(length(p) - R_GROUND, mu, b);
-      radiance[b] += (transmittance(viewDepth + sunDepth, b) * scatter + transmittance(viewDepth, b) * multiple) * dt;
+  let seg = segments(o, dir);
+  for (var part = 0; part < 2; part++) {
+    let t0 = select(seg.z, seg.x, part == 0);
+    let t1 = select(seg.w, seg.y, part == 0);
+    if (t1 <= t0) { continue; }
+    let steps = select(VIEW_STEPS / 2, VIEW_STEPS, part == 0);
+    let dt = (t1 - t0) / f32(steps);
+    for (var i = 0; i < steps; i++) {
+      let p = o + dir * (t0 + (f32(i) + 0.5) * dt);
+      let h = length(p) - R_GROUND;
+      let rho = density(h);
+      viewDepth += rho * 0.5 * dt;
+      let sunDepth = toSun(p, sun);
+      let muSun = dot(p, sun) / length(p);
+      for (var b = 0u; b < ${SKY_BANDS}u; b++) {
+        let single = bands[b].beta.x * rho.x * phaseR + mieScatter(b) * rho.y * phaseM;
+        let multiple = scattering(rho, b) * msLookup(h, muSun, b);
+        radiance[b] += (transmittance(viewDepth + sunDepth, b) * single + transmittance(viewDepth, b) * multiple) * dt;
+      }
+      viewDepth += rho * 0.5 * dt;
     }
-    viewDepth += rho * 0.5 * dt;
   }
-  if (hitsGround) {
+  if (S.clear == 0.0 && groundHit(o, dir).y >= 0.0) {
     // Lambertian ground lit by the attenuated sun.
-    let p = o + dir * tEnd;
+    let p = o + dir * seg.y;
     let cosSun = max(0.0, dot(normalize(p), sun));
     let sunDepth = toSun(p, sun);
     for (var b = 0u; b < ${SKY_BANDS}u; b++) {

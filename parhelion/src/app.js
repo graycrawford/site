@@ -37,6 +37,7 @@ const CONFIG = {
   lockZoom: false,
   zoom: 1,
   lookAway: false, // camera faces away from the sun (antisolar point)
+  camYaw: 0, // accumulates: each look-away turn adds 180°, always the same way round
   enableSprings: true,
 
   // Physics
@@ -55,11 +56,13 @@ const CONFIG = {
   tumble: false, // polyhedra tumble (random orientation) instead of holding a pose
 
   // Sky
-  sky: false,
-  cloudDepth: 0.15, // optical depth τ of the halo cloud: halo radiance ∝ τ, sky's isn't
+  // Sky rail: 0 = no sky; above, the halo cloud's optical depth τ = 10^(−2·level)
+  // sets the sky against the halos (halo radiance ∝ τ, the sky's isn't).
+  skyLevel: 0,
   altitude: 0.5, // km, observer height
   albedo: 0.15, // ground reflectance
   showSun: true, // draw the sun's own disk (with the sky)
+  clearGround: false, // the planet is transparent vacuum: more sky below the horizon
   cloudLayer: false, // crystals in a cirrus layer (vs. around the observer, diamond dust)
   cloudHeight: 9, // km, the halo cloud layer (cirrus)
   haze: 0.1, // aerosol optical depth at 550 nm (0.05 clean, 0.1 typical, 0.4 hazy)
@@ -102,16 +105,18 @@ const MIE_MAX_RADIUS = 250;
 const TRACE_KEYS = ['sunElevation', 'camElevation', 'camYaw', 'crystalTilt', 'polyhedralSpin', 'ior', 'zoom', 'lowitzSpin', 'diffraction'];
 const traceTarget = (k, c) => {
   if (k === 'diffraction') return c.crystalSize > 0 ? 1 / c.crystalSize : 0;
-  if (k === 'camYaw') return c.lookAway ? 180 : 0;
+  if (k === 'camYaw') return c.camYaw;
   return c[k];
 };
-const POST_KEYS = ['logExposure', 'saturation'];
+const POST_KEYS = ['logExposure', 'saturation', 'skyLevel'];
 
 export function start(renderer) {
   const springs = {};
   for (const k of TRACE_KEYS) springs[k] = new Spring(traceTarget(k, CONFIG));
   springs.logExposure = new Spring(Math.log10(CONFIG.exposure));
   springs.saturation = new Spring(CONFIG.saturation);
+  springs.skyLevel = new Spring(CONFIG.skyLevel);
+  let skyWasOn = false;
   springs.fadeFactor = new Spring(CONFIG.fadeFactor);
   const typeSprings = TYPE_KEYS.map(k => new Spring(CONFIG[k] ? 1 : 0));
 
@@ -126,6 +131,7 @@ export function start(renderer) {
     for (const k of TRACE_KEYS) springs[k].set(traceTarget(k, CONFIG));
     springs.logExposure.set(Math.log10(CONFIG.exposure));
     springs.saturation.set(CONFIG.saturation);
+    springs.skyLevel.set(CONFIG.skyLevel);
     springs.fadeFactor.set(CONFIG.fadeFactor);
     TYPE_KEYS.forEach((k, i) => typeSprings[i].set(CONFIG[k] ? 1 : 0));
   }
@@ -137,13 +143,16 @@ export function start(renderer) {
     CONFIG.preset = name;
     const shape = [CONFIG.plateAspect, CONFIG.columnAspect, CONFIG.tumble, CONFIG.triangularity, CONFIG.dropRadius, CONFIG.dropSpread];
     const sunDisk = CONFIG.sunDisk;
+    const wasAway = CONFIG.lookAway;
     for (const k of PRESET_KEYS) CONFIG[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
+    if (CONFIG.lookAway !== wasAway) CONFIG.camYaw += 180;
     for (const k of TYPE_KEYS) CONFIG[k] = p.types.includes(k.slice(6).toLowerCase());
     if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect || shape[2] !== CONFIG.tumble || shape[3] !== CONFIG.triangularity
       || shape[4] !== CONFIG.dropRadius || shape[5] !== CONFIG.dropSpread) shapeDirty = true;
     if (sunDisk !== CONFIG.sunDisk) traceDirty = true;
     exposureProxy.log = Math.log10(CONFIG.exposure);
     if (CONFIG.lockZoom) lockZoom();
+    document.getElementById('look-away').classList.toggle('active', CONFIG.lookAway);
     syncTargets();
     refresh();
     pad.update();
@@ -163,6 +172,7 @@ export function start(renderer) {
     syncTargets();
   }
   function setLookAway(on) {
+    if (on !== CONFIG.lookAway) CONFIG.camYaw += 180; // keep turning the same way
     CONFIG.lookAway = on;
     if (CONFIG.lockSunCenter) CONFIG.camElevation = facing() * CONFIG.sunElevation;
     else CONFIG.camElevation = -CONFIG.camElevation;
@@ -183,6 +193,7 @@ export function start(renderer) {
   }
   function setIor(v) {
     CONFIG.ior = v;
+    scheduleMie();
     if (CONFIG.lockZoom) {
       const tan = Math.tan(Math.max(0.001, haloAngle(v)) / 2);
       CONFIG.zoom = Math.max(0.5, Math.min(20, lockZoomConstant / tan));
@@ -210,7 +221,7 @@ export function start(renderer) {
   gui.add(CONFIG, 'sunElevation', -90, 90).name('Sun Elevation').onChange(v => { setSunElevation(v); refresh(); pad.update(); });
   gui.add(CONFIG, 'camElevation', -90, 90).name('Cam Pitch').onChange(v => { setCamElevation(v); refresh(); pad.update(); });
   gui.add(CONFIG, 'lockSunCenter').name('Lock Center');
-  gui.add(CONFIG, 'lookAway').name('Look Away').onChange(v => setLookAway(v));
+  gui.add(CONFIG, 'lookAway').name('Look Away').onChange(v => { CONFIG.lookAway = !v; setLookAway(v); });
   gui.add(CONFIG, 'lockZoom').name('Lock Zoom').onChange(on => {
     if (on) lockZoom();
   });
@@ -246,11 +257,11 @@ export function start(renderer) {
   physics.add(CONFIG, 'triangularity', 0, 1).step(0.01).name('Plate Triangularity').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'tumble').name('Polyhedra Tumble').onChange(() => { shapeDirty = true; });
   const skyFolder = gui.addFolder('Sky');
-  skyFolder.add(CONFIG, 'sky').name('Sky').onChange(() => { traceDirty = true; });
-  skyFolder.add(CONFIG, 'cloudDepth', 0.01, 1).step(0.01).name('Cloud Depth τ').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'skyLevel', 0, 1).step(0.01).name('Sky').onChange(() => { syncTargets(); pad.update(); });
   skyFolder.add(CONFIG, 'altitude', 0, 12).step(0.1).name('Altitude (km)').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'albedo', 0, 1).step(0.01).name('Ground Albedo').onChange(() => { postDirty = true; });
   skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { traceDirty = true; });
+  skyFolder.add(CONFIG, 'clearGround').name('Transparent Ground').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudLayer').name('Crystals in Cloud Layer').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudHeight', 0, 15).step(0.1).name('Cloud Height (km)').onChange(() => { traceDirty = true; });
   const output = gui.addFolder('Output');
@@ -354,6 +365,7 @@ export function start(renderer) {
     onZoom(v) { setZoom(v); refresh(); },
     onTilt(v) { CONFIG.crystalTilt = v; syncTargets(); refresh(); },
     onFade(v) { CONFIG.fadeFactor = v; syncTargets(); refresh(); },
+    onSky(v) { CONFIG.skyLevel = v < 0.02 ? 0 : v; syncTargets(); refresh(); },
     onExposure(v) { CONFIG.autoExposure = false; setExposure(v); refresh(); }, // hand-set takes over
     onToggle(key) { toggleType(key); pad.update(); },
   });
@@ -386,8 +398,11 @@ export function start(renderer) {
   // Small drops: request Mie tables (workers); the image restarts when ready.
   renderer.onMieReady = () => { traceDirty = true; };
   function requestMie() {
-    if (CONFIG.dropRadius <= MIE_MAX_RADIUS) renderer.mie.request(CONFIG.dropRadius, CONFIG.dropSpread);
+    if (CONFIG.dropRadius <= MIE_MAX_RADIUS) renderer.mie.request(CONFIG.dropRadius, CONFIG.dropSpread, CONFIG.ior / 1.31);
   }
+  // The IOR rail also re-solves Mie drops, once it has been still briefly.
+  let mieTimer = 0;
+  const scheduleMie = () => { clearTimeout(mieTimer); mieTimer = setTimeout(requestMie, 200); };
 
   function applyShape() {
     requestMie();
@@ -479,14 +494,17 @@ export function start(renderer) {
     state.headroom = CONFIG.headroom;
     state.sunDisk = CONFIG.sunDisk;
     state.lift = 1 / (1 + 2 * CONFIG.shadows);
-    state.sky = CONFIG.sky;
-    state.cloudDepth = CONFIG.cloudDepth;
+    const level = springs.skyLevel.value;
+    state.sky = level > 1e-3;
+    state.skyScale = Math.min(1, level / 0.04) / 10 ** (-2 * level);
+    if (state.sky !== skyWasOn) { skyWasOn = state.sky; traceDirty = true; }
     state.altitude = CONFIG.altitude;
     state.albedo = CONFIG.albedo;
     state.haze = CONFIG.haze;
     state.cloudHeight = CONFIG.cloudHeight;
     state.cloudLayer = CONFIG.cloudLayer;
     state.showSun = CONFIG.showSun;
+    state.clearGround = CONFIG.clearGround;
     state.sizeSpread = CONFIG.sizeSpread;
     state.tiltScale = [CONFIG.tiltPlate, CONFIG.tiltColumn, CONFIG.tiltParry, CONFIG.tiltLowitz, CONFIG.tiltPolyhedral];
 
@@ -535,12 +553,13 @@ function refreshControllers(gui) {
 }
 
 // The bottom-left instrument: IOR × sun-elevation pad plus its rails.
-function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onToggle }) {
+function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onSky, onToggle }) {
   const $ = id => document.getElementById(id);
   const padEl = $('xy-pad'), knob = $('xy-pad-knob'), bg = $('xy-pad-background');
   const sliders = {
     x: $('xy-pad-x-slider'), y: $('xy-pad-y-slider'), zoom: $('xy-pad-zoom-slider'),
     fade: $('xy-pad-fade-slider'), exposure: $('xy-pad-exposure-slider'), tilt: $('xy-pad-tilt-slider'),
+    sky: $('xy-pad-sky-slider'),
   };
   const toggles = document.querySelectorAll('.crystal-toggle');
 
@@ -564,6 +583,7 @@ function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onToggle }
     sliders.tilt.value = Math.pow(config.crystalTilt / TILT, 1 / 2.5) * 100;
     sliders.fade.value = norm(config.fadeFactor, FADE) * 100;
     sliders.exposure.value = norm(Math.log10(config.exposure), LOGEXP) * 100;
+    sliders.sky.value = config.skyLevel * 100;
     toggles.forEach(t => t.classList.toggle('active', !!config[t.dataset.type]));
   }
 
@@ -596,6 +616,7 @@ function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onToggle }
   on(sliders.tilt, t => onTilt(TILT * Math.pow(t, 2.5)));
   on(sliders.fade, t => onFade(lerp(t, FADE)));
   on(sliders.exposure, t => onExposure(10 ** lerp(t, LOGEXP)));
+  on(sliders.sky, t => onSky(t));
 
   toggles.forEach(t => {
     t.addEventListener('click', e => { e.stopPropagation(); onToggle(t.dataset.type); });
