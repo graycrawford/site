@@ -4,6 +4,7 @@
 // tone-maps to an extended-range Display P3 canvas.
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
+import { skyShader, skyBands, SKY_W, SKY_H } from './sky.js';
 import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF, TYPE_KEYS } from './optics.js';
 
 const MIN_SAMPLES = 1 << 15;
@@ -42,9 +43,13 @@ export class Renderer {
     this.planeBuffer = null;
 
     this.traceUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this.presentUniforms = device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.presentUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.skyUniforms = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.skyBands = this.storage(skyBands());
+    this.skyLut = device.createBuffer({ size: (SKY_W * SKY_H + 1) * 16, usage: GPUBufferUsage.STORAGE });
+    this.skyKey = '';
     this.traceData = new ArrayBuffer(176);
-    this.presentData = new ArrayBuffer(112);
+    this.presentData = new ArrayBuffer(176);
 
     this.frameIndex = 0;
     // GPU timestamps around the trace pass drive the ray budget; without them,
@@ -70,7 +75,7 @@ export class Renderer {
   async init() {
     const d = this.device;
     const presentModule = d.createShaderModule({ code: presentShader() });
-    [this.tracePipeline, this.presentPipeline] = await Promise.all([
+    [this.tracePipeline, this.presentPipeline, this.skyPipeline] = await Promise.all([
       d.createComputePipelineAsync({
         layout: 'auto',
         compute: { module: d.createShaderModule({ code: traceShader() }), entryPoint: 'main' },
@@ -81,7 +86,15 @@ export class Renderer {
         fragment: { module: presentModule, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
         primitive: { topology: 'triangle-list' },
       }),
+      d.createComputePipelineAsync({
+        layout: 'auto',
+        compute: { module: d.createShaderModule({ code: skyShader() }), entryPoint: 'main' },
+      }),
     ]);
+    this.skyGroup = d.createBindGroup({
+      layout: this.skyPipeline.getBindGroupLayout(0),
+      entries: [this.skyUniforms, this.skyBands, this.skyLut].map((buffer, binding) => ({ binding, resource: { buffer } })),
+    });
   }
 
   // Extended-range Display P3 where the browser supports it; HDR output only
@@ -153,7 +166,7 @@ export class Renderer {
     });
     this.presentGroup = d.createBindGroup({
       layout: this.presentPipeline.getBindGroupLayout(0),
-      entries: [this.presentUniforms, this.hist, this.accum].map((buffer, binding) => ({ binding, resource: { buffer } })),
+      entries: [this.presentUniforms, this.hist, this.accum, this.skyLut].map((buffer, binding) => ({ binding, resource: { buffer } })),
     });
   }
 
@@ -258,9 +271,27 @@ export class Renderer {
       this.gamutLimit = gamutLimit(this.matrix, s.saturation);
     }
     pf[25] = this.gamutLimit;
+    pf[26] = s.lift ?? 1;
+    pf[27] = s.sky ? s.exposure / s.cloudDepth : 0;
+    pf.set(v.right, 28);
+    pf.set(v.down, 32);
+    pf.set(v.fwd, 36);
+    const el = s.sunElevation * Math.PI / 180;
+    pf.set([0, Math.sin(el), Math.cos(el), Math.cos(0.2665 * Math.PI / 180)], 40);
     d.queue.writeBuffer(this.presentUniforms, 0, this.presentData);
 
     const enc = d.createCommandEncoder();
+    // Re-bake the sky table only when the sun or observer changes.
+    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze}` : this.skyKey;
+    if (skyKey !== this.skyKey) {
+      this.skyKey = skyKey;
+      d.queue.writeBuffer(this.skyUniforms, 0, new Float32Array([s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze]));
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.skyPipeline);
+      pass.setBindGroup(0, this.skyGroup);
+      pass.dispatchWorkgroups(Math.ceil(SKY_W / 8), Math.ceil(SKY_H / 8));
+      pass.end();
+    }
     let timing = null;
     if (trace) {
       if (this.querySet && (this.queryReads.length || this.queryReadsMade < 3)) {

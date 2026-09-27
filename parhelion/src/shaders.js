@@ -1,6 +1,7 @@
 // WGSL for the tracer (compute) and the resolve/present pass (fragment).
 
 import { SPECTRUM_LUT, OKLAB, TYPE_KEYS } from './optics.js';
+import { SKY_W, SKY_H } from './sky.js';
 
 const TYPE_COUNT = TYPE_KEYS.length;
 
@@ -346,11 +347,35 @@ struct Present {
   decayMotion: f32, keepRest: f32, merge: f32, invWeight: f32,
   saturation: f32, headroom: f32, frame: u32, width: u32,
   mode: u32, // bit 0: write back, bit 1: frame -> trails, bit 2: frame -> clean mean
-  gamutLimit: f32, _p0: f32, _p1: f32, // chroma ratio of the spectral locus past P3
+  gamutLimit: f32, // chroma ratio of the spectral locus past P3
+  lift: f32, // shadows: power applied below peak white (1 = none)
+  skyGain: f32, // exposure / cloud optical depth; 0 = no sky
+  camRight: vec3f, _p0: f32,
+  camDown: vec3f, _p1: f32,
+  camFwd: vec3f, _p2: f32,
+  sunDir: vec3f, sunCos: f32, // cos of the sun's angular radius
 }
 @group(0) @binding(0) var<uniform> U: Present;
 @group(0) @binding(1) var<storage, read_write> hist: array<u32>;
 @group(0) @binding(2) var<storage, read_write> accum: array<vec4f>;
+@group(0) @binding(3) var<storage, read> sky: array<vec4f>;
+
+// Sky radiance (XYZ per unit sunlight) toward a world direction, from the
+// sun-relative azimuth × elevation table.
+fn skyLookup(d: vec3f) -> vec3f {
+  let az = atan2(abs(d.x), d.z) / PI;
+  let el = asin(clamp(d.y, -1.0, 1.0)) / (0.5 * PI);
+  let v = 0.5 + 0.5 * sign(el) * sqrt(abs(el));
+  let f = vec2f(az * ${SKY_W}.0 - 0.5, v * ${SKY_H}.0 - 0.5);
+  let i0 = vec2i(floor(f));
+  let t = f - floor(f);
+  let x0 = u32(clamp(i0.x, 0, ${SKY_W - 1})); let x1 = u32(clamp(i0.x + 1, 0, ${SKY_W - 1}));
+  let y0 = u32(clamp(i0.y, 0, ${SKY_H - 1})); let y1 = u32(clamp(i0.y + 1, 0, ${SKY_H - 1}));
+  let a = mix(sky[y0 * ${SKY_W}u + x0].xyz, sky[y0 * ${SKY_W}u + x1].xyz, t.x);
+  let b = mix(sky[y1 * ${SKY_W}u + x0].xyz, sky[y1 * ${SKY_W}u + x1].xyz, t.x);
+  return mix(a, b, t.y);
+}
+const PI = 3.14159265359;
 
 @vertex
 fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
@@ -424,7 +449,17 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   // stereographic solid angle of the pixel.
   let s = (pos.xy - U.center) / U.scale;
   let k = 1.0 + dot(s, s);
-  let xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale);
+  var xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale);
+  if (U.skyGain > 0.0) {
+    // This pixel's sky direction: inverse stereographic, then the camera basis.
+    let c = vec3f(2.0 * s, 2.0 - k) / k;
+    let d = normalize(U.camRight * c.x + U.camDown * c.y + U.camFwd * c.z);
+    var light = skyLookup(d);
+    if (dot(d, U.sunDir) > U.sunCos) {
+      light += sky[${SKY_W * SKY_H}u].xyz / (2.0 * PI * (1.0 - U.sunCos)); // the sun itself
+    }
+    xyz += light * U.skyGain;
+  }
 
   var rgb = mapGamut(vec3f(dot(U.m0.xyz, xyz), dot(U.m1.xyz, xyz), dot(U.m2.xyz, xyz)), U.saturation, U.gamutLimit);
 
@@ -439,6 +474,18 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
     rgb *= fm / m;
     let squeeze = 1.0 - fm / m;
     rgb = mix(rgb, vec3f(fm), squeeze * squeeze);
+  }
+
+  // Shadows: a power curve on the display-referred brightness, pinned at peak
+  // white, so lows lift and nothing brighter moves past the top. Hue holds.
+  if (U.lift != 1.0) {
+    let mm = max(rgb.r, max(rgb.g, rgb.b));
+    if (mm > 0.0) {
+      let e = 0.002;
+      let x = mm / H;
+      let y = (pow(x + e, U.lift) - pow(e, U.lift)) / (pow(1.0 + e, U.lift) - pow(e, U.lift));
+      rgb *= H * y / mm;
+    }
   }
 
   var enc = vec3f(encode(rgb.r), encode(rgb.g), encode(rgb.b));

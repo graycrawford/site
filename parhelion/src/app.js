@@ -5,6 +5,7 @@ import {
 } from './presets.js';
 import { TYPE_KEYS, haloAngle, iorFromHaloAngle } from './optics.js';
 import { Spring } from './spring.js';
+import { makeLabels } from './labels.js';
 
 // Rays in the rest mean before tracing stops (~17 billion: faint multi-bounce
 // arcs get a few hundred rays per pixel), or this many frames on slow GPUs.
@@ -46,7 +47,15 @@ const CONFIG = {
   columnAspect: 2,
   tumble: false, // polyhedra tumble (random orientation) instead of holding a pose
 
+  // Sky
+  sky: false,
+  cloudDepth: 0.15, // optical depth τ of the halo cloud: halo radiance ∝ τ, sky's isn't
+  altitude: 0.5, // km, observer height
+  albedo: 0.15, // ground reflectance
+  haze: 0.1, // aerosol optical depth at 550 nm (0.05 clean, 0.1 typical, 0.4 hazy)
+
   // Output
+  shadows: 0, // 0..1: lifts the lows, peak white stays put
   settle: true,
   headroom: 3,
   resolution: 1,
@@ -95,7 +104,8 @@ export function start(renderer) {
   let traceDirty = false; // a non-sprung switch changed where light lands
   let postDirty = true; // only the display mapping changed
   const gui = new GUI();
-  const refresh = () => refreshControllers(gui);
+  let labels = null;
+  const refresh = () => { refreshControllers(gui); labels?.refresh(); };
 
   function syncTargets() {
     for (const k of TRACE_KEYS) springs[k].set(traceTarget(k, CONFIG));
@@ -211,7 +221,14 @@ export function start(renderer) {
   physics.add(CONFIG, 'columnAspect', 1, 8).step(0.05).name('Column c/a').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'sunDisk').name('Sun Disk').onChange(() => { traceDirty = true; });
   physics.add(CONFIG, 'tumble').name('Polyhedra Tumble').onChange(() => { shapeDirty = true; });
+  const skyFolder = gui.addFolder('Sky');
+  skyFolder.add(CONFIG, 'sky').name('Sky').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'cloudDepth', 0.01, 1).step(0.01).name('Cloud Depth τ').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'altitude', 0, 12).step(0.1).name('Altitude (km)').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'albedo', 0, 1).step(0.01).name('Ground Albedo').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { postDirty = true; });
   const output = gui.addFolder('Output');
+  output.add(CONFIG, 'shadows', 0, 1).step(0.01).name('Shadows').onChange(() => { postDirty = true; });
   output.add(CONFIG, 'settle').name('Converge at Rest');
   if (renderer.extended) output.add(CONFIG, 'headroom', 1, 16).step(0.1).name('HDR Headroom').onChange(() => { postDirty = true; });
   renderer.hdrQuery.addEventListener('change', () => { postDirty = true; });
@@ -313,6 +330,8 @@ export function start(renderer) {
     onToggle(key) { toggleType(key); pad.update(); },
   });
 
+  labels = makeLabels(CONFIG);
+
   function applyShape() {
     renderer.setCrystals({
       randomAspect: 1, plateAspect: CONFIG.plateAspect, columnAspect: CONFIG.columnAspect,
@@ -400,6 +419,12 @@ export function start(renderer) {
     state.saturation = springs.saturation.value;
     state.headroom = CONFIG.headroom;
     state.sunDisk = CONFIG.sunDisk;
+    state.lift = 1 / (1 + 2 * CONFIG.shadows);
+    state.sky = CONFIG.sky;
+    state.cloudDepth = CONFIG.cloudDepth;
+    state.altitude = CONFIG.altitude;
+    state.albedo = CONFIG.albedo;
+    state.haze = CONFIG.haze;
 
     // Frames are deposited at their own exposure, so trails keep the
     // brightness they were drawn with and fade at the fade rate (frame-rate

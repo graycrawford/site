@@ -269,6 +269,35 @@
         fill: rgba(255, 255, 255, 0.8);
       }
       
+      /* Hover labels (see labels.js): faint, lowercase, inside the control */
+      .rail-label, .pad-label, .dot-label, .corner-label {
+        position: absolute;
+        pointer-events: none;
+        font: 10px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        font-variant-numeric: tabular-nums;
+        color: rgba(255, 255, 255, 0.28);
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .rail-label.on, .pad-label.on, .dot-label.on, .corner-label.on { opacity: 1; }
+      .rail-label {
+        width: 100px;
+        height: 20px;
+        padding: 0 7px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        justify-content: flex-start;
+      }
+      .rail-label.far { justify-content: flex-end; }
+      .rail-label .value, .pad-label, .dot-label { color: rgba(255, 255, 255, 0.4); }
+      .dim { opacity: 0.4; }
+      .pad-label { top: 7px; left: 9px; line-height: 12px; }
+      .dot-label { bottom: 40px; }
+      .corner-label { right: 26px; top: 50%; transform: translateY(-50%); }
+
       /* Look-away toggle: a filled sun, a ring while facing away */
       #look-away {
         position: absolute;
