@@ -1,7 +1,7 @@
 // WGSL for the tracer (compute) and the resolve/present pass (fragment).
 
 import { SPECTRUM_LUT, OKLAB, TYPE_KEYS } from './optics.js';
-import { SKY_W, SKY_H } from './sky.js';
+import { SKY_W, SKY_H, SKY_BANDS, HALO_T_BINS } from './sky.js';
 
 const TYPE_COUNT = TYPE_KEYS.length;
 
@@ -16,7 +16,7 @@ struct Params {
   camFwd: vec3f, samplesPerThread: u32,
   center: vec2f, res: vec2u,
   iorScale: f32, tilt: f32, polySpin: f32, lowitz: f32,
-  diffraction: f32, fixedScale: f32, _p2: u32, maxBounces: u32,
+  diffraction: f32, fixedScale: f32, atmosphere: u32, maxBounces: u32,
   typeCdf: array<vec4f, 3>, // cumulative type weights (${TYPE_COUNT} types)
   totalSamples: u32, seed: u32, _p0: u32, _p1: u32,
 }
@@ -29,6 +29,18 @@ struct SpectrumEntry { a: vec4f, xyz: vec4f } // a = (λ nm, n_ice, limb u, n_wa
 @group(0) @binding(2) var<storage, read> planes: array<vec4f>;
 @group(0) @binding(3) var<storage, read> spectrum: array<SpectrumEntry, ${SPECTRUM_LUT}>;
 @group(0) @binding(4) var<storage, read_write> hist: array<atomic<u32>>;
+// Sun -> cloud -> observer transmittance per view elevation and band (sky.js).
+@group(0) @binding(5) var<storage, read> haloT: array<f32>;
+fn haloTransmittance(sinEl: f32, lambda: f32) -> f32 {
+  let fe = (asin(clamp(sinEl, -1.0, 1.0)) / PI + 0.5) * ${HALO_T_BINS - 1}.0;
+  let fb = clamp((lambda - 400.0) / 20.0, 0.0, ${SKY_BANDS - 1}.0);
+  let e0 = u32(min(floor(fe), ${HALO_T_BINS - 2}.0));
+  let b0 = u32(min(floor(fb), ${SKY_BANDS - 2}.0));
+  let te = fe - f32(e0);
+  let tb = fb - f32(b0);
+  let i = e0 * ${SKY_BANDS}u + b0;
+  return mix(mix(haloT[i], haloT[i + 1u], tb), mix(haloT[i + ${SKY_BANDS}u], haloT[i + ${SKY_BANDS + 1}u], tb), te);
+}
 
 const PI = 3.14159265359;
 const TAU = 6.28318530718;
@@ -155,8 +167,11 @@ fn add64(i: u32, v: u32) {
 // Bilinear, energy-conserving deposit of an outgoing ray into the fixed-point
 // XYZ histogram. dir is the propagation direction in crystal-local space.
 var<private> toCam: mat3x3f; // local -> (right, down, fwd)
+var<private> upLocal: vec3f; // world up in crystal space
 var<private> dither: f32;
-fn splat(dirLocal: vec3f, xyz: vec3f, lambda: f32) {
+fn splat(dirLocal: vec3f, xyzIn: vec3f, lambda: f32) {
+  var xyz = xyzIn;
+  if (P.atmosphere != 0u) { xyz *= haloTransmittance(-dot(dirLocal, upLocal), lambda); }
   var v = -(toCam * dirLocal); // sky direction the light arrives from, camera frame
   if (P.diffraction > 0.0) {
     let helper = select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(v.x) > 0.9);
@@ -316,6 +331,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
     // Camera basis in crystal space so splat() skips the world transform.
     toCam = transpose(mat3x3f(Rt * P.camRight, Rt * P.camDown, Rt * P.camFwd));
+    upLocal = Rt * vec3f(0.0, 1.0, 0.0);
 
     let weight = 4.0 * area * c.box.w / f32(HERO);
     for (var h = 0u; h < HERO; h++) {

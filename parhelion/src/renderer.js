@@ -4,7 +4,7 @@
 // tone-maps to an extended-range Display P3 canvas.
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
-import { skyShader, skyBands, SKY_W, SKY_H } from './sky.js';
+import { skyShader, skyBands, SKY_W, SKY_H, SKY_BANDS, MS_SIZE, HALO_T_BINS } from './sky.js';
 import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF, TYPE_KEYS } from './optics.js';
 
 const MIN_SAMPLES = 1 << 15;
@@ -44,7 +44,10 @@ export class Renderer {
 
     this.traceUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.presentUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this.skyUniforms = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.skyUniforms = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.skyMs = device.createBuffer({ size: MS_SIZE * MS_SIZE * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
+    this.haloT = device.createBuffer({ size: HALO_T_BINS * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
+    this.msKey = '';
     this.skyBands = this.storage(skyBands());
     this.skyLut = device.createBuffer({ size: (SKY_W * SKY_H + 1) * 16, usage: GPUBufferUsage.STORAGE });
     this.skyKey = '';
@@ -78,7 +81,8 @@ export class Renderer {
   async init() {
     const d = this.device;
     const presentModule = d.createShaderModule({ code: presentShader() });
-    [this.tracePipeline, this.presentPipeline, this.skyPipeline, this.meterPipeline] = await Promise.all([
+    const skyModule = d.createShaderModule({ code: skyShader() });
+    [this.tracePipeline, this.presentPipeline, this.skyPipeline, this.meterPipeline, this.msPipeline, this.haloPipeline] = await Promise.all([
       d.createComputePipelineAsync({
         layout: 'auto',
         compute: { module: d.createShaderModule({ code: traceShader() }), entryPoint: 'main' },
@@ -89,16 +93,18 @@ export class Renderer {
         fragment: { module: presentModule, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
         primitive: { topology: 'triangle-list' },
       }),
-      d.createComputePipelineAsync({
-        layout: 'auto',
-        compute: { module: d.createShaderModule({ code: skyShader() }), entryPoint: 'main' },
-      }),
+      d.createComputePipelineAsync({ layout: 'auto', compute: { module: skyModule, entryPoint: 'main' } }),
       d.createComputePipelineAsync({ layout: 'auto', compute: { module: presentModule, entryPoint: 'meterMain' } }),
+      d.createComputePipelineAsync({ layout: 'auto', compute: { module: skyModule, entryPoint: 'msMain' } }),
+      d.createComputePipelineAsync({ layout: 'auto', compute: { module: skyModule, entryPoint: 'haloMain' } }),
     ]);
-    this.skyGroup = d.createBindGroup({
-      layout: this.skyPipeline.getBindGroupLayout(0),
-      entries: [this.skyUniforms, this.skyBands, this.skyLut].map((buffer, binding) => ({ binding, resource: { buffer } })),
+    const group = (pipeline, pairs) => d.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: pairs.map(([binding, buffer]) => ({ binding, resource: { buffer } })),
     });
+    this.skyGroup = group(this.skyPipeline, [[0, this.skyUniforms], [1, this.skyBands], [2, this.skyLut], [3, this.skyMs]]);
+    this.msGroup = group(this.msPipeline, [[0, this.skyUniforms], [1, this.skyBands], [3, this.skyMs]]);
+    this.haloGroup = group(this.haloPipeline, [[0, this.skyUniforms], [1, this.skyBands], [4, this.haloT]]);
   }
 
   // Extended-range Display P3 where the browser supports it; HDR output only
@@ -165,7 +171,7 @@ export class Renderer {
     const d = this.device;
     this.traceGroup = d.createBindGroup({
       layout: this.tracePipeline.getBindGroupLayout(0),
-      entries: [this.traceUniforms, this.crystalBuffer, this.planeBuffer, this.spectrumBuffer, this.hist]
+      entries: [this.traceUniforms, this.crystalBuffer, this.planeBuffer, this.spectrumBuffer, this.hist, this.haloT]
         .map((buffer, binding) => ({ binding, resource: { buffer } })),
     });
     this.presentGroup = d.createBindGroup({
@@ -236,6 +242,7 @@ export class Renderer {
       // Gaussian diffraction blur σ ≈ 0.44 λ/D  (λ in nm, D in µm)
       f[24] = 0.44e-3 * s.diffraction;
       f[25] = fixedScale;
+      u[26] = s.sky ? 1 : 0;
       u[27] = 16;
       const total = s.typeWeights.reduce((a, b) => a + b, 0) || 1;
       let acc = 0;
@@ -291,14 +298,25 @@ export class Renderer {
 
     const enc = d.createCommandEncoder();
     // Re-bake the sky table only when the sun or observer changes.
-    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze}` : this.skyKey;
+    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze} ${s.cloudHeight}` : this.skyKey;
     if (skyKey !== this.skyKey) {
       this.skyKey = skyKey;
-      d.queue.writeBuffer(this.skyUniforms, 0, new Float32Array([s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze]));
+      d.queue.writeBuffer(this.skyUniforms, 0, new Float32Array([
+        s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze, s.cloudHeight * 1000, 0, 0, 0]));
       const pass = enc.beginComputePass();
+      const msKey = `${s.albedo} ${s.haze}`; // multiple scattering doesn't depend on the sun
+      if (msKey !== this.msKey) {
+        this.msKey = msKey;
+        pass.setPipeline(this.msPipeline);
+        pass.setBindGroup(0, this.msGroup);
+        pass.dispatchWorkgroups(MS_SIZE / 8, MS_SIZE / 8);
+      }
       pass.setPipeline(this.skyPipeline);
       pass.setBindGroup(0, this.skyGroup);
       pass.dispatchWorkgroups(Math.ceil(SKY_W / 8), Math.ceil(SKY_H / 8));
+      pass.setPipeline(this.haloPipeline);
+      pass.setBindGroup(0, this.haloGroup);
+      pass.dispatchWorkgroups(1);
       pass.end();
     }
     let timing = null;

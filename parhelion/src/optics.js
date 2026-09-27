@@ -26,17 +26,19 @@ function norm(v) {
   return [v[0] / l, v[1] / l, v[2] / l];
 }
 
-function prismPlanes() {
+// Alternate prism faces sit at distance 1 and 1 + t: t = 0 is a regular
+// hexagon, t = 1 a triangle (the long faces shrink to nothing).
+function prismPlanes(t = 0) {
   const planes = [];
   for (let k = 0; k < 6; k++) {
     const a = k * 60 * DEG;
-    planes.push({ n: [Math.sin(a), 0, Math.cos(a)], d: 1 });
+    planes.push({ n: [Math.sin(a), 0, Math.cos(a)], d: k % 2 ? 1 + t : 1 });
   }
   return planes;
 }
 
-function hexPrism(h) {
-  return [{ n: [0, 1, 0], d: h }, { n: [0, -1, 0], d: h }, ...prismPlanes()];
+function hexPrism(h, t = 0) {
+  return [{ n: [0, 1, 0], d: h }, { n: [0, -1, 0], d: h }, ...prismPlanes(t)];
 }
 
 // Prism of half-length hp capped by {10-11} pyramids, truncated by basal faces
@@ -134,13 +136,13 @@ function solve3(r0, r1, r2, d) {
 export function buildCrystals(shape) {
   const defs = [
     { planes: hexPrism(shape.randomAspect), orient: ORIENT.random },
-    { planes: hexPrism(shape.plateAspect), orient: ORIENT.plate },
+    { planes: hexPrism(shape.plateAspect, shape.triangularity), orient: ORIENT.plate },
     { planes: hexPrism(shape.columnAspect), orient: ORIENT.column },
     { planes: hexPrism(shape.columnAspect), orient: ORIENT.parry },
     { planes: pyramidal(shape.pyramidPrism, shape.pyramidCap, shape.pyramidCap), orient: ORIENT.column },
     { planes: octahedron(), orient: ORIENT.polyhedral },
     { planes: cuboctahedron(), orient: ORIENT.polyhedral },
-    { planes: hexPrism(shape.plateAspect), orient: ORIENT.lowitz },
+    { planes: hexPrism(shape.plateAspect, shape.triangularity), orient: ORIENT.lowitz },
     { planes: dodecahedron(), orient: ORIENT.polyhedral },
     // Thin pyramidal crystals lying flat: odd-radius parhelia (9°, 18°, 20°, 23°, 24°, 35°).
     { planes: pyramidal(0.15, shape.pyramidCap, shape.pyramidCap), orient: ORIENT.plate },

@@ -45,6 +45,7 @@ const CONFIG = {
   sunDisk: true,
   plateAspect: 0.2,
   columnAspect: 2,
+  triangularity: 0, // plates: 0 regular hexagons … 1 triangles (Kern arc)
   tumble: false, // polyhedra tumble (random orientation) instead of holding a pose
 
   // Sky
@@ -52,6 +53,7 @@ const CONFIG = {
   cloudDepth: 0.15, // optical depth τ of the halo cloud: halo radiance ∝ τ, sky's isn't
   altitude: 0.5, // km, observer height
   albedo: 0.15, // ground reflectance
+  cloudHeight: 9, // km, the halo cloud layer (cirrus)
   haze: 0.1, // aerosol optical depth at 550 nm (0.05 clean, 0.1 typical, 0.4 hazy)
 
   // Output
@@ -122,11 +124,11 @@ export function start(renderer) {
     const p = allPresets()[name];
     if (!p) return;
     CONFIG.preset = name;
-    const shape = [CONFIG.plateAspect, CONFIG.columnAspect, CONFIG.tumble];
+    const shape = [CONFIG.plateAspect, CONFIG.columnAspect, CONFIG.tumble, CONFIG.triangularity];
     const sunDisk = CONFIG.sunDisk;
     for (const k of PRESET_KEYS) CONFIG[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
     for (const k of TYPE_KEYS) CONFIG[k] = p.types.includes(k.slice(6).toLowerCase());
-    if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect || shape[2] !== CONFIG.tumble) shapeDirty = true;
+    if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect || shape[2] !== CONFIG.tumble || shape[3] !== CONFIG.triangularity) shapeDirty = true;
     if (sunDisk !== CONFIG.sunDisk) traceDirty = true;
     exposureProxy.log = Math.log10(CONFIG.exposure);
     if (CONFIG.lockZoom) lockZoom();
@@ -222,13 +224,15 @@ export function start(renderer) {
   physics.add(CONFIG, 'plateAspect', 0.02, 1).step(0.01).name('Plate c/a').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'columnAspect', 1, 8).step(0.05).name('Column c/a').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'sunDisk').name('Sun Disk').onChange(() => { traceDirty = true; });
+  physics.add(CONFIG, 'triangularity', 0, 1).step(0.01).name('Plate Triangularity').onChange(() => { shapeDirty = true; });
   physics.add(CONFIG, 'tumble').name('Polyhedra Tumble').onChange(() => { shapeDirty = true; });
   const skyFolder = gui.addFolder('Sky');
-  skyFolder.add(CONFIG, 'sky').name('Sky').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'sky').name('Sky').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudDepth', 0.01, 1).step(0.01).name('Cloud Depth τ').onChange(() => { postDirty = true; });
-  skyFolder.add(CONFIG, 'altitude', 0, 12).step(0.1).name('Altitude (km)').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'altitude', 0, 12).step(0.1).name('Altitude (km)').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'albedo', 0, 1).step(0.01).name('Ground Albedo').onChange(() => { postDirty = true; });
-  skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { postDirty = true; });
+  skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { traceDirty = true; });
+  skyFolder.add(CONFIG, 'cloudHeight', 0, 15).step(0.1).name('Cloud Height (km)').onChange(() => { traceDirty = true; });
   const output = gui.addFolder('Output');
   output.add(CONFIG, 'shadows', 0, 3).step(0.01).name('Shadows').onChange(() => { postDirty = true; });
   output.add(CONFIG, 'autoExposure').name('Auto Exposure').onChange(() => { postDirty = true; });
@@ -362,7 +366,7 @@ export function start(renderer) {
   function applyShape() {
     renderer.setCrystals({
       randomAspect: 1, plateAspect: CONFIG.plateAspect, columnAspect: CONFIG.columnAspect,
-      pyramidPrism: 0.5, pyramidCap: 0.6, tumble: CONFIG.tumble,
+      pyramidPrism: 0.5, pyramidCap: 0.6, tumble: CONFIG.tumble, triangularity: CONFIG.triangularity,
     });
     shapeDirty = false;
   }
@@ -452,6 +456,7 @@ export function start(renderer) {
     state.altitude = CONFIG.altitude;
     state.albedo = CONFIG.albedo;
     state.haze = CONFIG.haze;
+    state.cloudHeight = CONFIG.cloudHeight;
 
     // Frames are deposited at their own exposure, so trails keep the
     // brightness they were drawn with and fade at the fade rate (frame-rate
@@ -482,7 +487,7 @@ export function start(renderer) {
   function set(values) {
     Object.assign(CONFIG, values);
     if ('exposure' in values) exposureProxy.log = Math.log10(CONFIG.exposure);
-    if (['plateAspect', 'columnAspect'].some(k => k in values)) shapeDirty = true;
+    if (['plateAspect', 'columnAspect', 'triangularity', 'tumble'].some(k => k in values)) shapeDirty = true;
     if ('sunDisk' in values) traceDirty = true;
     postDirty = true;
     syncTargets();

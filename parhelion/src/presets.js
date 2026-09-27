@@ -67,11 +67,11 @@ export const PRESETS = {
 export const PRESET_KEYS = [
   'sunElevation', 'camElevation', 'lockSunCenter', 'zoom', 'crystalTilt', 'polyhedralSpin', 'ior',
   'exposure', 'fadeFactor', 'saturation', 'lowitzSpin', 'crystalSize', 'plateAspect', 'columnAspect', 'sunDisk',
-  'lookAway', 'tumble', 'sky', 'cloudDepth', 'altitude', 'albedo', 'haze', 'shadows',
+  'lookAway', 'tumble', 'triangularity', 'sky', 'cloudDepth', 'altitude', 'albedo', 'haze', 'cloudHeight', 'shadows',
 ];
 export const PRESET_DEFAULTS = {
   lockSunCenter: true, polyhedralSpin: 0, lowitzSpin: 30, crystalSize: 0, plateAspect: 0.2, columnAspect: 2, sunDisk: true,
-  lookAway: false, tumble: false, sky: false, cloudDepth: 0.15, altitude: 0.5, albedo: 0.15, haze: 0.1, shadows: 0,
+  lookAway: false, tumble: false, triangularity: 0, sky: false, cloudDepth: 0.15, altitude: 0.5, albedo: 0.15, haze: 0.1, cloudHeight: 9, shadows: 0,
 };
 
 const STORE = 'parhelion.presets';
