@@ -3,8 +3,10 @@ import { PRESETS, DEFAULT_PRESET } from './presets.js';
 import { TYPE_KEYS, haloAngle, iorFromHaloAngle } from './optics.js';
 import { Spring } from './spring.js';
 
-// Frames folded into the rest mean before tracing stops.
-const SETTLE_FRAMES = 600;
+// Rays in the rest mean before tracing stops (~17 billion: faint multi-bounce
+// arcs get a few hundred rays per pixel), or this many frames on slow GPUs.
+const SETTLE_SAMPLES = 2 ** 34;
+const SETTLE_MAX_FRAMES = 7200;
 
 const CONFIG = {
   sunElevation: 12,
@@ -260,7 +262,10 @@ export function start(renderer) {
     last = now;
     intervals.push(dt);
     if (intervals.length > 120) intervals.shift();
+    // GPU time per frame: 70% of the display interval while moving; at rest up
+    // to twice that (≤ 14 ms), since only convergence speed is at stake.
     renderer.budgetMs = Math.max(4, 0.7 * 1000 * Math.min(...intervals.filter(x => x > 0.003), 1 / 30));
+    renderer.restBudgetMs = Math.max(renderer.budgetMs, Math.min(14, 2 * renderer.budgetMs));
 
     const springy = CONFIG.enableSprings;
     const frames = 60 * Math.max(dt, 1 / 240); // tolerances are per 60 Hz frame
@@ -310,7 +315,8 @@ export function start(renderer) {
     const decay = (1 - springs.fadeFactor.value) ** (60 * Math.min(dt, 0.1));
     const gain = moving ? 1 : exposure / lastExposure;
     lastExposure = exposure;
-    const converged = rest && renderer.restFrames >= SETTLE_FRAMES && (decay === 1 || renderer.historyShare < 1e-3);
+    const settled = renderer.restSamples >= SETTLE_SAMPLES || renderer.restFrames >= SETTLE_MAX_FRAMES;
+    const converged = rest && settled && (decay === 1 || renderer.historyShare < 1e-3);
     if (converged && !post) return;
     renderer.render(state, { trace: !converged, rest, decay, gain });
   }

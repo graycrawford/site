@@ -4,10 +4,13 @@
 // tone-maps to an extended-range Display P3 canvas.
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
-import { buildCrystals, buildSpectrum, displayMatrix, ICE_N_REF } from './optics.js';
+import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF } from './optics.js';
 
 const MIN_SAMPLES = 1 << 15;
-const MAX_SAMPLES = 1 << 23;
+const MAX_SAMPLES = 1 << 24;
+// Histogram counts per unit of energy. One splat carries at most ~4 units, so
+// a single add fits u32; the 64-bit accumulators never overflow.
+const FIXED_SCALE = 2 ** 20;
 
 export class Renderer {
   static async create(canvas) {
@@ -45,7 +48,10 @@ export class Renderer {
     this.frameIndex = 0;
     this.weightMotion = 0; // Σ fade-weighted frames in the motion history
     this.weightRest = 0; // frames in the running mean since motion stopped
-    this.samples = 1 << 18; // per frame; adapted to the GPU below
+    // Rays per frame, adapted to GPU time separately for motion (stay
+    // responsive) and rest (nothing moves, so spend more per frame).
+    this.samplesFor = { motion: 1 << 18, rest: 1 << 19 };
+    this.restSamples = 0; // rays in the rest mean
     this.timing = false;
     this.width = 0;
     this.height = 0;
@@ -108,11 +114,12 @@ export class Renderer {
     this.height = this.canvas.height = height;
     this.hist?.destroy();
     this.accum?.destroy();
-    this.hist = this.device.createBuffer({ size: width * height * 12, usage: GPUBufferUsage.STORAGE });
+    this.hist = this.device.createBuffer({ size: width * height * 24, usage: GPUBufferUsage.STORAGE });
     // Two XYZ accumulators per pixel: [2i] motion history (fades), [2i+1] rest mean.
     this.accum = this.device.createBuffer({ size: width * height * 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.weightMotion = 0;
     this.weightRest = 0;
+    this.restSamples = 0;
     this.bindGroups();
   }
 
@@ -124,6 +131,7 @@ export class Renderer {
     this.device.queue.submit([enc.finish()]);
     this.weightMotion = 0;
     this.weightRest = 0;
+    this.restSamples = 0;
   }
 
   bindGroups() {
@@ -166,12 +174,13 @@ export class Renderer {
   // gain: at rest, rescales everything shown by an exposure change.
   render(s, { trace, rest, decay, gain = 1 }) {
     if (!this.traceGroup) return;
+    const mode = rest ? 'rest' : 'motion';
     const d = this.device;
     const v = this.view(s);
-    const samples = this.samples;
+    const samples = this.samplesFor[mode];
     const perThread = Math.max(1, Math.ceil(samples / (65535 * TRACE_WORKGROUP)));
     const threads = Math.ceil(samples / perThread);
-    const fixedScale = Math.min(65536, 2 ** 32 / (samples * 16));
+    const fixedScale = FIXED_SCALE;
     this.frameIndex++;
 
     if (trace) {
@@ -209,11 +218,13 @@ export class Renderer {
       merge = this.weightRest > 0 ? Math.min(1, steady / this.weightRest) : 0;
       this.weightMotion = this.weightMotion * decay + this.weightRest * merge + (trace ? 1 : 0);
       this.weightRest = 0;
+      this.restSamples = 0;
       decayMotion = decay;
       keepRest = 0;
     } else {
       this.weightMotion *= decay;
       this.weightRest += trace ? 1 : 0;
+      this.restSamples += trace ? samples : 0;
       decayMotion = decay * gain;
       keepRest = gain;
     }
@@ -228,6 +239,11 @@ export class Renderer {
     pu[22] = this.frameIndex;
     pu[23] = this.width;
     pu[24] = (trace || decayMotion !== 1 || keepRest !== 1 || merge !== 0 ? 1 : 0) | (rest ? 2 : 0);
+    if (s.saturation !== this.limitSaturation) {
+      this.limitSaturation = s.saturation;
+      this.gamutLimit = gamutLimit(this.matrix, s.saturation);
+    }
+    pf[25] = this.gamutLimit;
     d.queue.writeBuffer(this.presentUniforms, 0, this.presentData);
 
     const enc = d.createCommandEncoder();
@@ -246,7 +262,7 @@ export class Renderer {
     pass.draw(3);
     pass.end();
     d.queue.submit([enc.finish()]);
-    if (trace) this.adapt(samples);
+    if (trace) this.adapt(mode, samples);
   }
 
   // Displayed per-pixel XYZ energy (exposure-weighted), for verification.
@@ -266,17 +282,18 @@ export class Renderer {
   }
 
   // Keep GPU time per frame inside a budget by scaling the ray count.
-  adapt(samples) {
+  adapt(mode, samples) {
     if (this.timing) return;
     this.timing = true;
     const t0 = performance.now();
     this.device.queue.onSubmittedWorkDone().then(() => {
       this.timing = false;
-      if (samples !== this.samples) return;
+      const n = this.samplesFor[mode];
+      if (samples !== n) return;
       const ms = performance.now() - t0;
-      const budget = this.budgetMs ?? 9;
-      if (ms > budget) this.samples = Math.max(MIN_SAMPLES, Math.round(this.samples * Math.max(0.7, budget / ms)));
-      else if (ms < budget * 0.7) this.samples = Math.min(MAX_SAMPLES, Math.round(this.samples * 1.1));
+      const budget = (mode === 'rest' ? this.restBudgetMs : this.budgetMs) ?? 9;
+      if (ms > budget) this.samplesFor[mode] = Math.max(MIN_SAMPLES, Math.round(n * Math.max(0.7, budget / ms)));
+      else if (ms < budget * 0.7) this.samplesFor[mode] = Math.min(MAX_SAMPLES, Math.round(n * 1.1));
     });
   }
 }

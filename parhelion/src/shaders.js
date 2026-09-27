@@ -1,6 +1,6 @@
 // WGSL for the tracer (compute) and the resolve/present pass (fragment).
 
-import { SPECTRUM_LUT } from './optics.js';
+import { SPECTRUM_LUT, OKLAB } from './optics.js';
 
 export const TRACE_WORKGROUP = 64;
 
@@ -141,6 +141,14 @@ fn fresnel(cosI: f32, eta: f32) -> Interface {
   return Interface(0.5 * (rs * rs + rp * rp), cosT);
 }
 
+// 64-bit fixed-point add as a (lo, hi) pair of u32 atomics: carry into hi
+// exactly when lo wraps. Keeps faint light at full precision at any ray count.
+fn add64(i: u32, v: u32) {
+  if (v == 0u) { return; }
+  let old = atomicAdd(&hist[i], v);
+  if (old > 0xffffffffu - v) { atomicAdd(&hist[i + 1u], 1u); }
+}
+
 // Bilinear, energy-conserving deposit of an outgoing ray into the fixed-point
 // XYZ histogram. dir is the propagation direction in crystal-local space.
 var<private> toCam: mat3x3f; // local -> (right, down, fwd)
@@ -167,12 +175,12 @@ fn splat(dirLocal: vec3f, xyz: vec3f, lambda: f32) {
     if (p.x < 0 || p.y < 0 || p.x >= i32(P.res.x) || p.y >= i32(P.res.y)) { continue; }
     let wx = select(1.0 - f.x, f.x, o.x == 1);
     let wy = select(1.0 - f.y, f.y, o.y == 1);
-    let base = (u32(p.y) * P.res.x + u32(p.x)) * 3u;
+    let base = (u32(p.y) * P.res.x + u32(p.x)) * 6u; // (lo, hi) × XYZ
     let e = q * (wx * wy) + fract(vec3f(dither) + vec3f(0.0, 0.381966, 0.763932) + f32(k) * 0.618034);
     let eu = vec3u(e);
-    if (eu.x != 0u) { atomicAdd(&hist[base], eu.x); }
-    if (eu.y != 0u) { atomicAdd(&hist[base + 1u], eu.y); }
-    if (eu.z != 0u) { atomicAdd(&hist[base + 2u], eu.z); }
+    add64(base, eu.x);
+    add64(base + 2u, eu.y);
+    add64(base + 4u, eu.z);
     dither = fract(dither + 0.7548777);
   }
 }
@@ -304,13 +312,16 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 
 export function presentShader() {
+  // WGSL mat3x3f takes columns; the JS matrices are row-major.
+  const m = a => [0, 1, 2].map(j => a.map(r => r[j])).flat().join(', ');
   return /* wgsl */ `
 struct Present {
   m0: vec4f, m1: vec4f, m2: vec4f, // XYZ -> linear Display P3 (rows), white-balanced
   center: vec2f, scale: f32, invNorm: f32,
   decayMotion: f32, keepRest: f32, merge: f32, invWeight: f32,
   saturation: f32, headroom: f32, frame: u32, width: u32,
-  mode: u32, _p0: u32, _p1: u32, _p2: u32, // bit 0: write back, bit 1: at rest
+  mode: u32, // bit 0: write back, bit 1: at rest
+  gamutLimit: f32, _p0: f32, _p1: f32, // chroma ratio of the spectral locus past P3
 }
 @group(0) @binding(0) var<uniform> U: Present;
 @group(0) @binding(1) var<storage, read_write> hist: array<u32>;
@@ -328,6 +339,41 @@ fn encode(x: f32) -> f32 { // sRGB / Display P3 transfer, extended above 1
 }
 const LUMA = vec3f(0.2289746, 0.6917385, 0.0792869); // Display P3 Y
 
+// Gamut mapping in OKLab at constant lightness and hue: chroma past a knee
+// (a fraction of the P3 boundary chroma for that L and hue) rolls off smoothly
+// so the spectral locus lands on the boundary. Perceived brightness and hue
+// stay put, and there are no kinks, so pure spectra stay a continuous rainbow.
+const GAMUT_KNEE = 0.75;
+const GAMUT_POWER = 1.2;
+const P3_TO_LMS = mat3x3f(${m(OKLAB.p3ToLms)});
+const LMS_TO_P3 = mat3x3f(${m(OKLAB.lmsToP3)});
+const LMS_TO_LAB = mat3x3f(${m(OKLAB.lmsToLab)});
+const LAB_TO_LMS = mat3x3f(${m(OKLAB.labToLms)});
+fn cbrt3(v: vec3f) -> vec3f { return sign(v) * pow(abs(v), vec3f(1.0 / 3.0)); }
+fn labToP3(lab: vec3f) -> vec3f { let l = LAB_TO_LMS * lab; return LMS_TO_P3 * (l * l * l); }
+fn rollOff(d: f32, lim: f32) -> f32 {
+  if (d <= GAMUT_KNEE) { return d; }
+  let t = GAMUT_KNEE;
+  let scl = (lim - t) / pow(pow((1.0 - t) / (lim - t), -GAMUT_POWER) - 1.0, 1.0 / GAMUT_POWER);
+  let nd = (d - t) / scl;
+  return t + scl * nd / pow(1.0 + pow(nd, GAMUT_POWER), 1.0 / GAMUT_POWER);
+}
+fn mapGamut(rgb: vec3f, saturation: f32, lim: f32) -> vec3f {
+  let lab = LMS_TO_LAB * cbrt3(P3_TO_LMS * rgb);
+  let C = length(lab.yz) * saturation;
+  if (lab.x <= 0.0 || C <= 0.0) { return max(rgb, vec3f(0.0)); }
+  let dir = lab.yz / length(lab.yz);
+  var lo = 0.0;
+  var hi = 0.6 * max(lab.x, 1.0);
+  for (var k = 0; k < 14; k++) {
+    let mid = 0.5 * (lo + hi);
+    let p = labToP3(vec3f(lab.x, dir * mid));
+    if (min(p.r, min(p.g, p.b)) >= 0.0) { lo = mid; } else { hi = mid; }
+  }
+  let Cout = rollOff(C / max(lo, 1e-6), lim) * lo;
+  return max(labToP3(vec3f(lab.x, dir * Cout)), vec3f(0.0));
+}
+
 @fragment
 fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   let px = vec2u(pos.xy);
@@ -335,11 +381,11 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   var motion = accum[2u * i].xyz;
   var rest = accum[2u * i + 1u].xyz;
   if ((U.mode & 1u) != 0u) {
-    let h = vec3f(f32(hist[i * 3u]), f32(hist[i * 3u + 1u]), f32(hist[i * 3u + 2u]));
+    let b = i * 6u;
+    let h = vec3f(f32(hist[b]), f32(hist[b + 2u]), f32(hist[b + 4u]))
+      + 4294967296.0 * vec3f(f32(hist[b + 1u]), f32(hist[b + 3u]), f32(hist[b + 5u]));
     if (any(h > vec3f(0.0))) {
-      hist[i * 3u] = 0u;
-      hist[i * 3u + 1u] = 0u;
-      hist[i * 3u + 2u] = 0u;
+      for (var k = 0u; k < 6u; k++) { hist[b + k] = 0u; }
     }
     let frame = h * U.invNorm;
     let atRest = (U.mode & 2u) != 0u;
@@ -356,14 +402,7 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   let k = 1.0 + dot(s, s);
   let xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale);
 
-  var rgb = vec3f(dot(U.m0.xyz, xyz), dot(U.m1.xyz, xyz), dot(U.m2.xyz, xyz));
-  let Y = dot(rgb, LUMA);
-  rgb = Y + (rgb - Y) * U.saturation;
-  // Gamut map: pull out-of-gamut spectral colours toward grey at constant Y.
-  let lo = min(rgb.r, min(rgb.g, rgb.b));
-  if (lo < 0.0) {
-    rgb = select(vec3f(0.0), Y + (rgb - Y) * (Y / (Y - lo)), Y > 0.0);
-  }
+  var rgb = mapGamut(vec3f(dot(U.m0.xyz, xyz), dot(U.m1.xyz, xyz), dot(U.m2.xyz, xyz)), U.saturation, U.gamutLimit);
 
   // Hue-preserving shoulder on max(rgb) toward the headroom, and a path to
   // white driven by how hard the shoulder is compressing.

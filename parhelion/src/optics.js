@@ -258,6 +258,72 @@ export function displayMatrix(whiteXYZ) {
   return mul3(xyzToP3, mul3(Binv, mul3(D, B)));
 }
 
+// OKLab (Ottosson) expressed on linear Display P3: P3 -> LMS -> cbrt -> Lab.
+const P3_TO_XYZ = [
+  [0.4865709, 0.2656677, 0.1982173],
+  [0.2289746, 0.6917385, 0.0792869],
+  [0.0000000, 0.0451134, 1.0439444],
+];
+const XYZ_TO_P3 = [
+  [2.4934969, -0.9313836, -0.4027108],
+  [-0.8294890, 1.7626641, 0.0236247],
+  [0.0358458, -0.0761724, 0.9568845],
+];
+const XYZ_TO_LMS = [
+  [0.8189330101, 0.3618667424, -0.1288597137],
+  [0.0329845436, 0.9293118715, 0.0361456387],
+  [0.0482003018, 0.2643662691, 0.6338517070],
+];
+const LMS_TO_XYZ = [
+  [1.2270138511, -0.5577999807, 0.2812561490],
+  [-0.0405801784, 1.1122568696, -0.0716766787],
+  [-0.0763812845, -0.4214819784, 1.5861632204],
+];
+export const OKLAB = {
+  p3ToLms: null, lmsToP3: null,
+  lmsToLab: [
+    [0.2104542553, 0.7936177850, -0.0040720468],
+    [1.9779984951, -2.4285922050, 0.4505937099],
+    [0.0259040371, 0.7827717662, -0.8086757660],
+  ],
+  labToLms: [
+    [1, 0.3963377774, 0.2158037573],
+    [1, -0.1055613458, -0.0638541728],
+    [1, -0.0894841775, -1.2914855480],
+  ],
+};
+OKLAB.p3ToLms = mul3(XYZ_TO_LMS, P3_TO_XYZ);
+OKLAB.lmsToP3 = mul3(XYZ_TO_P3, LMS_TO_XYZ);
+
+function p3ToLab(rgb) {
+  return mul3v(OKLAB.lmsToLab, mul3v(OKLAB.p3ToLms, rgb).map(Math.cbrt));
+}
+function labToP3(lab) {
+  return mul3v(OKLAB.lmsToP3, mul3v(OKLAB.labToLms, lab).map(x => x * x * x));
+}
+// Largest OKLab chroma at lightness L and hue h with no negative P3 channel.
+export function boundaryChroma(L, h) {
+  let lo = 0, hi = 0.6;
+  for (let k = 0; k < 20; k++) {
+    const m = (lo + hi) / 2;
+    if (Math.min(...labToP3([L, m * Math.cos(h), m * Math.sin(h)])) >= 0) lo = m; else hi = m;
+  }
+  return lo;
+}
+
+// How far past the P3 boundary (as a chroma ratio) the spectral locus reaches
+// at a given saturation, over the visibly bright part of the spectrum. The
+// display's gamut compressor rolls exactly this far onto the boundary.
+export function gamutLimit(matrix, saturation) {
+  let lim = 1.05;
+  for (let l = 420; l <= 680; l += 2) {
+    const [L, a, b] = p3ToLab(mul3v(matrix, cie1931(l).map(v => Math.max(v, 0))));
+    const cb = boundaryChroma(L, Math.atan2(b, a));
+    if (cb > 1e-4) lim = Math.max(lim, 1.02 * saturation * Math.hypot(a, b) / cb);
+  }
+  return Math.min(lim, 4);
+}
+
 function mul3(a, b) {
   return a.map((r, i) => [0, 1, 2].map(j => r[0] * b[0][j] + r[1] * b[1][j] + r[2] * b[2][j]));
 }
