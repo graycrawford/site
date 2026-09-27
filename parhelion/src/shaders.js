@@ -2,6 +2,7 @@
 
 import { SPECTRUM_LUT, OKLAB, TYPE_KEYS } from './optics.js';
 import { SKY_W, SKY_H, SKY_BANDS, HALO_T_BINS } from './sky.js';
+import { MIE_BANDS, MIE_ANGLES, MIE_FINE } from './mie.js';
 
 const TYPE_COUNT = TYPE_KEYS.length;
 
@@ -18,10 +19,12 @@ struct Params {
   iorScale: f32, tilt: f32, polySpin: f32, lowitz: f32,
   diffraction: f32, fixedScale: f32, atmosphere: u32, maxBounces: u32,
   typeCdf: array<vec4f, 3>, // cumulative type weights (${TYPE_COUNT} types)
-  totalSamples: u32, seed: u32, _p0: u32, _p1: u32,
+  totalSamples: u32, seed: u32, sizeSpread: f32, hideSun: u32,
+  tiltScale: vec4f, // per orientation: plate, column, Parry, Lowitz
+  tiltPolyhedral: f32, mieReady: u32, _q0: u32, _q1: u32,
 }
 
-struct Crystal { box: vec4f, offset: u32, count: u32, orient: u32, kind: u32 } // kind 0: planes, 1: sphere
+struct Crystal { box: vec4f, offset: u32, count: u32, orient: u32, kind: u32 } // kind 0: planes, 1: sphere, 2: Mie drop
 struct SpectrumEntry { a: vec4f, xyz: vec4f } // a = (λ nm, n_ice, limb u, n_water)
 
 @group(0) @binding(0) var<uniform> P: Params;
@@ -29,6 +32,60 @@ struct SpectrumEntry { a: vec4f, xyz: vec4f } // a = (λ nm, n_ice, limb u, n_wa
 @group(0) @binding(2) var<storage, read> planes: array<vec4f>;
 @group(0) @binding(3) var<storage, read> spectrum: array<SpectrumEntry, ${SPECTRUM_LUT}>;
 @group(0) @binding(4) var<storage, read_write> hist: array<atomic<u32>>;
+// Spectral sample at CDF position u: wavelength, indices, limb coefficient, XYZ weight.
+struct Spec { lambda: f32, nIce: f32, limbU: f32, nWater: f32, xyz: vec3f }
+fn spectrumAt(u: f32) -> Spec {
+  let fi = u * ${SPECTRUM_LUT}.0 - 0.5;
+  let i0 = u32(clamp(floor(fi), 0.0, ${SPECTRUM_LUT - 2}.0));
+  let t = clamp(fi - f32(i0), 0.0, 1.0);
+  let a = mix(spectrum[i0].a, spectrum[i0 + 1u].a, t);
+  return Spec(a.x, a.y, a.z, a.w, mix(spectrum[i0].xyz.xyz, spectrum[i0 + 1u].xyz.xyz, t));
+}
+
+// Mie drops: per band, phase function per angle bin, then its CDF (mie.js).
+@group(0) @binding(6) var<storage, read> mie: array<f32>;
+fn mieBin(thetaDeg: f32) -> u32 {
+  if (thetaDeg < 5.0) { return u32(thetaDeg / 0.005); }
+  return min(${MIE_FINE}u + u32((thetaDeg - 5.0) / 0.05), ${MIE_ANGLES - 1}u);
+}
+fn mieEdge(i: u32) -> f32 {
+  if (i <= ${MIE_FINE}u) { return f32(i) * 0.005; }
+  return 5.0 + f32(i - ${MIE_FINE}u) * 0.05;
+}
+// Scatter one wavelength off a drop: half the samples follow the phase
+// function (sharp corona, bows, glory), half are uniform on the sphere (so
+// faint angles still get visited); the one-sample mixture weight p/q keeps it
+// unbiased. The band is chosen stochastically between neighbours.
+fn scatterMie(rIn: vec3f, xyz: vec3f, lambda: f32) {
+  let fb = clamp((lambda - 400.0) / 10.0, 0.0, ${MIE_BANDS - 1}.0);
+  var band = u32(floor(fb));
+  if (band < ${MIE_BANDS - 1}u && rand() < fb - f32(band)) { band++; }
+  let base = band * ${MIE_ANGLES * 2}u;
+  var cosT: f32;
+  if (rand() < 0.5) {
+    let u = rand();
+    var lo = 0u;
+    var hi = ${MIE_ANGLES - 1}u;
+    loop {
+      if (lo >= hi) { break; }
+      let mid = (lo + hi) / 2u;
+      if (mie[base + ${MIE_ANGLES}u + mid] < u) { lo = mid + 1u; } else { hi = mid; }
+    }
+    let c0 = cos(mieEdge(lo) * PI / 180.0);
+    let c1 = cos(mieEdge(lo + 1u) * PI / 180.0);
+    cosT = mix(c0, c1, rand());
+  } else {
+    cosT = 2.0 * rand() - 1.0;
+  }
+  let p = mie[base + mieBin(acos(clamp(cosT, -1.0, 1.0)) * 180.0 / PI)];
+  let weight = p / (0.5 * p + 0.5 / (4.0 * PI));
+  let t1 = normalize(cross(rIn, select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(rIn.x) > 0.9)));
+  let t2 = cross(rIn, t1);
+  let phi = TAU * rand();
+  let sinT = sqrt(max(0.0, 1.0 - cosT * cosT));
+  splat(cosT * rIn + sinT * (cos(phi) * t1 + sin(phi) * t2), xyz * weight, lambda);
+}
+
 // Sun -> cloud -> observer transmittance per view elevation and band (sky.js).
 @group(0) @binding(5) var<storage, read> haloT: array<f32>;
 fn haloTransmittance(sinEl: f32, lambda: f32) -> f32 {
@@ -103,7 +160,9 @@ fn rotZ(a: f32) -> mat3x3f { let c = cos(a); let s = sin(a); return mat3x3f(c, s
 
 // Local (c-axis = +Y) -> world (+Y up, sun toward +Z).
 fn orientation(mode: u32, q: vec4f) -> mat3x3f {
-  let s = P.tilt;
+  // One tilt σ, scaled per orientation (how tightly each habit is held).
+  var scales = array<f32, 6>(1.0, P.tiltScale.x, P.tiltScale.y, P.tiltScale.z, P.tiltScale.w, P.tiltPolyhedral);
+  let s = P.tilt * scales[min(mode, 5u)];
   switch (mode) {
     case 0u: { // uniformly random (Shoemake)
       let a = sqrt(1.0 - q.x);
@@ -168,6 +227,7 @@ fn add64(i: u32, v: u32) {
 // XYZ histogram. dir is the propagation direction in crystal-local space.
 var<private> toCam: mat3x3f; // local -> (right, down, fwd)
 var<private> upLocal: vec3f; // world up in crystal space
+var<private> sizeScale: f32; // this crystal's 1/D relative to the mean (diffraction)
 var<private> dither: f32;
 fn splat(dirLocal: vec3f, xyzIn: vec3f, lambda: f32) {
   var xyz = xyzIn;
@@ -177,7 +237,7 @@ fn splat(dirLocal: vec3f, xyzIn: vec3f, lambda: f32) {
     let helper = select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(v.x) > 0.9);
     let t1 = normalize(helper - v * dot(v, helper));
     let t2 = cross(v, t1);
-    let sig = P.diffraction * lambda;
+    let sig = P.diffraction * sizeScale * lambda;
     v = normalize(v + sig * (gauss(rand()) * t1 + gauss(rand()) * t2));
   }
   let den = 1.0 + v.z;
@@ -239,8 +299,11 @@ fn trace(c: Crystal, rIn: vec3f, entry: vec3f, N0: vec3f, n: f32, xyzIn: vec3f, 
     let cosI = dot(dir, N);
     let f = fresnel(cosI, n);
     if (f.R < 1.0) {
-      let out = n * dir - (n * cosI - f.cosT) * N;
-      splat(normalize(out), xyzIn * (w * (1.0 - f.R)), lambda);
+      let out = normalize(n * dir - (n * cosI - f.cosT) * N);
+      // Undeviated light (parallel faces) is the sun itself; optionally hidden.
+      if (P.hideSun == 0u || dot(out, rIn) < 0.99999998) {
+        splat(out, xyzIn * (w * (1.0 - f.R)), lambda);
+      }
     }
     w *= f.R;
     if (w < 0.02) {
@@ -263,6 +326,27 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let qc = rand4(); // crystal type, sun disk
 
     let c = crystals[pickType(qc.x)];
+    if (c.kind == 2u) {
+      // Mie drops: orientation-free; scatter the incoming sunlight directly.
+      if (P.mieReady == 0u) { continue; }
+      var sunM = P.sunDir;
+      let rhoM = P.sunRadius * sqrt(qc.y);
+      if (rhoM > 0.0) {
+        let t1 = normalize(cross(P.sunDir, vec3f(1.0, 0.0, 0.0)));
+        let t2 = cross(P.sunDir, t1);
+        sunM = normalize(P.sunDir + tan(rhoM) * (cos(TAU * qc.z) * t1 + sin(TAU * qc.z) * t2));
+      }
+      toCam = transpose(mat3x3f(P.camRight, P.camDown, P.camFwd));
+      upLocal = vec3f(0.0, 1.0, 0.0);
+      sizeScale = 0.0; // diffraction is already in the phase function
+      let muM = sqrt(max(0.0, 1.0 - qc.y));
+      for (var h = 0u; h < HERO; h++) {
+        let sp = spectrumAt(fract(qb.w + f32(h) / f32(HERO)));
+        let limb = select(1.0, (1.0 - sp.limbU * (1.0 - muM)) / (1.0 - sp.limbU / 3.0), P.sunRadius > 0.0);
+        scatterMie(-sunM, sp.xyz * (limb / f32(HERO)), sp.lambda);
+      }
+      continue;
+    }
     let R = orientation(c.orient, qa);
 
     // Finite, limb-darkened sun (angular radius P.sunRadius).
@@ -332,21 +416,16 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     // Camera basis in crystal space so splat() skips the world transform.
     toCam = transpose(mat3x3f(Rt * P.camRight, Rt * P.camDown, Rt * P.camFwd));
     upLocal = Rt * vec3f(0.0, 1.0, 0.0);
+    // Crystal sizes are lognormal about the mean: σ_diffraction ∝ 1/D.
+    sizeScale = exp(P.sizeSpread * gauss(rand()));
 
     let weight = 4.0 * area * c.box.w / f32(HERO);
     for (var h = 0u; h < HERO; h++) {
-      let u = fract(qb.w + f32(h) / f32(HERO));
-      let fi = u * ${SPECTRUM_LUT}.0 - 0.5;
-      let i0 = u32(clamp(floor(fi), 0.0, ${SPECTRUM_LUT - 2}.0));
-      let t = clamp(fi - f32(i0), 0.0, 1.0);
-      let s0 = spectrum[i0];
-      let s1 = spectrum[i0 + 1u];
-      let a = mix(s0.a, s1.a, t);
-      let xyz = mix(s0.xyz.xyz, s1.xyz.xyz, t);
-      let limb = (1.0 - a.z * (1.0 - mu)) / (1.0 - a.z / 3.0);
+      let sp = spectrumAt(fract(qb.w + f32(h) / f32(HERO)));
+      let limb = (1.0 - sp.limbU * (1.0 - mu)) / (1.0 - sp.limbU / 3.0);
       let w = weight * select(1.0, limb, P.sunRadius > 0.0);
-      let n = select(a.y, a.w, c.kind == 1u) * P.iorScale;
-      trace(c, r, entry, N0, n, xyz * w, a.x);
+      let n = select(sp.nIce, sp.nWater, c.kind == 1u) * P.iorScale;
+      trace(c, r, entry, N0, n, sp.xyz * w, sp.lambda);
     }
   }
 }
@@ -366,7 +445,7 @@ struct Present {
   gamutLimit: f32, // chroma ratio of the spectral locus past P3
   lift: f32, // shadows: power applied below peak white (1 = none)
   skyGain: f32, // exposure / cloud optical depth; 0 = no sky
-  camRight: vec3f, _p0: f32,
+  camRight: vec3f, showSun: f32,
   camDown: vec3f, _p1: f32,
   camFwd: vec3f, _p2: f32,
   sunDir: vec3f, sunCos: f32, // cos of the sun's angular radius
@@ -443,19 +522,37 @@ fn mapGamut(rgb: vec3f, saturation: f32, lim: f32) -> vec3f {
 
 // Pre-tonemap display-linear P3 for a pixel: accumulated energy -> radiance
 // (dividing by the pixel's stereographic solid angle), plus sky, gamut-mapped.
-fn sceneRGB(p: vec2f, a: vec3f) -> vec3f {
+fn sceneRGB(p: vec2f, a: vec3f) -> vec3f { return sceneRGBWith(p, a, vec3f(0.0)); }
+
+// The sun's own disk at this pixel: (limb-darkened XYZ radiance, pixel
+// coverage). Coverage is the fraction of the pixel's footprint inside the
+// disk, so the edge is resolved analytically rather than point-sampled.
+fn sunDisk(p: vec2f) -> vec4f {
+  if (U.skyGain <= 0.0 || U.showSun == 0.0) { return vec4f(0.0); }
   let s = (p - U.center) / U.scale;
   let k = 1.0 + dot(s, s);
-  var xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale);
+  let c = vec3f(2.0 * s, 2.0 - k) / k;
+  let d = normalize(U.camRight * c.x + U.camDown * c.y + U.camFwd * c.z);
+  let delta = 2.0 * asin(clamp(0.5 * length(d - U.sunDir), 0.0, 1.0));
+  let radius = acos(U.sunCos);
+  let pixel = 2.0 / (U.scale * k); // angular size of one pixel here
+  let cover = clamp((radius - delta) / pixel + 0.5, 0.0, 1.0);
+  if (cover <= 0.0) { return vec4f(0.0); }
+  let q = min(delta / radius, 1.0);
+  let limb = (1.0 - 0.6 * (1.0 - sqrt(1.0 - q * q))) / 0.8;
+  let radiance = sky[${SKY_W * SKY_H}u].xyz / (2.0 * PI * (1.0 - U.sunCos)) * limb;
+  return vec4f(radiance, cover);
+}
+
+fn sceneRGBWith(p: vec2f, a: vec3f, extra: vec3f) -> vec3f {
+  let s = (p - U.center) / U.scale;
+  let k = 1.0 + dot(s, s);
+  var xyz = a * U.invWeight * (0.25 * k * k * U.scale * U.scale) + extra * U.skyGain;
   if (U.skyGain > 0.0) {
     // This pixel's sky direction: inverse stereographic, then the camera basis.
     let c = vec3f(2.0 * s, 2.0 - k) / k;
     let d = normalize(U.camRight * c.x + U.camDown * c.y + U.camFwd * c.z);
-    var light = skyLookup(d);
-    if (dot(d, U.sunDir) > U.sunCos) {
-      light += sky[${SKY_W * SKY_H}u].xyz / (2.0 * PI * (1.0 - U.sunCos)); // the sun itself
-    }
-    xyz += light * U.skyGain;
+    xyz += skyLookup(d) * U.skyGain;
   }
   return mapGamut(vec3f(dot(U.m0.xyz, xyz), dot(U.m1.xyz, xyz), dot(U.m2.xyz, xyz)), U.saturation, U.gamutLimit);
 }
@@ -481,29 +578,8 @@ fn meterMain(@builtin(global_invocation_id) id: vec3u, @builtin(local_invocation
   if (n > 0u) { atomicAdd(&meter[li], n); }
 }
 
-@fragment
-fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
-  let px = vec2u(pos.xy);
-  let i = px.y * U.width + px.x;
-  var motion = accum[2u * i].xyz;
-  var rest = accum[2u * i + 1u].xyz;
-  if ((U.mode & 1u) != 0u) {
-    let b = i * 6u;
-    let h = vec3f(f32(hist[b]), f32(hist[b + 2u]), f32(hist[b + 4u]))
-      + 4294967296.0 * vec3f(f32(hist[b + 1u]), f32(hist[b + 3u]), f32(hist[b + 5u]));
-    if (any(h > vec3f(0.0))) {
-      for (var k = 0u; k < 6u; k++) { hist[b + k] = 0u; }
-    }
-    let frame = h * U.invNorm;
-    motion = motion * U.decayMotion + rest * U.merge + select(vec3f(0.0), frame, (U.mode & 2u) != 0u);
-    rest = rest * U.keepRest + select(vec3f(0.0), frame, (U.mode & 4u) != 0u);
-    accum[2u * i] = vec4f(motion, 0.0);
-    accum[2u * i + 1u] = vec4f(rest, 0.0);
-  }
-  let a = motion + rest;
-
-  var rgb = sceneRGB(pos.xy, a);
-
+fn toneMap(rgbIn: vec3f) -> vec3f {
+  var rgb = rgbIn;
   // Hue-preserving shoulder on max(rgb): f(m) = m / (1 + (m/H)^p)^(1/p) is
   // smooth everywhere (no joint to band at), ~linear below the knee, and
   // approaches the headroom H without ever reaching it, so nothing clips.
@@ -528,6 +604,38 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
       rgb *= H * y / mm;
     }
   }
+
+  return rgb;
+}
+
+@fragment
+fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let px = vec2u(pos.xy);
+  let i = px.y * U.width + px.x;
+  var motion = accum[2u * i].xyz;
+  var rest = accum[2u * i + 1u].xyz;
+  if ((U.mode & 1u) != 0u) {
+    let b = i * 6u;
+    let h = vec3f(f32(hist[b]), f32(hist[b + 2u]), f32(hist[b + 4u]))
+      + 4294967296.0 * vec3f(f32(hist[b + 1u]), f32(hist[b + 3u]), f32(hist[b + 5u]));
+    if (any(h > vec3f(0.0))) {
+      for (var k = 0u; k < 6u; k++) { hist[b + k] = 0u; }
+    }
+    let frame = h * U.invNorm;
+    motion = motion * U.decayMotion + rest * U.merge + select(vec3f(0.0), frame, (U.mode & 2u) != 0u);
+    rest = rest * U.keepRest + select(vec3f(0.0), frame, (U.mode & 4u) != 0u);
+    accum[2u * i] = vec4f(motion, 0.0);
+    accum[2u * i + 1u] = vec4f(rest, 0.0);
+  }
+  let a = motion + rest;
+
+  var rgb = sceneRGB(pos.xy, a);
+
+  rgb = toneMap(rgb);
+  // Blend in the sun disk after tone mapping, by exact pixel coverage, so its
+  // edge stays smooth however bright it is.
+  let sun = sunDisk(pos.xy);
+  if (sun.w > 0.0) { rgb = mix(rgb, toneMap(sceneRGBWith(pos.xy, a, sun.xyz)), sun.w); }
 
   var enc = vec3f(encode(rgb.r), encode(rgb.g), encode(rgb.b));
   // Blue-noise-ish dither against 8-bit banding; black stays black.

@@ -43,7 +43,7 @@ export function skyBands() {
 
 export function skyShader() {
   return /* wgsl */ `
-struct Sky { sunElevation: f32, altitude: f32, albedo: f32, haze: f32, cloudHeight: f32, _p0: f32, _p1: f32, _p2: f32 }
+struct Sky { sunElevation: f32, altitude: f32, albedo: f32, haze: f32, cloudHeight: f32, layer: f32, _p1: f32, _p2: f32 }
 struct Band { beta: vec4f, xyz: vec4f }
 @group(0) @binding(0) var<uniform> S: Sky;
 @group(0) @binding(1) var<storage, read> bands: array<Band, ${SKY_BANDS}>;
@@ -163,9 +163,11 @@ fn msMain(@builtin(global_invocation_id) id: vec3u) {
   }
 }
 
-// Halo light: sunlight reaches a cloud layer at S.cloudHeight, then crosses
-// to the observer along each view elevation. Zero where the ground is in the
-// way (a cloud above can't be seen below the horizon) or the view never
+// Halo light. Crystals around the observer (diamond dust, S.layer = 0): only
+// the sunlight reaching them is attenuated, and halos show in every
+// direction, in front of the ground. A cloud layer at S.cloudHeight
+// (S.layer = 1): sunlight to the layer, then the path to the observer along
+// each view elevation; zero where the ground is in the way or the view never
 // meets the layer.
 @compute @workgroup_size(64)
 fn haloMain(@builtin(global_invocation_id) id: vec3u) {
@@ -175,6 +177,11 @@ fn haloMain(@builtin(global_invocation_id) id: vec3u) {
   let o = vec3f(0.0, R_GROUND + S.altitude, 0.0);
   let rc = R_GROUND + S.cloudHeight;
   let sun = vec3f(0.0, sin(S.sunElevation), cos(S.sunElevation));
+  if (S.layer == 0.0) {
+    let near = toSun(vec3f(0.0, R_GROUND + S.altitude, 0.0), sun);
+    for (var b = 0u; b < ${SKY_BANDS}u; b++) { haloT[id.x * ${SKY_BANDS}u + b] = transmittance(near, b); }
+    return;
+  }
   let sunDepth = toSun(vec3f(0.0, rc, 0.0), sun);
   let c = sphere(o, dir, rc);
   let g = sphere(o, dir, R_GROUND);

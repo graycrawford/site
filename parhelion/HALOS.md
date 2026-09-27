@@ -51,10 +51,11 @@ octahedra (42° halo, 4 sundogs). Needs per-material index tables and cubic
 | Zero-order glow, 3rd/4th orders (sunward), 5th/6th | geometric orders | ✓ |
 | Seawater bow, glass-bead bow | index only | material table |
 | Reflection / reflected bows, dew bow | + water or ground plane | mode |
-| Supernumeraries, bow width vs drop size | interference (Airy) | wave |
-| Fogbow, cloudbow | drops < 100 µm (Mie) | wave |
-| Corona, iridescence, Bishop's ring, pollen corona | diffraction / Mie | wave |
-| Glory | Mie / Debye with surface waves | wave |
+| Supernumeraries, bow width vs drop size | interference | ✓ Mie (drops ≤ 250 µm); larger rain is geometric |
+| Fogbow, cloudbow | drops < 100 µm | ✓ Mie |
+| Corona, iridescence | diffraction | ✓ Mie |
+| Bishop's ring, pollen corona | ~1 µm aerosol / non-spherical grains | wave (Bishop's: Mie with a particle index) |
+| Glory | Mie (surface waves included) | ✓ Mie |
 | Heiligenschein | drop focusing onto a surface | mode |
 
 ## Next principled additions (priority)
@@ -64,4 +65,4 @@ octahedra (42° halo, 4 sundogs). Needs per-material index tables and cubic
 3. Restricted Lowitz rotation range; Lowitz columns.
 4. Material table (ice, water, seawater, CO₂, NH₃, glass) with dispersion.
 5. Finite-distance lamp source in a crystal volume: light pillars, lamp halos.
-6. Wave optics for drops (Airy/Mie phase functions): supernumeraries, fogbow, corona, glory.
+6. Mie for rain-size drops (0.25–2 mm) via precomputed tables shipped as data: supernumeraries of ordinary rainbows.

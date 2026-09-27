@@ -148,8 +148,9 @@ export function buildCrystals(shape) {
     { planes: pyramidal(0.15, shape.pyramidCap, shape.pyramidCap), orient: ORIENT.plate },
     // Pyramidal crystals tumbling: the odd-radius halo rings.
     { planes: pyramidal(shape.pyramidPrism, shape.pyramidCap, shape.pyramidCap), orient: ORIENT.random },
-    // Raindrops: spheres, traced analytically (no planes).
-    { sphere: true, orient: ORIENT.random },
+    // Water drops: spheres traced analytically, or (small drops) scattered by
+    // tabulated Mie phase functions.
+    { sphere: true, mie: shape.dropMie, orient: ORIENT.random },
   ];
   if (shape.tumble) for (const t of [5, 6, 8]) defs[t].orient = ORIENT.random;
   const info = new Uint32Array(defs.length * 8);
@@ -159,7 +160,7 @@ export function buildCrystals(shape) {
     if (def.sphere) {
       // Unit sphere: box = radius, 4/S = 1/π.
       infoF.set([1, 1, 1, 1 / Math.PI], t * 8);
-      info.set([0, 0, def.orient, 1], t * 8 + 4);
+      info.set([0, 0, def.orient, def.mie ? 2 : 1], t * 8 + 4);
       return;
     }
     const a = analyze(def.planes);

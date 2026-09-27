@@ -4,6 +4,8 @@
 // tone-maps to an extended-range Display P3 canvas.
 
 import { traceShader, presentShader, TRACE_WORKGROUP } from './shaders.js';
+import { MieTables } from './mie-tables.js';
+import { MIE_BANDS, MIE_ANGLES } from './mie.js';
 import { skyShader, skyBands, SKY_W, SKY_H, SKY_BANDS, MS_SIZE, HALO_T_BINS } from './sky.js';
 import { buildCrystals, buildSpectrum, displayMatrix, gamutLimit, ICE_N_REF, TYPE_KEYS } from './optics.js';
 
@@ -42,19 +44,27 @@ export class Renderer {
     this.crystalBuffer = null;
     this.planeBuffer = null;
 
-    this.traceUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.traceUniforms = device.createBuffer({ size: 208, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.presentUniforms = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.skyUniforms = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.skyMs = device.createBuffer({ size: MS_SIZE * MS_SIZE * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
     this.haloT = device.createBuffer({ size: HALO_T_BINS * SKY_BANDS * 4, usage: GPUBufferUsage.STORAGE });
     this.msKey = '';
+    // Wave-optical drops: tables arrive from workers; until then they're skipped.
+    this.mieBuffer = device.createBuffer({ size: MIE_BANDS * MIE_ANGLES * 8, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.mieReady = false;
+    this.mie = new MieTables(data => {
+      device.queue.writeBuffer(this.mieBuffer, 0, data);
+      this.mieReady = true;
+      this.onMieReady?.();
+    });
     this.skyBands = this.storage(skyBands());
     this.skyLut = device.createBuffer({ size: (SKY_W * SKY_H + 1) * 16, usage: GPUBufferUsage.STORAGE });
     this.skyKey = '';
     this.meter = device.createBuffer({ size: 256, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.meterRead = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
     this.metering = false;
-    this.traceData = new ArrayBuffer(176);
+    this.traceData = new ArrayBuffer(208);
     this.presentData = new ArrayBuffer(176);
 
     this.frameIndex = 0;
@@ -171,7 +181,7 @@ export class Renderer {
     const d = this.device;
     this.traceGroup = d.createBindGroup({
       layout: this.tracePipeline.getBindGroupLayout(0),
-      entries: [this.traceUniforms, this.crystalBuffer, this.planeBuffer, this.spectrumBuffer, this.hist, this.haloT]
+      entries: [this.traceUniforms, this.crystalBuffer, this.planeBuffer, this.spectrumBuffer, this.hist, this.haloT, this.mieBuffer]
         .map((buffer, binding) => ({ binding, resource: { buffer } })),
     });
     this.presentGroup = d.createBindGroup({
@@ -252,6 +262,11 @@ export class Renderer {
       }
       u[40] = samples;
       u[41] = Math.floor(Math.random() * 2 ** 32) >>> 0;
+      f[42] = s.sizeSpread ?? 0;
+      u[43] = s.showSun === false ? 1 : 0;
+      const ts = s.tiltScale ?? [1, 1, 1, 1, 1];
+      f.set([ts[0], ts[1], ts[2], ts[3], ts[4]], 44);
+      u[49] = this.mieReady ? 1 : 0;
       d.queue.writeBuffer(this.traceUniforms, 0, this.traceData);
     }
 
@@ -290,6 +305,7 @@ export class Renderer {
     pf[26] = s.lift ?? 1;
     pf[27] = s.sky ? s.exposure / s.cloudDepth : 0;
     pf.set(v.right, 28);
+    pf[31] = s.showSun === false ? 0 : 1;
     pf.set(v.down, 32);
     pf.set(v.fwd, 36);
     const el = s.sunElevation * Math.PI / 180;
@@ -298,11 +314,11 @@ export class Renderer {
 
     const enc = d.createCommandEncoder();
     // Re-bake the sky table only when the sun or observer changes.
-    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze} ${s.cloudHeight}` : this.skyKey;
+    const skyKey = s.sky ? `${s.sunElevation.toFixed(3)} ${s.altitude} ${s.albedo} ${s.haze} ${s.cloudHeight} ${s.cloudLayer}` : this.skyKey;
     if (skyKey !== this.skyKey) {
       this.skyKey = skyKey;
       d.queue.writeBuffer(this.skyUniforms, 0, new Float32Array([
-        s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze, s.cloudHeight * 1000, 0, 0, 0]));
+        s.sunElevation * Math.PI / 180, s.altitude * 1000, s.albedo, s.haze, s.cloudHeight * 1000, s.cloudLayer ? 1 : 0, 0, 0]));
       const pass = enc.beginComputePass();
       const msKey = `${s.albedo} ${s.haze}`; // multiple scattering doesn't depend on the sun
       if (msKey !== this.msKey) {

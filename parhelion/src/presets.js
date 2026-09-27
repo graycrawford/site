@@ -67,11 +67,13 @@ export const PRESETS = {
 export const PRESET_KEYS = [
   'sunElevation', 'camElevation', 'lockSunCenter', 'zoom', 'crystalTilt', 'polyhedralSpin', 'ior',
   'exposure', 'fadeFactor', 'saturation', 'lowitzSpin', 'crystalSize', 'plateAspect', 'columnAspect', 'sunDisk',
-  'lookAway', 'tumble', 'triangularity', 'sky', 'cloudDepth', 'altitude', 'albedo', 'haze', 'cloudHeight', 'shadows',
+  'lookAway', 'tumble', 'triangularity', 'sky', 'cloudDepth', 'altitude', 'albedo', 'haze', 'cloudHeight', 'cloudLayer', 'showSun', 'shadows', 'sizeSpread', 'dropRadius', 'dropSpread',
+  'tiltPlate', 'tiltColumn', 'tiltParry', 'tiltLowitz', 'tiltPolyhedral',
 ];
 export const PRESET_DEFAULTS = {
   lockSunCenter: true, polyhedralSpin: 0, lowitzSpin: 30, crystalSize: 0, plateAspect: 0.2, columnAspect: 2, sunDisk: true,
-  lookAway: false, tumble: false, triangularity: 0, sky: false, cloudDepth: 0.15, altitude: 0.5, albedo: 0.15, haze: 0.1, cloudHeight: 9, shadows: 0,
+  lookAway: false, tumble: false, triangularity: 0, sky: false, cloudDepth: 0.15, altitude: 0.5, albedo: 0.15, haze: 0.1, cloudHeight: 9, cloudLayer: false, showSun: true, shadows: 0, sizeSpread: 0.5, dropRadius: 500, dropSpread: 0.1,
+  tiltPlate: 1, tiltColumn: 1.5, tiltParry: 0.25, tiltLowitz: 1, tiltPolyhedral: 1,
 };
 
 const STORE = 'parhelion.presets';
