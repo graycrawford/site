@@ -43,7 +43,7 @@ export function skyBands() {
 
 export function skyShader() {
   return /* wgsl */ `
-struct Sky { sunElevation: f32, altitude: f32, albedo: f32, haze: f32, cloudHeight: f32, layer: f32, ground: f32, _p2: f32 }
+struct Sky { sunElevation: f32, altitude: f32, albedo: f32, haze: f32, cloudHeight: f32, layer: f32, ground: f32, pressure: f32 }
 struct Band { beta: vec4f, xyz: vec4f }
 @group(0) @binding(0) var<uniform> S: Sky;
 @group(0) @binding(1) var<storage, read> bands: array<Band, ${SKY_BANDS}>;
@@ -89,10 +89,13 @@ fn upCos(p: vec3f, d: vec3f) -> f32 {
 }
 
 // (Rayleigh, Mie, ozone) densities at height h (m). Below the ground: none
-// (vacuum planet), or sea-level air (air all the way down).
+// (vacuum planet), or sea-level air (air all the way down). S.pressure scales
+// the gas column (surface pressure in atmospheres: 0 is no air, Mars ~0.006,
+// Titan ~1.5); haze has its own depth.
 fn density(h: f32) -> vec3f {
-  if (h < 0.0) { return select(vec3f(0.0), vec3f(1.0, 1.0, 0.0), mode() == 2u); }
-  return vec3f(exp(-h / H_RAYLEIGH), exp(-h / H_MIE), max(0.0, 1.0 - abs(h - 25000.0) / 15000.0));
+  let gas = vec3f(S.pressure, 1.0, S.pressure);
+  if (h < 0.0) { return select(vec3f(0.0), gas * vec3f(1.0, 1.0, 0.0), mode() == 2u); }
+  return gas * vec3f(exp(-h / H_RAYLEIGH), exp(-h / H_MIE), max(0.0, 1.0 - abs(h - 25000.0) / 15000.0));
 }
 
 // Distances along unit d from p to the sphere at height H. Written in terms
@@ -162,10 +165,10 @@ fn toSun(p: vec3f, sun: vec3f) -> vec3f {
   if (m == 2u) {
     if (heightOf(p) < 0.0) {
       let out = shell(p, sun, 0.0).y;
-      return out * vec3f(1.0, 1.0, 0.0) + depthOver(p, sun, out, shell(p, sun, TOP).y, SUN_STEPS);
+      return out * density(-1.0) + depthOver(p, sun, out, shell(p, sun, TOP).y, SUN_STEPS);
     }
     if (g.y >= 0.0) {
-      return depthOver(p, sun, 0.0, g.x, SUN_STEPS) + (g.y - g.x) * vec3f(1.0, 1.0, 0.0)
+      return depthOver(p, sun, 0.0, g.x, SUN_STEPS) + (g.y - g.x) * density(-1.0)
         + depthOver(p, sun, g.y, shell(p, sun, TOP).y, SUN_STEPS);
     }
   }

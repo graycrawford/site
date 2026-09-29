@@ -5,8 +5,15 @@
 import { Renderer } from './renderer.js';
 
 const TILE_W = 132; // CSS px
-const FRAMES = 10; // accumulation frames per thumbnail
-const RAYS = 1 << 20; // per frame
+const RAYS = 1 << 22; // per thumbnail
+const REDRAW = 12; // frames between progressive redraws
+// Per animation frame, a share of what the main view traces in motion (its
+// budget is measured from GPU time), so thumbnails spread over frames and
+// never stall the main view, on a phone as on a desktop.
+const SHARE = 0.35;
+const MIN_CHUNK = 1 << 16;
+const MAX_CHUNK = 1 << 21;
+const nextFrame = () => new Promise(r => requestAnimationFrame(r));
 
 export class PresetGrid {
   // presets(): { name: preset }, saved(): names saved here, current(): name,
@@ -78,7 +85,7 @@ export class PresetGrid {
     g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   }
 
-  // Render missing thumbnails one per animation frame so the main view keeps moving.
+  // Render missing thumbnails in turn, each spread over animation frames.
   async fill() {
     if (this.filling) return;
     this.filling = true;
@@ -88,17 +95,18 @@ export class PresetGrid {
         const key = this.keyFor(name);
         const hit = this.cache.get(name);
         if (hit && hit.key === key) continue;
-        const bitmap = await this.render(this.presets()[name]);
+        const bitmap = await this.render(this.presets()[name], b => { if (this.tiles.get(name) === canvas) this.draw(canvas, b); });
+        if (!bitmap) break; // closed part way
         this.cache.set(name, { key, bitmap });
         if (this.tiles.get(name) === canvas) this.draw(canvas, bitmap);
-        await new Promise(r => requestAnimationFrame(r));
       }
     } finally {
       this.filling = false;
     }
   }
 
-  async render(preset) {
+  // Traces a preset's thumbnail; progress(bitmap) shows it as it sharpens.
+  async render(preset, progress) {
     if (!this.thumb) {
       this.surface = new OffscreenCanvas(TILE_W * 2, this.h * 2);
       this.thumb = await Renderer.createShared(this.main, this.surface);
@@ -109,10 +117,17 @@ export class PresetGrid {
     r.setCrystals(this.shapeFor(preset));
     r.mieReady = this.main.mieReady;
     r.mieScale = this.main.mieScale;
-    r.samplesFor.rest = r.samplesFor.motion = RAYS;
     r.reset();
     const state = this.stateFor(preset);
-    for (let i = 0; i < FRAMES; i++) r.render(state, { trace: true, still: true, fade: 1, mean: 1 });
+    for (let traced = 0, frame = 1; traced < RAYS; frame++) {
+      if (!this.isOpen) return null;
+      const chunk = Math.min(MAX_CHUNK, Math.max(MIN_CHUNK, Math.round(this.main.samplesFor.motion * SHARE)));
+      r.samplesFor.rest = r.samplesFor.motion = chunk;
+      r.render(state, { trace: true, still: true, fade: 1, mean: 1 });
+      traced += chunk;
+      if (frame % REDRAW === 0 && traced < RAYS) progress(this.surface.transferToImageBitmap());
+      await nextFrame();
+    }
     await r.device.queue.onSubmittedWorkDone();
     return this.surface.transferToImageBitmap();
   }

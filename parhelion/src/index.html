@@ -272,6 +272,13 @@
         height: 12px;
         fill: rgba(255, 255, 255, 0.4); /* 40% opacity icon */
       }
+      /* The controls add light to the scene rather than blending toward SDR
+         white: over HDR halos brighter than white, a translucent white dot
+         would otherwise read as a darker disc, a drop shadow. */
+      #xy-pad-knob, .preset-marker, .xy-pad-row-slider, .crystal-toggle,
+      #preset-toggle, #look-away, #gui-toggle {
+        mix-blend-mode: plus-lighter;
+      }
       #gui-toggle.open svg {
         /* Minus sign styling handled by SVG content replacement */
         fill: rgba(255, 255, 255, 0.8);
@@ -428,7 +435,7 @@
         <div class="crystal-toggle" data-type="enableDodecahedral" title="dodecahedral" style="left: 130px; bottom: 17.32px;">Do</div>
       </div>
       <!-- Native preset picker (positioned dynamically over preset-toggle button) -->
-      <select id="preset-picker"></select>
+      <select id="preset-picker" style="display: none"></select>
     </div>
     
     <!-- Look away from the sun (F) -->

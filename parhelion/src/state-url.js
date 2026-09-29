@@ -49,6 +49,7 @@ const FIELDS = [
   ['shadows', 'lin', 0, 3, 0.01, 0],
   ['autoExposure', 'bool', 0, 0, 0, false],
   ['autoBias', 'lin', -3, 3, 0.1, 0],
+  ['pressure', 'lin', 0, 4, 0.01, 1],
 ];
 
 function bitsOf([, kind, lo, hi, step]) {

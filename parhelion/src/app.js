@@ -69,6 +69,7 @@ const CONFIG = {
   cloudLayer: false, // crystals in a cirrus layer (vs. around the observer, diamond dust)
   cloudHeight: 9, // km, the halo cloud layer (cirrus)
   haze: 0.1, // aerosol optical depth at 550 nm (0.05 clean, 0.1 typical, 0.4 hazy)
+  pressure: 1, // atm of air (gas column): 0 none, 1 Earth
 
   // Output
   shadows: 0, // 0..3: lifts the lows, peak white stays put
@@ -291,6 +292,7 @@ export function start(renderer) {
   skyFolder.add(CONFIG, 'altitude', 0, 12).step(0.1).name('Altitude (km)').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'albedo', 0, 1).step(0.01).name('Ground Albedo').onChange(() => { postDirty = true; });
   skyFolder.add(CONFIG, 'haze', 0, 1).step(0.01).name('Haze τ').onChange(() => { traceDirty = true; });
+  skyFolder.add(CONFIG, 'pressure', 0, 4).step(0.01).name('Air (atm)').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'ground', GROUNDS).name('Ground').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudLayer').name('Crystals in Cloud Layer').onChange(() => { traceDirty = true; });
   skyFolder.add(CONFIG, 'cloudHeight', 0, 15).step(0.1).name('Cloud Height (km)').onChange(() => { traceDirty = true; });
@@ -481,7 +483,7 @@ export function start(renderer) {
       typeWeights: TYPE_KEYS.map(k => (c[k] ? 1 : 0)),
       exposure: c.exposure, saturation: c.saturation, headroom: 1, sunDisk: c.sunDisk, lift: 1 / (1 + 2 * c.shadows),
       sky: level > 1e-3, skyScale: Math.min(1, level / 0.04) / 10 ** (-2 * level),
-      altitude: c.altitude, albedo: c.albedo, haze: c.haze, cloudHeight: c.cloudHeight, cloudLayer: c.cloudLayer,
+      altitude: c.altitude, albedo: c.albedo, haze: c.haze, pressure: c.pressure, cloudHeight: c.cloudHeight, cloudLayer: c.cloudLayer,
       showSun: c.showSun, ground: GROUNDS.indexOf(c.ground), sizeSpread: c.sizeSpread,
       tiltScale: [c.tiltPlate, c.tiltColumn, c.tiltParry, c.tiltLowitz, c.tiltPolyhedral],
     };
@@ -599,6 +601,7 @@ export function start(renderer) {
     state.altitude = CONFIG.altitude;
     state.albedo = CONFIG.albedo;
     state.haze = CONFIG.haze;
+    state.pressure = CONFIG.pressure;
     state.cloudHeight = CONFIG.cloudHeight;
     state.cloudLayer = CONFIG.cloudLayer;
     state.showSun = CONFIG.showSun;
