@@ -8,6 +8,7 @@ import { Spring } from './spring.js';
 import { MIE_MAX_RADIUS } from './mie.js';
 import { makeLabels } from './labels.js';
 import { PresetGrid } from './preset-grid.js';
+import { encodeState, decodeState } from './state-url.js';
 
 // Rays in the rest mean before tracing stops (~17 billion: faint multi-bounce
 // arcs get a few hundred rays per pixel), or this many frames on slow GPUs.
@@ -140,13 +141,23 @@ export function start(renderer) {
   function loadPreset(name) {
     const p = allPresets()[name];
     if (!p) return;
+    const values = {};
+    for (const k of PRESET_KEYS) values[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
+    applyConfig(values, k => p.types.includes(k.slice(6).toLowerCase()));
     CONFIG.preset = name;
+  }
+
+  // Sets many settings at once (a preset or a shared link); springs carry
+  // the change unless they're off. isType(key) says which crystals are on.
+  function applyConfig(values, isType) {
     const shape = [CONFIG.plateAspect, CONFIG.columnAspect, CONFIG.tumble, CONFIG.triangularity, CONFIG.dropRadius, CONFIG.dropSpread];
     const sunDisk = CONFIG.sunDisk;
     const wasAway = CONFIG.lookAway;
-    for (const k of PRESET_KEYS) CONFIG[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
+    Object.assign(CONFIG, values);
     if (CONFIG.lookAway !== wasAway) CONFIG.camYaw += 180;
-    for (const k of TYPE_KEYS) CONFIG[k] = p.types.includes(k.slice(6).toLowerCase());
+    for (const k of TYPE_KEYS) CONFIG[k] = isType(k);
+    if (!TYPE_KEYS.some(k => CONFIG[k])) CONFIG.enableParry = true;
+    CONFIG.preset = '';
     if (shape[0] !== CONFIG.plateAspect || shape[1] !== CONFIG.columnAspect || shape[2] !== CONFIG.tumble || shape[3] !== CONFIG.triangularity
       || shape[4] !== CONFIG.dropRadius || shape[5] !== CONFIG.dropSpread) shapeDirty = true;
     if (sunDisk !== CONFIG.sunDisk) traceDirty = true;
@@ -156,6 +167,21 @@ export function start(renderer) {
     syncTargets();
     refresh();
     pad.update();
+  }
+
+  function applyConfigFromLink(v) {
+    const { types, ...values } = v;
+    applyConfig(values, k => ((types >> TYPE_KEYS.indexOf(k)) & 1) === 1);
+  }
+
+  // Keep the URL describing the current look (replaceState: no history spam).
+  let lastHash = '';
+  let hashTimer = 0;
+  function writeLink() {
+    const code = encodeState(CONFIG, TYPE_KEYS);
+    if (code === lastHash) return;
+    lastHash = code;
+    history.replaceState(null, '', `#${code}`);
   }
 
   // --- Coupled controls ---
@@ -277,7 +303,7 @@ export function start(renderer) {
   renderer.hdrQuery.addEventListener('change', () => { postDirty = true; });
   output.add(CONFIG, 'resolution', 0.5, window.devicePixelRatio || 1).step(0.25).name('Resolution').onChange(resize);
   gui.add(CONFIG, 'enableSprings').name('Springs');
-  gui.add({ copy: () => copySavedPresets() }, 'copy').name('Copy Saved Presets');
+  const copyButton = gui.add({ copy: () => copySavedPresets() }, 'copy').name('Copy Saved Presets');
 
   // Gear toggle
   const guiToggle = document.getElementById('gui-toggle');
@@ -354,10 +380,28 @@ export function start(renderer) {
     removePreset(CONFIG.preset);
     CONFIG.preset = '';
   }
+  // Copies this browser's saved presets as code for presets.js, and says so on
+  // the button (clipboard API, then the older execCommand path as fallback).
   function copySavedPresets() {
-    const code = presetsAsCode(savedPresets());
-    navigator.clipboard?.writeText(code).catch(() => {});
+    const saved = savedPresets();
+    const n = Object.keys(saved).length;
+    const say = text => { copyButton.name(text); setTimeout(() => copyButton.name('Copy Saved Presets'), 2500); };
+    if (n === 0) { say(`none saved at ${location.host}`); return; }
+    const code = presetsAsCode(saved);
     console.log(code);
+    const fallback = () => {
+      const t = document.createElement('textarea');
+      t.value = code;
+      t.style.position = 'fixed';
+      t.style.opacity = '0';
+      document.body.append(t);
+      t.select();
+      const ok = document.execCommand('copy');
+      t.remove();
+      say(ok ? `copied ${n}` : 'copy blocked: see console');
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(() => say(`copied ${n}`), fallback);
+    else fallback();
   }
 
   // --- XY pad and rails ---
@@ -471,7 +515,13 @@ export function start(renderer) {
   window.addEventListener('resize', resize);
   resize();
 
-  loadPreset(CONFIG.preset);
+  // A shared link (#…) wins over the default preset.
+  const fromLink = decodeState(location.hash.slice(1));
+  if (fromLink) applyConfigFromLink(fromLink); else loadPreset(CONFIG.preset);
+  window.addEventListener('hashchange', () => {
+    const v = decodeState(location.hash.slice(1));
+    if (v && location.hash.slice(1) !== lastHash) applyConfigFromLink(v);
+  });
   fillPicker();
   for (const s of [...Object.values(springs), ...typeSprings]) s.jump(s.target);
 
@@ -486,6 +536,7 @@ export function start(renderer) {
   }
 
   function tick(now) {
+    if (now - hashTimer > 250) { hashTimer = now; writeLink(); }
     const dt = Math.max(0, (now - last) / 1000);
     last = now;
     intervals.push(dt);
