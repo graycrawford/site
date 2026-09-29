@@ -645,7 +645,7 @@ export function start(renderer) {
     refresh();
     pad.update();
   }
-  window.parhelion = { CONFIG, renderer, loadPreset, set, springs, tick };
+  window.parhelion = { CONFIG, renderer, loadPreset, set, springs, tick, grid };
 }
 
 function refreshControllers(gui) {
