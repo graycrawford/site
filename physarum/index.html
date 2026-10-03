@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Physarum — Gray Crawford</title>
+<meta name="description" content="A plate of slime-mold simulations swept across parameter space. An interactive WebGL experiment by Gray Crawford.">
+<link rel="canonical" href="https://graycrawford.com/physarum/">
+<script>if (location.hostname === "graycrawford.com" && location.protocol === "http:") location.replace("https:" + location.href.slice(5));</script>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+  body{background-color:#000;color:rgba(255,255,255,.7);font-family:sans-serif;-webkit-font-smoothing:antialiased}
+  #app{display:flex;height:100%}
+
+  /* ───────── rail (engiscope suite) ───────── */
+  #rail{width:250px;flex:0 0 250px;height:100%;overflow-y:auto;padding:12px 14px 60px 12px;
+        scrollbar-width:none}
+  #rail::-webkit-scrollbar{width:0}
+  #info{color:rgba(255,255,255,.35);font:400 11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+        letter-spacing:.04em;margin-bottom:10px;white-space:nowrap}
+  #info span{color:rgba(255,255,255,.55)}
+
+  .card{margin-bottom:16px}
+  .card>h2{margin:0 0 8px;font:400 8px/1 sans-serif;text-transform:uppercase;letter-spacing:.18em;
+           color:rgba(255,255,255,.25);cursor:pointer;user-select:none;display:flex;align-items:center;min-height:20px}
+  .card>h2:hover{color:rgba(255,255,255,.45)}
+  .card.collapsed .body{display:none}
+  .body{padding:0 0 0 10px}
+
+  label,.lbl{font:400 8px/1 sans-serif;letter-spacing:.09em;color:rgba(255,255,255,.22);text-transform:uppercase;white-space:nowrap}
+  .num{font:400 8px/1 sans-serif;letter-spacing:.06em;color:rgba(255,255,255,.42);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  .ctrl{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .ctrl .row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex:1;min-width:0;overflow:hidden}
+  input[type=range]{width:100px;flex:none;height:20px;margin:0;-webkit-appearance:none;appearance:none;
+    background:transparent;cursor:pointer;touch-action:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;
+    background:rgba(255,255,255,.15);border-radius:50%;border:none;cursor:grab}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;background:rgba(255,255,255,.15);border-radius:50%;border:none;cursor:grab}
+  input[type=range]::-webkit-slider-runnable-track{height:20px;background:rgba(255,255,255,.05);border-radius:10px}
+  input[type=range]::-moz-range-track{height:20px;background:rgba(255,255,255,.05);border-radius:10px}
+
+  .seg{display:flex;gap:4px;margin-bottom:6px}
+  .seg button{flex:1;font:400 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;
+    color:rgba(255,255,255,.3);background-color:rgba(255,255,255,.1);border:none;border-radius:4px;
+    height:20px;padding:0;cursor:pointer;transition:all .2s ease}
+  .seg button:hover{background-color:rgba(255,255,255,.2)}
+  .seg button[aria-pressed=true]{background-color:rgba(255,255,255,.4);color:rgba(255,255,255,.6)}
+
+  /* parameter rails: every parameter is a track; x/y assigns it to an axis */
+  .prow{margin-bottom:8px}
+  .phead{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+  .phead label{flex:1;overflow:hidden;text-overflow:ellipsis}
+  .axb{width:14px;height:14px;border-radius:50%;background-color:rgba(255,255,255,.08);cursor:pointer;flex:none;
+       display:flex;align-items:center;justify-content:center;font:400 7px/1 sans-serif;text-transform:uppercase;
+       color:rgba(255,255,255,.25);transition:all .2s ease;user-select:none}
+  .axb:hover{background-color:rgba(255,255,255,.2)}
+  .axb[aria-pressed=true]{background-color:rgba(255,255,255,.4);color:rgba(255,255,255,.7)}
+  .track{position:relative;height:20px;border-radius:10px;background-color:rgba(255,255,255,.05);
+         mix-blend-mode:plus-lighter;touch-action:none;cursor:pointer}
+  .track .band{position:absolute;top:0;bottom:0;border-radius:10px;background-color:rgba(255,255,255,.08);display:none;cursor:grab}
+  .track .kn{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background-color:rgba(255,255,255,.15);
+             transform:translate(-50%,-50%);pointer-events:none}
+  .track .kn.k1{display:none}
+  .prow.swept .band,.prow.swept .kn.k1{display:block}
+  .prow.swept .kn{background-color:rgba(255,255,255,.22)}
+
+  /* xy pads pairing two parameters; click a name to cycle it */
+  #pads{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:6px}
+  .pad{min-width:0;position:relative}
+  .pad .padhead{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:0 14px 5px 2px;min-width:0}
+  .pad .pk{cursor:pointer;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .pad .pk::before{content:attr(data-a) ' ';color:rgba(255,255,255,.12)}
+  .pad .pk:hover{color:rgba(255,255,255,.55)}
+  .pad .pk.off{text-decoration:line-through;opacity:.5}
+  .pad .rm{position:absolute;top:0;right:2px;cursor:pointer;color:rgba(255,255,255,.2);font:400 10px/1 sans-serif;opacity:0;transition:opacity .2s}
+  .pad:hover .rm{opacity:1}
+  .pad .rm:hover{color:rgba(255,255,255,.7)}
+  .xyfield{position:relative;aspect-ratio:1/1;background-color:rgba(255,255,255,.05);margin-bottom:6px;
+           mix-blend-mode:plus-lighter;border-radius:10px;touch-action:none;cursor:crosshair;overflow:hidden}
+  .xydot{position:absolute;width:20px;height:20px;background-color:rgba(255,255,255,.15);
+         border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+
+  /* ───────── stage ───────── */
+  #stage{flex:1;min-width:0;display:flex;flex-direction:column;padding:14px 20px 10px}
+  #sheet{flex:1;min-height:0;display:grid;grid-template-columns:56px 1fr;grid-template-rows:1fr 22px}
+  #ygutter{position:relative;grid-column:1;grid-row:1;cursor:ns-resize;touch-action:none;overflow:hidden}
+  #xgutter{position:relative;grid-column:2;grid-row:2;cursor:ew-resize;touch-action:none}
+  #plateWrap{grid-column:2;grid-row:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0}
+  #plate{position:relative;max-width:100%;max-height:100%;touch-action:none;overflow:hidden;cursor:crosshair}
+  canvas{display:block;width:100%;height:100%}
+  .tick{position:absolute;color:rgba(255,255,255,.22);white-space:nowrap;transition:color .1s;pointer-events:none;
+        font:400 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+  .tick.hot{color:rgba(255,255,255,.8)}
+  #xgutter .tick{transform:translateX(-50%);top:6px}
+  #ygutter .tick{transform:translateY(-50%);right:10px}
+  .axname{position:absolute;pointer-events:none;font:400 8px/1 sans-serif;letter-spacing:.09em;
+          color:rgba(255,255,255,.22);text-transform:uppercase}
+  #xaxname{right:calc(100% + 10px);top:7px;white-space:nowrap}
+  #yaxname{transform:rotate(-90deg);transform-origin:left top;left:0;top:100%;white-space:nowrap}
+  .retic{position:absolute;background:rgba(255,255,255,.22);opacity:0;pointer-events:none;transition:opacity .1s}
+  #reticH{height:1px;left:0;right:0}
+  #reticV{width:1px;top:0;bottom:0}
+  #marq{position:absolute;border:1px solid rgba(255,255,255,.65);background:rgba(255,255,255,.05);display:none;pointer-events:none}
+  #readout{
+    position:absolute;bottom:0;left:0;padding:8px 12px 9px;pointer-events:none;opacity:0;
+    transition:opacity .1s;font:400 10px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:linear-gradient(to top right,rgba(0,0,0,.8),rgba(0,0,0,0) 72%);
+  }
+  #readout .k{color:rgba(255,255,255,.3)}
+  #readout .v{color:rgba(255,255,255,.55)}
+  #readout .v.sw{color:rgba(255,255,255,.9)}
+  #err{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:40px}
+  @media (max-width:860px){
+    #app{flex-direction:column-reverse}
+    #rail{width:100%;flex:0 0 auto;max-height:46vh}
+    #stage{padding:10px 14px 0}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="rail">
+    <div style="display:flex;gap:8px;align-items:baseline"><a href="/" aria-label="Gray Crawford home" title="graycrawford.com" style="color:rgba(255,255,255,.35);text-decoration:none;font:400 11px/1.5 sans-serif">←</a><div id="info"></div></div>
+    <div class="seg" id="segRun"></div>
+
+    <div class="card"><h2>pads</h2><div class="body"><div id="pads"></div><div class="seg" id="segPad"></div></div></div>
+    <div class="card"><h2>parameters</h2><div class="body" id="params"></div></div>
+    <div class="card"><h2>field</h2><div class="body" id="field"></div></div>
+    <div class="card"><h2>view</h2><div class="body" id="view">
+      <div class="xyfield" id="padView"><div class="xydot"></div></div>
+      <div class="ctrl"><div class="row"><label>exposure</label><span class="num" id="vExp"></span></div></div>
+      <div class="ctrl"><div class="row"><label>gamma</label><span class="num" id="vGam"></span></div></div>
+      <div class="seg" id="segPal"></div>
+    </div></div>
+  </aside>
+
+  <main id="stage">
+    <div id="sheet">
+      <div id="ygutter"><div class="axname" id="yaxname"></div></div>
+      <div id="plateWrap">
+        <div id="plate">
+          <canvas id="gl"></canvas>
+          <div class="retic" id="reticH"></div>
+          <div class="retic" id="reticV"></div>
+          <div id="marq"></div>
+          <div id="readout"></div>
+          <div id="err"></div>
+        </div>
+      </div>
+      <div id="xgutter"><div class="axname" id="xaxname"></div></div>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const $=id=>document.getElementById(id);
+
+/* ============================================================
+   SPRING — parhelion/src/spring.js: the 60 Hz slider spring solved
+   in closed form, so it feels the same at any frame rate.
+   ============================================================ */
+const SK=0.03,SD=0.4,A11=1-SD*SK,TR=A11+SD,DISC=Math.sqrt(TR*TR-4*SD);
+const L1=(TR+DISC)/2,L2=(TR-DISC)/2;
+const SV=[[SD,SD],[L1-A11,L2-A11]],SDET=SV[0][0]*SV[1][1]-SV[0][1]*SV[1][0];
+const SVI=[[SV[1][1]/SDET,-SV[0][1]/SDET],[-SV[1][0]/SDET,SV[0][0]/SDET]];
+class Spring{
+  constructor(v,snap=1e-4){this.value=this.target=v;this.velocity=0;this.snap=snap;}
+  set(t){this.target=t;}
+  jump(v){this.value=this.target=v;this.velocity=0;}
+  step(dt){
+    const e=this.value-this.target;
+    if(e===0&&this.velocity===0)return false;
+    const n=Math.min(dt,0.1)*60,p1=L1**n,p2=L2**n;
+    const c1=SVI[0][0]*e+SVI[0][1]*this.velocity,c2=SVI[1][0]*e+SVI[1][1]*this.velocity;
+    const e2=SV[0][0]*p1*c1+SV[0][1]*p2*c2;
+    this.velocity=SV[1][0]*p1*c1+SV[1][1]*p2*c2;
+    this.value=this.target+e2;
+    if(Math.abs(e2)<this.snap&&Math.abs(this.velocity)<this.snap)this.jump(this.target);
+    return true;
+  }
+}
+
+/* ============================================================
+   PARAMETER MODEL
+   Each parameter has an axis space f(v). Axes interpolate linearly in
+   that space: decay as −ln(1−v) (the action is all near 1), sensor
+   distance as ln(1+v).
+   ============================================================ */
+const PARAMS=[
+  {key:'sensorAngle',label:'sensor angle',   unit:'°',min:0,   max:150,  def:22,  dec:1},
+  {key:'sensorDist', label:'sensor distance',unit:'',      min:0,   max:120,  def:11,  dec:1,scale:'log1p'},
+  {key:'turnAngle',  label:'turn angle',     unit:'°',min:0,   max:150,  def:26,  dec:1},
+  {key:'stepSize',   label:'step size',      unit:'',      min:0,   max:6,    def:1.0, dec:2},
+  {key:'decay',      label:'decay',          unit:'',      min:0.60,max:0.999,def:0.93,dec:3,scale:'decay'},
+  {key:'deposit',    label:'deposit',        unit:'',      min:0,   max:5,    def:1.0, dec:2},
+];
+const P=Object.fromEntries(PARAMS.map(p=>[p.key,p]));
+const ALL=PARAMS.map(p=>p.key);
+for(const p of PARAMS){
+  if(p.scale==='log1p'){p.f=Math.log1p;p.i=Math.expm1;}
+  else if(p.scale==='decay'){p.f=v=>-Math.log1p(-v);p.i=f=>-Math.expm1(-f);}
+  else{p.f=v=>v;p.i=f=>f;}
+  p.fmin=p.f(p.min);p.fmax=p.f(p.max);
+}
+
+const cfg={
+  axX:'sensorAngle',axY:'sensorDist',
+  fixed:Object.fromEntries(PARAMS.map(p=>[p.key,p.def])),
+  gridX:6,gridY:4,tile:512,density:0.10,diffuse:1.0,steps:2,seedMode:'uniform',cont:false,
+  exposure:2.4,gamma:0.85,palette:0,
+  pads:[{x:'turnAngle',y:'decay'}],
+};
+/* axis domains in axis space: tgt is where you asked to go, dom springs after it */
+const tgt={x0:P.sensorAngle.f(0),x1:P.sensorAngle.f(120),y0:P.sensorDist.f(0),y1:P.sensorDist.f(60)};
+const dom={x0:new Spring(tgt.x0),x1:new Spring(tgt.x1),y0:new Spring(tgt.y0),y1:new Spring(tgt.y1)};
+const fixedS=Object.fromEntries(PARAMS.map(p=>[p.key,new Spring(p.def,(p.max-p.min)*1e-5)]));
+const expS=new Spring(cfg.exposure),gamS=new Spring(cfg.gamma);
+/* view rect in atlas uv (square in uv, so it keeps the plate's aspect) + solo focus */
+const view={x:new Spring(0,1e-5),y:new Spring(0,1e-5),s:new Spring(1,1e-5),focus:new Spring(0,1e-3)};
+
+const fmtV=(k,v)=>v.toFixed(P[k].dec)+P[k].unit;
+const axKey=ax=>ax==='x'?cfg.axX:cfg.axY;
+/* value along an axis at fraction u of the plate, from the displayed domain */
+const axisVal=(ax,u)=>P[axKey(ax)].i(lerp(dom[ax+'0'].value,dom[ax+'1'].value,u));
+const tgtVal=(ax,u)=>P[axKey(ax)].i(lerp(tgt[ax+'0'],tgt[ax+'1'],u));
+function paramsAt(u,v){
+  const o={};for(const k of ALL)o[k]=fixedS[k].value;
+  o[cfg.axX]=axisVal('x',u);o[cfg.axY]=axisVal('y',v);return o;
+}
+
+/* ============================================================
+   GL
+   ============================================================ */
+const cv=$('gl'),errEl=$('err');
+const gl=cv.getContext('webgl2',{antialias:false,alpha:false});
+function fail(m){errEl.style.display='grid';errEl.textContent=m;throw new Error(m);}
+if(!gl)fail('needs webgl2');
+if(!gl.getExtension('EXT_color_buffer_float'))fail('needs EXT_color_buffer_float');
+const MAXTEX=gl.getParameter(gl.MAX_TEXTURE_SIZE);
+const PR=8; // param texels per tile (continuous mode interpolates between them)
+
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))fail(gl.getShaderInfoLog(o));return o;}
+function prog(v,f){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,v));
+  gl.attachShader(p,sh(gl.FRAGMENT_SHADER,f));gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))fail(gl.getProgramInfoLog(p));
+  const u={},n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);
+  for(let i=0;i<n;i++){const nm=gl.getActiveUniform(p,i).name.replace(/\[0\]$/,'');u[nm]=gl.getUniformLocation(p,nm);}
+  return {p,u};}
+
+const QUAD_VS=`#version 300 es
+void main(){ vec2 q=vec2((gl_VertexID<<1)&2, gl_VertexID&2); gl_Position=vec4(q*2.0-1.0,0.,1.); }`;
+
+/* Rules are looked up by position, not by agent index, so the same code
+   serves separate tiles (nearest texel, constant per tile) and one shared
+   world where rules vary continuously (manual bilinear on RGBA32F). */
+const PARAM_GLSL=`
+uniform ivec2 uPSize; uniform int uCont; uniform vec2 uAtlas;
+vec4 fetchP(sampler2D t,vec2 pos){
+  vec2 g=pos/uAtlas*vec2(uPSize); ivec2 m=uPSize-1;
+  if(uCont==0) return texelFetch(t,clamp(ivec2(g),ivec2(0),m),0);
+  g-=0.5; vec2 fl=floor(g),f=g-fl; ivec2 i=ivec2(fl);
+  ivec2 a=clamp(i,ivec2(0),m),b=clamp(i+1,ivec2(0),m);
+  return mix(mix(texelFetch(t,a,0),texelFetch(t,ivec2(b.x,a.y),0),f.x),
+             mix(texelFetch(t,ivec2(a.x,b.y),0),texelFetch(t,b,0),f.x),f.y);
+}`;
+
+const UPDATE_FS=`#version 300 es
+precision highp float; precision highp int;
+uniform sampler2D uState,uTrail,uP0,uP1;
+uniform int uStateW; uniform vec2 uCell; uniform uint uFrame;
+${PARAM_GLSL}
+out vec4 oState;
+uint hashu(uint x){x^=x>>16;x*=0x7feb352du;x^=x>>15;x*=0x846ca68bu;x^=x>>16;return x;}
+float rnd(uint s){return float(hashu(s)&0xffffffu)/16777216.0;}
+/* bilinear by hand, wrapping inside the cell, so a tile never samples its neighbour */
+float trailAt(ivec2 org,ivec2 cell,vec2 l){
+  vec2 p=l-0.5; vec2 fl=floor(p),f=p-fl;
+  ivec2 i0=ivec2(fl)-cell*ivec2(floor(fl/vec2(cell)));
+  ivec2 i1=i0+1; i1-=cell*ivec2(greaterThanEqual(i1,cell));
+  float a=texelFetch(uTrail,org+i0,0).r,b=texelFetch(uTrail,org+ivec2(i1.x,i0.y),0).r;
+  float c=texelFetch(uTrail,org+ivec2(i0.x,i1.y),0).r,d=texelFetch(uTrail,org+i1,0).r;
+  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
+void main(){
+  ivec2 c=ivec2(gl_FragCoord.xy);
+  vec4 st=texelFetch(uState,c,0);
+  vec4 p0=fetchP(uP0,st.xy),p1=fetchP(uP1,st.xy);
+  float SO=p0.y,RA=p0.z,SS=p0.w,cS=p1.z,sS=p1.w;
+  ivec2 cell=ivec2(uCell);
+  ivec2 org=clamp(ivec2(floor(st.xy/uCell))*cell,ivec2(0),ivec2(uAtlas)-cell);
+  vec2 local=st.xy-vec2(org); float a=st.z;
+  vec2 d=vec2(cos(a),sin(a));
+  vec2 dL=vec2(d.x*cS-d.y*sS,d.y*cS+d.x*sS), dR=vec2(d.x*cS+d.y*sS,d.y*cS-d.x*sS);
+  float F=trailAt(org,cell,local+d*SO), L=trailAt(org,cell,local+dL*SO), R=trailAt(org,cell,local+dR*SO);
+  if(F>L&&F>R){}
+  else if(F<L&&F<R){ a += (rnd(uint(c.y*uStateW+c.x)*747796405u+uFrame*2891336453u)<0.5?-RA:RA); }
+  else if(R>L){ a-=RA; } else if(L>R){ a+=RA; }
+  a=mod(a,6.28318531);
+  oState=vec4(vec2(org)+mod(local+vec2(cos(a),sin(a))*SS,uCell),a,0.0);
+}`;
+
+const DEPOSIT_VS=`#version 300 es
+precision highp float; precision highp int;
+uniform sampler2D uState,uP1; uniform int uStateW;
+${PARAM_GLSL}
+out float vDep;
+void main(){
+  int id=gl_VertexID; int r=id/uStateW;
+  vec4 st=texelFetch(uState,ivec2(id-r*uStateW,r),0);
+  vDep=fetchP(uP1,st.xy).y;
+  gl_Position=vec4((st.xy/uAtlas)*2.0-1.0,0.,1.);
+  gl_PointSize=1.0;
+}`;
+const DEPOSIT_FS=`#version 300 es
+precision highp float; in float vDep; out vec4 o;
+void main(){ o=vec4(vDep,0.,0.,1.); }`;
+
+/* 3x3 box blur, wrapped per cell. Same 9 taps as before; the wrap is
+   two compares per axis instead of 18 integer modulos. */
+const DIFFUSE_FS=`#version 300 es
+precision highp float; precision highp int;
+uniform sampler2D uTrail,uP1; uniform ivec2 uCellI; uniform float uBlend;
+${PARAM_GLSL}
+out vec4 o;
+void main(){
+  ivec2 p=ivec2(gl_FragCoord.xy); ivec2 cell=uCellI; ivec2 org=(p/cell)*cell; ivec2 l=p-org;
+  int x0=org.x+(l.x==0?cell.x-1:l.x-1), x2=org.x+(l.x==cell.x-1?0:l.x+1);
+  int y0=org.y+(l.y==0?cell.y-1:l.y-1), y2=org.y+(l.y==cell.y-1?0:l.y+1);
+  float c=texelFetch(uTrail,p,0).r;
+  float s=texelFetch(uTrail,ivec2(x0,y0),0).r+texelFetch(uTrail,ivec2(p.x,y0),0).r+texelFetch(uTrail,ivec2(x2,y0),0).r
+         +texelFetch(uTrail,ivec2(x0,p.y),0).r+c                                   +texelFetch(uTrail,ivec2(x2,p.y),0).r
+         +texelFetch(uTrail,ivec2(x0,y2),0).r+texelFetch(uTrail,ivec2(p.x,y2),0).r+texelFetch(uTrail,ivec2(x2,y2),0).r;
+  o=vec4(mix(c,s/9.0,uBlend)*fetchP(uP1,vec2(p)+0.5).x,0.,0.,1.);
+}`;
+
+const DISPLAY_FS=`#version 300 es
+precision highp float; precision highp int;
+uniform sampler2D uTrail;
+uniform vec2 uRes,uAtlas; uniform vec4 uSrc;
+uniform float uExposure,uGamma,uTS,uFocusAmt; uniform int uPalette; uniform vec2 uHover,uFocus;
+out vec4 o;
+vec3 palette(float x){
+  if(uPalette==0){
+    vec3 a=vec3(0.02,0.03,0.07),b=vec3(0.10,0.20,0.48),c=vec3(0.16,0.72,0.78),
+         d=vec3(0.86,0.95,0.93),e=vec3(1.0);
+    if(x<0.28) return mix(a,b,x/0.28);
+    if(x<0.62) return mix(b,c,(x-0.28)/0.34);
+    if(x<0.88) return mix(c,d,(x-0.62)/0.26);
+    return mix(d,e,(x-0.88)/0.12);
+  } else if(uPalette==1){
+    vec3 a=vec3(0.04,0.02,0.03),b=vec3(0.36,0.08,0.16),c=vec3(0.85,0.36,0.10),
+         d=vec3(0.98,0.82,0.45),e=vec3(1.0,0.99,0.94);
+    if(x<0.25) return mix(a,b,x/0.25);
+    if(x<0.58) return mix(b,c,(x-0.25)/0.33);
+    if(x<0.86) return mix(c,d,(x-0.58)/0.28);
+    return mix(d,e,(x-0.86)/0.14);
+  }
+  return vec3(pow(x,0.95));
+}
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes;
+  vec2 auv=uSrc.xy+uv*uSrc.zw;
+  if(auv.x<0.0||auv.y<0.0||auv.x>1.0||auv.y>1.0){o=vec4(0,0,0,1);return;}
+  vec2 fp=uSrc.zw/uRes;
+  float v=0.0;
+  v+=texture(uTrail,auv+fp*vec2(-0.25,-0.15)).r;
+  v+=texture(uTrail,auv+fp*vec2( 0.25, 0.15)).r;
+  v+=texture(uTrail,auv+fp*vec2(-0.15, 0.25)).r;
+  v+=texture(uTrail,auv+fp*vec2( 0.15,-0.25)).r;
+  v*=0.25;
+  float x=pow(clamp(1.0-exp(-max(v,0.0)*uExposure),0.,1.),uGamma);
+  vec3 col=palette(x);
+  vec2 ap=auv*uAtlas; vec2 tile=floor(ap/uTS);
+  if(uHover.x>=0.0){
+    bool inside=abs(tile.x-uHover.x)<0.5 && abs(tile.y-uHover.y)<0.5;
+    if(inside){
+      vec2 g=fract(ap/uTS); vec2 w=(uAtlas*fp)/uTS; vec2 ed=min(g,1.0-g);
+      float line=1.0-smoothstep(0.0,max(w.x,w.y)*1.1,min(ed.x,ed.y));
+      col+=vec3(0.05); col=mix(col,vec3(1.0),line*0.7);
+    } else col*=0.55;
+  }
+  if(uFocusAmt>0.0 && !(abs(tile.x-uFocus.x)<0.5 && abs(tile.y-uFocus.y)<0.5)) col*=1.0-0.75*uFocusAmt;
+  o=vec4(col,1.0);
+}`;
+
+const P_UPDATE=prog(QUAD_VS,UPDATE_FS),P_DEPOSIT=prog(DEPOSIT_VS,DEPOSIT_FS),
+      P_DIFFUSE=prog(QUAD_VS,DIFFUSE_FS),P_DISPLAY=prog(QUAD_VS,DISPLAY_FS);
+const VAO=gl.createVertexArray();
+
+function tex(w,h,ifmt,filter){
+  const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texStorage2D(gl.TEXTURE_2D,1,ifmt,w,h);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return t;
+}
+function fbo(t){const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return f;}
+
+const sim={atlasW:0,atlasH:0,perTile:0,total:0,stateW:1024,stateH:0,pw:0,ph:0,
+  trail:[],trailFbo:[],ti:0,state:[],stateFbo:[],si:0,p0:null,p1:null,
+  frame:0,steps:0,running:true,solo:null,hover:null};
+let paramsDirty=true,ticksDirty=true;
+
+function disposeSim(){
+  sim.trail.concat(sim.state).forEach(t=>t&&gl.deleteTexture(t));
+  sim.trailFbo.concat(sim.stateFbo).forEach(f=>f&&gl.deleteFramebuffer(f));
+  if(sim.p0)gl.deleteTexture(sim.p0); if(sim.p1)gl.deleteTexture(sim.p1);
+}
+function buildSim(){
+  disposeSim();
+  cfg.gridX=clamp(Math.round(cfg.gridX),1,16); cfg.gridY=clamp(Math.round(cfg.gridY),1,16);
+  const maxTile=Math.floor(MAXTEX/Math.max(cfg.gridX,cfg.gridY));
+  cfg.tile=clamp(Math.round(cfg.tile/32)*32,128,Math.min(1024,maxTile));
+  const TS=cfg.tile,TX=cfg.gridX,TY=cfg.gridY;
+  sim.atlasW=TX*TS; sim.atlasH=TY*TS;
+  let per=Math.max(sim.stateW,Math.round(TS*TS*cfg.density/sim.stateW)*sim.stateW);
+  while(per*TX*TY>8000000) per-=sim.stateW;
+  sim.perTile=per; sim.total=per*TX*TY; sim.stateH=sim.total/sim.stateW;
+  sim.trail=[tex(sim.atlasW,sim.atlasH,gl.R16F,gl.LINEAR),tex(sim.atlasW,sim.atlasH,gl.R16F,gl.LINEAR)];
+  sim.trailFbo=sim.trail.map(fbo);
+  sim.state=[tex(sim.stateW,sim.stateH,gl.RGBA32F,gl.NEAREST),tex(sim.stateW,sim.stateH,gl.RGBA32F,gl.NEAREST)];
+  sim.stateFbo=sim.state.map(fbo);
+  sim.pw=TX*PR; sim.ph=TY*PR;
+  sim.p0=tex(sim.pw,sim.ph,gl.RGBA32F,gl.NEAREST); sim.p1=tex(sim.pw,sim.ph,gl.RGBA32F,gl.NEAREST);
+  if(sim.solo&&(sim.solo[0]>=TX||sim.solo[1]>=TY))setSolo(null);
+  uploadParams(); seed(); buildGutters(); layoutPlate();
+}
+
+let a0buf=null,a1buf=null,xsBuf=null,ysBuf=null;
+const pv=new Float64Array(6);
+function uploadParams(){
+  const TX=cfg.gridX,TY=cfg.gridY,W=sim.pw,H=sim.ph,N=W*H*4;
+  if(!a0buf||a0buf.length!==N){a0buf=new Float32Array(N);a1buf=new Float32Array(N);}
+  if(!xsBuf||xsBuf.length!==W)xsBuf=new Float64Array(W);
+  if(!ysBuf||ysBuf.length!==H)ysBuf=new Float64Array(H);
+  for(let i=0;i<W;i++)xsBuf[i]=axisVal('x',cfg.cont?(i+0.5)/W:((i/PR|0)+0.5)/TX);
+  for(let j=0;j<H;j++)ysBuf[j]=axisVal('y',cfg.cont?(j+0.5)/H:((j/PR|0)+0.5)/TY);
+  const ix=ALL.indexOf(cfg.axX),iy=ALL.indexOf(cfg.axY),D=Math.PI/180;
+  for(let q=0;q<6;q++)pv[q]=fixedS[ALL[q]].value;
+  for(let j=0;j<H;j++){pv[iy]=ysBuf[j];
+    for(let i=0;i<W;i++){pv[ix]=xsBuf[i];
+      const k=(j*W+i)*4,sa=pv[0]*D;
+      a0buf[k]=sa; a0buf[k+1]=pv[1]; a0buf[k+2]=pv[2]*D; a0buf[k+3]=pv[3];
+      a1buf[k]=pv[4]; a1buf[k+1]=pv[5]; a1buf[k+2]=Math.cos(sa); a1buf[k+3]=Math.sin(sa);
+    }}
+  gl.bindTexture(gl.TEXTURE_2D,sim.p0);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,W,H,gl.RGBA,gl.FLOAT,a0buf);
+  gl.bindTexture(gl.TEXTURE_2D,sim.p1);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,W,H,gl.RGBA,gl.FLOAT,a1buf);
+}
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function seed(){
+  const TS=cfg.tile,per=sim.perTile,rng=mulberry32(0x9E3779B9);
+  const loc=new Float32Array(per*3);
+  for(let i=0;i<per;i++){
+    let x,y;
+    if(cfg.seedMode==='disc'){const r=TS*0.32*Math.sqrt(rng()),th=rng()*6.283185;
+      x=TS*0.5+r*Math.cos(th);y=TS*0.5+r*Math.sin(th);}
+    else if(cfg.seedMode==='ring'){const r=TS*(0.30+0.03*rng()),th=rng()*6.283185;
+      x=TS*0.5+r*Math.cos(th);y=TS*0.5+r*Math.sin(th);}
+    else {x=rng()*TS;y=rng()*TS;}
+    loc[i*3]=x;loc[i*3+1]=y;loc[i*3+2]=rng()*6.283185;
+  }
+  const buf=new Float32Array(sim.total*4),TX=cfg.gridX;
+  for(let t=0;t<TX*cfg.gridY;t++){
+    const tx=t%TX,ty=(t/TX)|0,ox=tx*TS,oy=ty*TS,b=t*per*4;
+    for(let i=0;i<per;i++){buf[b+i*4]=ox+loc[i*3];buf[b+i*4+1]=oy+loc[i*3+1];buf[b+i*4+2]=loc[i*3+2];}
+  }
+  gl.bindTexture(gl.TEXTURE_2D,sim.state[0]);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,sim.stateW,sim.stateH,gl.RGBA,gl.FLOAT,buf);
+  sim.si=0;
+  for(const f of sim.trailFbo){gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);}
+  sim.ti=0;sim.frame=0;sim.steps=0;
+}
+
+function bt(u,t){gl.activeTexture(gl.TEXTURE0+u);gl.bindTexture(gl.TEXTURE_2D,t);}
+function paramUniforms(pr){
+  gl.uniform2i(pr.u.uPSize,sim.pw,sim.ph);
+  gl.uniform1i(pr.u.uCont,cfg.cont?1:0);
+  gl.uniform2f(pr.u.uAtlas,sim.atlasW,sim.atlasH);
+}
+function step(){
+  const TS=cfg.tile,cw=cfg.cont?sim.atlasW:TS,ch=cfg.cont?sim.atlasH:TS;
+  gl.bindVertexArray(VAO);gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,sim.stateFbo[1-sim.si]);
+  gl.viewport(0,0,sim.stateW,sim.stateH);
+  gl.useProgram(P_UPDATE.p);
+  bt(0,sim.state[sim.si]);gl.uniform1i(P_UPDATE.u.uState,0);
+  bt(1,sim.trail[sim.ti]);gl.uniform1i(P_UPDATE.u.uTrail,1);
+  bt(2,sim.p0);gl.uniform1i(P_UPDATE.u.uP0,2);
+  bt(3,sim.p1);gl.uniform1i(P_UPDATE.u.uP1,3);
+  gl.uniform1i(P_UPDATE.u.uStateW,sim.stateW);
+  gl.uniform2f(P_UPDATE.u.uCell,cw,ch);
+  gl.uniform1ui(P_UPDATE.u.uFrame,sim.frame>>>0);
+  paramUniforms(P_UPDATE);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  sim.si=1-sim.si;
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER,sim.trailFbo[sim.ti]);
+  gl.viewport(0,0,sim.atlasW,sim.atlasH);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  gl.useProgram(P_DEPOSIT.p);
+  bt(0,sim.state[sim.si]);gl.uniform1i(P_DEPOSIT.u.uState,0);
+  bt(1,sim.p1);gl.uniform1i(P_DEPOSIT.u.uP1,1);
+  gl.uniform1i(P_DEPOSIT.u.uStateW,sim.stateW);
+  paramUniforms(P_DEPOSIT);
+  gl.drawArrays(gl.POINTS,0,sim.total);
+  gl.disable(gl.BLEND);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER,sim.trailFbo[1-sim.ti]);
+  gl.useProgram(P_DIFFUSE.p);
+  bt(0,sim.trail[sim.ti]);gl.uniform1i(P_DIFFUSE.u.uTrail,0);
+  bt(1,sim.p1);gl.uniform1i(P_DIFFUSE.u.uP1,1);
+  gl.uniform2i(P_DIFFUSE.u.uCellI,cw,ch);
+  gl.uniform1f(P_DIFFUSE.u.uBlend,cfg.diffuse);
+  paramUniforms(P_DIFFUSE);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  sim.ti=1-sim.ti;
+  sim.frame++;sim.steps++;
+}
+
+/* ============================================================
+   DISPLAY
+   ============================================================ */
+const plate=$('plate'),plateWrap=$('plateWrap');
+function layoutPlate(){
+  const aspect=cfg.gridX/cfg.gridY;
+  const bw=plateWrap.clientWidth,bh=plateWrap.clientHeight;
+  let w=bw,h=w/aspect; if(h>bh){h=bh;w=h*aspect;}
+  plate.style.width=Math.floor(w)+'px';plate.style.height=Math.floor(h)+'px';
+  // gutters span exactly the plate, so ticks sit on tile centres when it letterboxes
+  const ox=Math.floor((bw-Math.floor(w))/2),oy=Math.floor((bh-Math.floor(h))/2);
+  yg.style.alignSelf='start';yg.style.marginTop=oy+'px';yg.style.height=Math.floor(h)+'px';
+  xg.style.justifySelf='start';xg.style.marginLeft=ox+'px';xg.style.width=Math.floor(w)+'px';
+  xg.style.transform=`translateY(${-oy}px)`;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const nw=Math.max(1,Math.floor(w*dpr)),nh=Math.max(1,Math.floor(h*dpr));
+  if(cv.width!==nw||cv.height!==nh){cv.width=nw;cv.height=nh;}
+  ticksDirty=true;
+}
+new ResizeObserver(layoutPlate).observe(plateWrap);
+
+function setSolo(t){
+  sim.solo=t;
+  if(t){
+    const s=Math.max(1/cfg.gridX,1/cfg.gridY);
+    view.x.set((t[0]+0.5)/cfg.gridX-s/2);view.y.set((t[1]+0.5)/cfg.gridY-s/2);
+    view.s.set(s);view.focus.set(1);
+  }else{view.x.set(0);view.y.set(0);view.s.set(1);view.focus.set(0);}
+  setHover(null);ticksDirty=true;
+}
+
+function draw(){
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,cv.width,cv.height);
+  gl.disable(gl.BLEND);gl.bindVertexArray(VAO);
+  gl.useProgram(P_DISPLAY.p);
+  bt(0,sim.trail[sim.ti]);gl.uniform1i(P_DISPLAY.u.uTrail,0);
+  gl.uniform2f(P_DISPLAY.u.uRes,cv.width,cv.height);
+  gl.uniform2f(P_DISPLAY.u.uAtlas,sim.atlasW,sim.atlasH);
+  const s=view.s.value;
+  gl.uniform4f(P_DISPLAY.u.uSrc,view.x.value,view.y.value,s,s);
+  const h=!sim.solo&&sim.hover;
+  gl.uniform2f(P_DISPLAY.u.uHover,h?h[0]:-1,h?h[1]:-1);
+  gl.uniform2f(P_DISPLAY.u.uFocus,sim.solo?sim.solo[0]:-9,sim.solo?sim.solo[1]:-9);
+  gl.uniform1f(P_DISPLAY.u.uFocusAmt,clamp(view.focus.value,0,1));
+  gl.uniform1f(P_DISPLAY.u.uExposure,expS.value);
+  gl.uniform1f(P_DISPLAY.u.uGamma,gamS.value);
+  gl.uniform1i(P_DISPLAY.u.uPalette,cfg.palette);
+  gl.uniform1f(P_DISPLAY.u.uTS,cfg.tile);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+let lastT=performance.now(),fps=0,statT=0;
+function frame(now){
+  const dt=(now-lastT)/1000;lastT=now;
+  let pm=false,dm=false,vm=false;
+  for(const k of ALL)pm=fixedS[k].step(dt)||pm;
+  for(const k in dom)dm=dom[k].step(dt)||dm;
+  for(const k in view)vm=view[k].step(dt)||vm;
+  expS.step(dt);gamS.step(dt);
+  if(pm||dm||paramsDirty){uploadParams();paramsDirty=false;}
+  if(dm||vm||ticksDirty){updateTicks();ticksDirty=false;}
+  if(sim.running) for(let i=0;i<cfg.steps;i++) step();
+  draw();
+  if(dt>0)fps=fps?fps*0.92+(1/dt)*0.08:1/dt;
+  if(now-statT>250){statT=now;
+    $('info').innerHTML=`<span>${(sim.total/1e6).toFixed(2)}M</span> · ${cfg.gridX}×${cfg.gridY}×${cfg.tile} · ${sim.steps} · <span>${fps.toFixed(0)}</span>fps`;}
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   GUTTERS / RETICLE / READOUT
+   Ticks follow the view rect, so they track the solo zoom.
+   Dragging a gutter stretches that axis: the value under the
+   pointer stays under it, the far end stays put.
+   ============================================================ */
+const xg=$('xgutter'),yg=$('ygutter'),reticH=$('reticH'),reticV=$('reticV'),readout=$('readout');
+let xTicks=[],yTicks=[];
+function buildGutters(){
+  xTicks.forEach(e=>e.remove());yTicks.forEach(e=>e.remove());xTicks=[];yTicks=[];
+  for(let tx=0;tx<cfg.gridX;tx++){const d=document.createElement('div');d.className='tick';xg.appendChild(d);xTicks.push(d);}
+  for(let ty=0;ty<cfg.gridY;ty++){const d=document.createElement('div');d.className='tick';yg.appendChild(d);yTicks.push(d);}
+  $('xaxname').textContent=P[cfg.axX].label;
+  $('yaxname').textContent=P[cfg.axY].label;
+  ticksDirty=true;
+}
+function updateTicks(){
+  const s=view.s.value,vx=view.x.value,vy=view.y.value;
+  xTicks.forEach((e,tx)=>{const c=(tx+0.5)/cfg.gridX,u=(c-vx)/s;
+    e.style.left=(u*100)+'%';e.style.display=(u<-0.02||u>1.02)?'none':'';
+    const t=fmtV(cfg.axX,axisVal('x',c));if(e.textContent!==t)e.textContent=t;});
+  yTicks.forEach((e,ty)=>{const c=(ty+0.5)/cfg.gridY,v=(c-vy)/s;
+    e.style.top=((1-v)*100)+'%';e.style.display=(v<-0.02||v>1.02)?'none':'';
+    const t=fmtV(cfg.axY,axisVal('y',c));if(e.textContent!==t)e.textContent=t;});
+}
+function setHover(t){
+  sim.hover=t;
+  const f=sim.solo||t;
+  xTicks.forEach((e,i)=>e.classList.toggle('hot',!!f&&i===f[0]));
+  yTicks.forEach((e,i)=>e.classList.toggle('hot',!!f&&i===f[1]));
+  if(!t||sim.solo){reticH.style.opacity=reticV.style.opacity=readout.style.opacity=0;return;}
+  reticH.style.opacity=reticV.style.opacity=1;readout.style.opacity=1;
+  reticH.style.top=((1-(t[1]+0.5)/cfg.gridY)*100)+'%';
+  reticV.style.left=((t[0]+0.5)/cfg.gridX*100)+'%';
+  const p=paramsAt((t[0]+0.5)/cfg.gridX,(t[1]+0.5)/cfg.gridY);
+  readout.innerHTML=PARAMS.map(q=>{
+    const sw=q.key===cfg.axX||q.key===cfg.axY;
+    return `<div><span class="k">${q.label}</span> <span class="v${sw?' sw':''}">${fmtV(q.key,p[q.key])}</span></div>`;
+  }).join('');
+}
+
+function gutterDrag(el,ax){
+  let g=null;
+  const frac=e=>{const r=plate.getBoundingClientRect();
+    return ax==='x'?(e.clientX-r.left)/r.width:1-(e.clientY-r.top)/r.height;};
+  el.addEventListener('pointerdown',e=>{
+    if(sim.solo)return;
+    e.preventDefault();el.setPointerCapture(e.pointerId);
+    const u=clamp(frac(e),0,1),lo=tgt[ax+'0'],hi=tgt[ax+'1'];
+    g={lowEnd:u<0.5,a:lerp(lo,hi,u),far:u<0.5?hi:lo};
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!g)return;
+    const u=clamp(frac(e),0.04,0.96);
+    if(g.lowEnd){const span=(g.far-g.a)/(1-u);tgt[ax+'0']=g.far-span;}
+    else{const span=(g.a-g.far)/u;tgt[ax+'1']=g.far+span;}
+    clampDomain();
+  });
+  const up=()=>{g=null;};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+}
+gutterDrag(xg,'x');gutterDrag(yg,'y');
+
+/* ============================================================
+   PARAMETER-SPACE NAVIGATION
+   The plate is a viewport onto a continuous 2D parameter plane.
+   ============================================================ */
+function plateUV(cx,cy){
+  const r=plate.getBoundingClientRect();
+  return [(cx-r.left)/r.width,1-(cy-r.top)/r.height];
+}
+function tileAt(u,v){
+  if(u<0||u>1||v<0||v>1)return null;
+  return [Math.min(cfg.gridX-1,Math.floor(u*cfg.gridX)),Math.min(cfg.gridY-1,Math.floor(v*cfg.gridY))];
+}
+function clampDomain(){
+  for(const ax of ['x','y']){
+    const p=P[axKey(ax)];
+    let lo=tgt[ax+'0'],hi=tgt[ax+'1'];
+    if(!isFinite(lo))lo=p.fmin; if(!isFinite(hi))hi=p.fmax;
+    if(hi<lo){const t=lo;lo=hi;hi=t;}
+    const full=p.fmax-p.fmin,minSpan=full*2e-4;
+    if(hi-lo<minSpan){const c=(hi+lo)/2;lo=c-minSpan/2;hi=c+minSpan/2;}
+    const span=Math.min(hi-lo,full);
+    if(lo<p.fmin){lo=p.fmin;hi=lo+span;}
+    if(hi>p.fmax){hi=p.fmax;lo=hi-span;}
+    tgt[ax+'0']=lo;tgt[ax+'1']=hi;
+    dom[ax+'0'].set(lo);dom[ax+'1'].set(hi);
+  }
+  refreshRails();
+}
+function jumpDomain(){for(const k in dom)dom[k].jump(tgt[k]);paramsDirty=ticksDirty=true;}
+function setDomain(x0,x1,y0,y1){
+  tgt.x0=Math.min(x0,x1);tgt.x1=Math.max(x0,x1);
+  tgt.y0=Math.min(y0,y1);tgt.y1=Math.max(y0,y1);
+  clampDomain();
+}
+function zoomAt(u,v,k){
+  const ax=lerp(tgt.x0,tgt.x1,u),ay=lerp(tgt.y0,tgt.y1,v);
+  setDomain(ax-(ax-tgt.x0)*k,ax+(tgt.x1-ax)*k,ay-(ay-tgt.y0)*k,ay+(tgt.y1-ay)*k);
+}
+function panBy(du,dv){
+  const sx=(tgt.x1-tgt.x0)*du,sy=(tgt.y1-tgt.y0)*dv;
+  setDomain(tgt.x0+sx,tgt.x1+sx,tgt.y0+sy,tgt.y1+sy);
+}
+function fitAxes(){
+  const px=P[cfg.axX],py=P[cfg.axY];
+  setDomain(px.fmin,px.fmax,py.fmin,py.fmax);
+}
+
+const ptrs=new Map();
+let marq=null,pinch=null,suppressClick=false;
+const marqEl=$('marq');
+
+plate.addEventListener('pointerdown',e=>{
+  plate.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(sim.solo)return;
+  if(ptrs.size===2){
+    marq=null;marqEl.style.display='none';setHover(null);
+    const[a,b]=[...ptrs.values()];
+    const ua=plateUV(a.x,a.y),ub=plateUV(b.x,b.y);
+    pinch={ax:[lerp(tgt.x0,tgt.x1,ua[0]),lerp(tgt.x0,tgt.x1,ub[0])],
+           ay:[lerp(tgt.y0,tgt.y1,ua[1]),lerp(tgt.y0,tgt.y1,ub[1])]};
+    suppressClick=true;
+  }else if(ptrs.size===1){
+    const uv=plateUV(e.clientX,e.clientY);
+    marq={u0:uv[0],v0:uv[1],u1:uv[0],v1:uv[1],moved:false};
+  }
+});
+plate.addEventListener('pointermove',e=>{
+  if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&ptrs.size>=2){
+    const[a,b]=[...ptrs.values()];
+    const ua=plateUV(a.x,a.y),ub=plateUV(b.x,b.y);
+    let x0=tgt.x0,x1=tgt.x1,y0=tgt.y0,y1=tgt.y1;
+    if(Math.abs(ub[0]-ua[0])>0.02){
+      const span=(pinch.ax[1]-pinch.ax[0])/(ub[0]-ua[0]);
+      x0=pinch.ax[0]-span*ua[0];x1=x0+span;}
+    if(Math.abs(ub[1]-ua[1])>0.02){
+      const span=(pinch.ay[1]-pinch.ay[0])/(ub[1]-ua[1]);
+      y0=pinch.ay[0]-span*ua[1];y1=y0+span;}
+    setDomain(x0,x1,y0,y1);
+    return;
+  }
+  if(marq){
+    const uv=plateUV(e.clientX,e.clientY);
+    marq.u1=clamp(uv[0],0,1);marq.v1=clamp(uv[1],0,1);
+    if(Math.abs(marq.u1-marq.u0)>0.012||Math.abs(marq.v1-marq.v0)>0.012)marq.moved=true;
+    if(marq.moved){
+      marqEl.style.display='block';
+      const l=Math.min(marq.u0,marq.u1),r=Math.max(marq.u0,marq.u1);
+      const b=Math.min(marq.v0,marq.v1),t=Math.max(marq.v0,marq.v1);
+      marqEl.style.left=(l*100)+'%';marqEl.style.width=((r-l)*100)+'%';
+      marqEl.style.top=((1-t)*100)+'%';marqEl.style.height=((t-b)*100)+'%';
+      setHover(null);
+    }
+    return;
+  }
+  if(!sim.solo&&e.pointerType!=='touch')setHover(tileAt(...plateUV(e.clientX,e.clientY)));
+});
+function endPointer(e){
+  ptrs.delete(e.pointerId);
+  if(sim.solo&&ptrs.size===0&&e.type==='pointerup'){setSolo(null);return;}
+  if(pinch&&ptrs.size<2){pinch=null;marq=null;}
+  if(marq&&ptrs.size===0){
+    marqEl.style.display='none';
+    if(marq.moved){
+      const X=u=>lerp(dom.x0.value,dom.x1.value,u),Y=v=>lerp(dom.y0.value,dom.y1.value,v);
+      setDomain(X(marq.u0),X(marq.u1),Y(marq.v0),Y(marq.v1));
+    }else if(!suppressClick){
+      const t=tileAt(marq.u0,marq.v0);
+      if(t)setSolo(t);
+    }
+    marq=null;
+  }
+  if(ptrs.size===0)suppressClick=false;
+}
+plate.addEventListener('pointerup',endPointer);
+plate.addEventListener('pointercancel',endPointer);
+plate.addEventListener('pointerleave',()=>{if(!marq&&!pinch)setHover(null);});
+
+plate.addEventListener('wheel',e=>{
+  if(sim.solo)return;
+  e.preventDefault();
+  const uv=plateUV(e.clientX,e.clientY);
+  if(e.ctrlKey||e.metaKey){
+    zoomAt(clamp(uv[0],0,1),clamp(uv[1],0,1),Math.exp(e.deltaY*0.01));
+  }else{
+    const r=plate.getBoundingClientRect();
+    panBy(e.deltaX/r.width,e.deltaY/r.height);
+  }
+},{passive:false});
+
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape')setSolo(null);
+  if(e.key===' '&&document.activeElement.tagName!=='INPUT'){e.preventDefault();toggleRun();}
+});
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+function seg(el,items,get,set){
+  el.innerHTML='';
+  const bs=items.map(([v,label])=>{const b=document.createElement('button');b.textContent=label;
+    b.onclick=()=>{set(v);paint();};el.appendChild(b);return [v,b];});
+  function paint(){const c=get();for(const[v,b]of bs)b.setAttribute('aria-pressed',c===v);}
+  paint();return {paint};
+}
+
+/* ---- parameter rails ---- */
+const rails={};
+function railT(k,f){const p=P[k];return (f-p.fmin)/(p.fmax-p.fmin);}
+const knobLeft=t=>`calc(10px + ${clamp(t,0,1)} * (100% - 20px))`;
+function buildRails(){
+  const box=$('params');box.innerHTML='';
+  for(const p of PARAMS){
+    const row=document.createElement('div');row.className='prow';
+    row.innerHTML=`<div class="phead"><label>${p.label}</label><span class="num"></span>`+
+      `<span class="axb" data-a="x">x</span><span class="axb" data-a="y">y</span></div>`+
+      `<div class="track"><div class="band"></div><div class="kn k0"></div><div class="kn k1"></div></div>`;
+    box.appendChild(row);
+    const r={row,num:row.querySelector('.num'),track:row.querySelector('.track'),band:row.querySelector('.band'),
+      k0:row.querySelector('.k0'),k1:row.querySelector('.k1'),bx:row.querySelector('[data-a=x]'),by:row.querySelector('[data-a=y]')};
+    rails[p.key]=r;
+    r.bx.onclick=()=>assignAxis(p.key,'x');
+    r.by.onclick=()=>assignAxis(p.key,'y');
+    trackDrag(p.key,r);
+  }
+  refreshRails();
+}
+function sweptAx(k){return k===cfg.axX?'x':k===cfg.axY?'y':null;}
+function refreshRails(){
+  for(const p of PARAMS){
+    const r=rails[p.key];if(!r)continue;const ax=sweptAx(p.key);
+    r.row.classList.toggle('swept',!!ax);
+    r.bx.setAttribute('aria-pressed',ax==='x');r.by.setAttribute('aria-pressed',ax==='y');
+    if(ax){
+      const t0=railT(p.key,tgt[ax+'0']),t1=railT(p.key,tgt[ax+'1']);
+      r.k0.style.left=knobLeft(t0);r.k1.style.left=knobLeft(t1);
+      r.band.style.left=knobLeft(t0);r.band.style.width=`calc(${clamp(t1-t0,0,1)} * (100% - 20px))`;
+      r.band.style.marginLeft='0';
+      r.num.textContent=fmtV(p.key,p.i(tgt[ax+'0']))+' – '+fmtV(p.key,p.i(tgt[ax+'1']));
+    }else{
+      r.k0.style.left=knobLeft(railT(p.key,p.f(cfg.fixed[p.key])));
+      r.num.textContent=fmtV(p.key,cfg.fixed[p.key]);
+    }
+  }
+  paintPads();
+}
+
+/* ---- xy pads: any two parameters share one field, in axis space ---- */
+let padEls=[];
+function buildPads(){
+  const box=$('pads');box.innerHTML='';padEls=[];
+  cfg.pads.forEach((pd,i)=>{
+    const el=document.createElement('div');el.className='pad';
+    el.innerHTML=`<div class="padhead"><span class="lbl pk" data-a="x"></span>`+
+      `<span class="lbl pk" data-a="y"></span><span class="rm">\u00D7</span></div>`+
+      `<div class="xyfield"><div class="xydot"></div></div>`;
+    box.appendChild(el);
+    const f=el.querySelector('.xyfield'),dot=el.querySelector('.xydot');
+    const lx=el.querySelector('[data-a=x]'),ly=el.querySelector('[data-a=y]');
+    const cycle=a=>{const o=a==='x'?'y':'x';let j=ALL.indexOf(pd[a]);
+      do{j=(j+1)%ALL.length;}while(ALL[j]===pd[o]);pd[a]=ALL[j];paintPads();};
+    lx.onclick=()=>cycle('x');ly.onclick=()=>cycle('y');
+    el.querySelector('.rm').onclick=()=>{cfg.pads.splice(i,1);buildPads();};
+    let drag=false;
+    function grab(e){const r=f.getBoundingClientRect();
+      const u=clamp((e.clientX-r.left-10)/(r.width-20),0,1),v=clamp(1-(e.clientY-r.top-10)/(r.height-20),0,1);
+      for(const[a,t]of [['x',u],['y',v]]){const k=pd[a],p=P[k];
+        if(!sweptAx(k))setFixed(k,p.i(lerp(p.fmin,p.fmax,t)));}}
+    f.addEventListener('pointerdown',e=>{e.preventDefault();drag=true;f.setPointerCapture(e.pointerId);grab(e);});
+    f.addEventListener('pointermove',e=>{if(drag)grab(e);});
+    const up=()=>{drag=false;};f.addEventListener('pointerup',up);f.addEventListener('pointercancel',up);
+    padEls.push({pd,dot,lx,ly});
+  });
+  paintPads();
+}
+function paintPads(){
+  for(const{pd,dot,lx,ly}of padEls){
+    const pos=k=>{const ax=sweptAx(k);
+      return ax?railT(k,(tgt[ax+'0']+tgt[ax+'1'])/2):railT(k,P[k].f(cfg.fixed[k]));};
+    dot.style.left=`calc(10px + ${clamp(pos(pd.x),0,1)} * (100% - 20px))`;
+    dot.style.top=`calc(10px + ${1-clamp(pos(pd.y),0,1)} * (100% - 20px))`;
+    lx.textContent=P[pd.x].label;ly.textContent=P[pd.y].label;
+    lx.classList.toggle('off',!!sweptAx(pd.x));ly.classList.toggle('off',!!sweptAx(pd.y));
+    lx.title=sweptAx(pd.x)?'on an axis \u2014 the pad leaves it alone':'';
+    ly.title=sweptAx(pd.y)?'on an axis \u2014 the pad leaves it alone':'';
+  }
+}
+function addPad(){
+  const used=new Set(cfg.pads.flatMap(p=>[p.x,p.y]));
+  const free=ALL.filter(k=>!sweptAx(k));
+  const pick=free.filter(k=>!used.has(k)).concat(free,ALL);
+  const x=pick[0],y=pick.find(k=>k!==x);
+  cfg.pads.push({x,y});buildPads();
+}
+function trackDrag(k,r){
+  const p=P[k];let g=null;
+  const fAt=e=>{const b=r.track.getBoundingClientRect();
+    return lerp(p.fmin,p.fmax,clamp((e.clientX-b.left-10)/(b.width-20),0,1));};
+  const pxPerF=()=>(r.track.getBoundingClientRect().width-20)/(p.fmax-p.fmin);
+  r.track.addEventListener('pointerdown',e=>{
+    e.preventDefault();r.track.setPointerCapture(e.pointerId);
+    const f=fAt(e),ax=sweptAx(k);
+    if(!ax){g={mode:'val'};setFixed(k,p.i(f));return;}
+    const lo=tgt[ax+'0'],hi=tgt[ax+'1'],ppf=pxPerF();
+    const d0=Math.abs(f-lo)*ppf,d1=Math.abs(f-hi)*ppf;
+    if(d0<12||d1<12)g={mode:d0<=d1?'lo':'hi',ax};
+    else if(f>lo&&f<hi)g={mode:'band',ax,off:f-lo,span:hi-lo};
+    else{g={mode:f<lo?'lo':'hi',ax};}
+    move(f);
+  });
+  function move(f){
+    if(!g)return;
+    if(g.mode==='val'){setFixed(k,p.i(f));return;}
+    const a=g.ax,ms=(p.fmax-p.fmin)*0.01;
+    if(g.mode==='lo')tgt[a+'0']=Math.min(f,tgt[a+'1']-ms);
+    else if(g.mode==='hi')tgt[a+'1']=Math.max(f,tgt[a+'0']+ms);
+    else{const lo=clamp(f-g.off,p.fmin,p.fmax-g.span);tgt[a+'0']=lo;tgt[a+'1']=lo+g.span;}
+    clampDomain();
+  }
+  r.track.addEventListener('pointermove',e=>{if(g)move(fAt(e));});
+  const up=()=>{g=null;};
+  r.track.addEventListener('pointerup',up);r.track.addEventListener('pointercancel',up);
+}
+function setFixed(k,v){cfg.fixed[k]=clamp(v,P[k].min,P[k].max);fixedS[k].set(cfg.fixed[k]);refreshRails();}
+function assignAxis(k,ax){
+  const other=ax==='x'?'y':'x';
+  if(axKey(ax)===k)return;
+  const old=axKey(ax);
+  if(axKey(other)===k){
+    // swap the two swept axes, domains and all
+    if(ax==='x'){cfg.axX=k;cfg.axY=old;}else{cfg.axY=k;cfg.axX=old;}
+    for(const e of ['0','1']){const t=tgt['x'+e];tgt['x'+e]=tgt['y'+e];tgt['y'+e]=t;}
+  }else{
+    // the old axis parameter holds at its centre; the new one opens on its full range
+    const c=tgtVal(ax,0.5);cfg.fixed[old]=c;fixedS[old].jump(c);
+    if(ax==='x')cfg.axX=k;else cfg.axY=k;
+    tgt[ax+'0']=P[k].fmin;tgt[ax+'1']=P[k].fmax;
+  }
+  clampDomain();jumpDomain();buildGutters();setHover(null);
+}
+
+/* ---- field ---- */
+function rangeRow(parent,label,o){
+  const d=document.createElement('div');d.className='ctrl';
+  d.innerHTML=`<div class="row"><label>${label}</label><span class="num"></span></div>`;
+  const r=document.createElement('input');r.type='range';r.min=o.min;r.max=o.max;r.step=o.step;r.value=o.get();
+  d.appendChild(r);parent.appendChild(d);
+  const num=d.querySelector('.num'),show=v=>num.textContent=(+v).toFixed(o.dec);
+  show(o.get());
+  r.oninput=()=>{show(r.value);if(o.live)o.set(+r.value);};
+  r.onchange=()=>{o.set(+r.value);r.value=o.get();show(o.get());};
+}
+function buildField(){
+  const f=$('field');f.innerHTML='';
+  const m=document.createElement('div');m.className='seg';f.appendChild(m);
+  seg(m,[[false,'tiles'],[true,'field']],()=>cfg.cont,v=>{cfg.cont=v;paramsDirty=true;});
+  rangeRow(f,'columns',{min:1,max:16,step:1,dec:0,get:()=>cfg.gridX,set:v=>{if(v!==cfg.gridX){cfg.gridX=v;buildSim();}}});
+  rangeRow(f,'rows',{min:1,max:16,step:1,dec:0,get:()=>cfg.gridY,set:v=>{if(v!==cfg.gridY){cfg.gridY=v;buildSim();}}});
+  rangeRow(f,'tile',{min:128,max:1024,step:32,dec:0,get:()=>cfg.tile,set:v=>{if(v!==cfg.tile){cfg.tile=v;buildSim();}}});
+  rangeRow(f,'density',{min:0.01,max:0.35,step:0.005,dec:3,get:()=>cfg.density,set:v=>{if(v!==cfg.density){cfg.density=v;buildSim();}}});
+  rangeRow(f,'diffusion',{min:0,max:1,step:0.01,dec:2,live:true,get:()=>cfg.diffuse,set:v=>cfg.diffuse=v});
+  rangeRow(f,'steps',{min:1,max:8,step:1,dec:0,live:true,get:()=>cfg.steps,set:v=>cfg.steps=v});
+  const s=document.createElement('div');s.className='seg';f.appendChild(s);
+  seg(s,[['uniform','uniform'],['disc','disc'],['ring','ring']],()=>cfg.seedMode,v=>{cfg.seedMode=v;seed();});
+}
+
+/* ---- view ---- */
+const EXP=[0.2,14],GAM=[0.3,2.0];
+(function(){
+  const el=$('padView'),dot=el.querySelector('.xydot');let drag=false;
+  function paint(){
+    const u=(cfg.exposure-EXP[0])/(EXP[1]-EXP[0]),v=(cfg.gamma-GAM[0])/(GAM[1]-GAM[0]);
+    dot.style.left=`calc(10px + ${clamp(u,0,1)} * (100% - 20px))`;
+    dot.style.top=`calc(10px + ${1-clamp(v,0,1)} * (100% - 20px))`;
+    $('vExp').textContent=cfg.exposure.toFixed(2);$('vGam').textContent=cfg.gamma.toFixed(2);
+  }
+  function grab(e){const r=el.getBoundingClientRect();
+    const u=clamp((e.clientX-r.left-10)/(r.width-20),0,1),v=clamp(1-(e.clientY-r.top-10)/(r.height-20),0,1);
+    cfg.exposure=lerp(EXP[0],EXP[1],u);cfg.gamma=lerp(GAM[0],GAM[1],v);
+    expS.set(cfg.exposure);gamS.set(cfg.gamma);paint();}
+  el.addEventListener('pointerdown',e=>{e.preventDefault();drag=true;el.setPointerCapture(e.pointerId);grab(e);});
+  el.addEventListener('pointermove',e=>{if(drag)grab(e);});
+  const up=()=>{drag=false;};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  paint();
+})();
+seg($('segPal'),[[0,'cyanotype'],[1,'ember'],[2,'mono']],()=>cfg.palette,v=>cfg.palette=v);
+
+/* ---- run / seed / fit + cards ---- */
+let runSeg;
+function toggleRun(){sim.running=!sim.running;runSeg.paint();}
+runSeg=seg($('segRun'),[['run',''],['seed','seed'],['fit','fit']],()=>sim.running?null:'run',v=>{
+  if(v==='run')toggleRun();else if(v==='seed')seed();else fitAxes();});
+{const b=$('segRun').firstChild;const paintRun=runSeg.paint;
+  runSeg.paint=()=>{paintRun();b.textContent=sim.running?'pause':'run';};runSeg.paint();}
+document.querySelectorAll('.card>h2').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('collapsed'));
+
+seg($('segPad'),[['add','add pad']],()=>null,addPad);
+
+/* ---- go ---- */
+buildPads();
+buildRails();
+buildField();
+buildSim();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
