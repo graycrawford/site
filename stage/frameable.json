@@ -1,0 +1,527 @@
+{
+ "https://graycrawford.com/index.html": {
+  "ok": true,
+  "status": 200,
+  "final": "https://graycrawford.com/index.html",
+  "frame": true,
+  "why": "own site"
+ },
+ "https://twitter.com/graycrawford": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://www.instagram.com/graycrawford/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.instagram.com/graycrawford/",
+  "frame": false,
+  "why": "X-Frame-Options DENY"
+ },
+ "https://graycrawford.com/parhelion/src/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://graycrawford.com/parhelion/src/",
+  "frame": true,
+  "why": "own site"
+ },
+ "https://graycrawford.com/engiscope/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://graycrawford.com/engiscope/",
+  "frame": true,
+  "why": "own site"
+ },
+ "https://graycrawford.com/orbital/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://graycrawford.com/orbital/",
+  "frame": true,
+  "why": "own site"
+ },
+ "https://app.lumalabs.ai/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://auth.lumalabs.ai/sign-up?client_id=client_01JEPBX392F635E24E17DGY3NX&redirect_uri=https%3A%2F%2Fapp.lumalabs.ai%2Fauth%2Fcallback&state=Fe26.2*1*d893f4337958faa0b35066fdbe70c03eb64c8c5eb7de24c547063cc513134867*05CuNKOd5hzIx_z4FhMl9w*4VgeyGAfewPu_aAs14xWOs3BUtoovAeQZkAFO_xTAfwzl6VCpye_nJ572B3ShbhfjZuLJpLSijF2xL8Fr3g03YGCG_2q18uuQ_DXuh0VoDwomgmx1yzuQeMj80LlfLaFgkM9V3jBA6npFd_8lbZ7jLC_Ks7zQx3C63ViwIYCJoSK2wBUbyuL6Uuls2uZ-iqT*1791009078693*35f82c1fdc0e905b1e59db80cc0ff70dd4f15739d89effc45927e67dc86e41f9*yQKO_zFZ1q95kpsimRU-3fQE_eSNx87p98z5dgipOQU%7E2&authorization_session_id=01M406S68R5SPCE56R3P1CW8K7",
+  "frame": false,
+  "why": "frame-ancestors https://bolt.new https://lovable.dev https://replit.com https://riff.new https://v0.app"
+ },
+ "https://lumalabs.ai/news/introducing-ray-3-2": {
+  "ok": true,
+  "status": 200,
+  "final": "https://lumalabs.ai/news/introducing-ray-3-2",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://www.toolkitly.com/latest-updates/luma-ai": {
+  "ok": false,
+  "status": 404,
+  "final": "https://www.toolkitly.com/latest-updates/luma-ai",
+  "frame": false,
+  "why": "HTTP 404"
+ },
+ "https://lumalabs.ai/news/introducing-luma-scenes": {
+  "ok": true,
+  "status": 200,
+  "final": "https://lumalabs.ai/news/introducing-luma-scenes",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/2011518368013303933": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/2011518368013303933",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://ra.co/events/2355085": {
+  "ok": false,
+  "status": 403,
+  "final": "https://ra.co/events/2355085",
+  "frame": false,
+  "why": "HTTP 403"
+ },
+ "https://claude.com/code-with-claude": {
+  "ok": true,
+  "status": 200,
+  "final": "https://claude.com/code-with-claude",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://clubtoclub.it/event/c2c-festival-nyc-2026/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://clubtoclub.it/event/c2c-festival-nyc-2026/",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://ra.co/events/2315644": {
+  "ok": false,
+  "status": 403,
+  "final": "https://ra.co/events/2315644",
+  "frame": false,
+  "why": "HTTP 403"
+ },
+ "https://www.instagram.com/fwbfest.info/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.instagram.com/fwbfest.info/",
+  "frame": false,
+  "why": "X-Frame-Options DENY"
+ },
+ "https://demos.club/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://demos.club/",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://x.com/gopalkraman/status/2024235626162434373": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/gopalkraman/status/2024235626162434373",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://app.aionthelot.com/agenda": {
+  "ok": true,
+  "status": 200,
+  "final": "https://app.aionthelot.com/agenda",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://lumalabs.ai/changelog/introducing-ray2": {
+  "ok": true,
+  "status": 200,
+  "final": "https://lumalabs.ai/changelog/introducing-ray2",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://lumalabs.ai/news/introducing-modify-video": {
+  "ok": true,
+  "status": 200,
+  "final": "https://lumalabs.ai/news/introducing-modify-video",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://lumalabs.ai/news/ray3": {
+  "ok": true,
+  "status": 200,
+  "final": "https://lumalabs.ai/news/ray3",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://ra.co/events/2245890": {
+  "ok": false,
+  "status": 403,
+  "final": "https://ra.co/events/2245890",
+  "frame": false,
+  "why": "HTTP 403"
+ },
+ "https://www.flaunt.com/post/portola-festival-2025": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.flaunt.com/post/portola-festival-2025",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://www.instagram.com/reel/DQQhlPsAPJS/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.instagram.com/reel/DQQhlPsAPJS/",
+  "frame": false,
+  "why": "X-Frame-Options DENY"
+ },
+ "https://grayarea.org/event/recombinant-festival-2025-network-editions/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://grayarea.org/event/recombinant-festival-2025-network-editions/",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://www.tiat.place/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.tiat.place/",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "http://web.archive.org/web/20250807094834/https://www.fwbfest.info/schedule": {
+  "ok": true,
+  "status": 200,
+  "final": "http://web.archive.org/web/20250807094834/https://www.fwbfest.info/schedule",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://twitter.com/graycrawford/status/1910414274855657726": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1910414274855657726",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1930318575694426202": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1930318575694426202",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1910421562542743690": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1910421562542743690",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1890844353716994469": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1890844353716994469",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://lumalabs.ai/changelog/welcome-to-the-all-new-dream-machine": {
+  "ok": true,
+  "status": 200,
+  "final": "https://lumalabs.ai/changelog/welcome-to-the-all-new-dream-machine",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://ra.co/events/2035300": {
+  "ok": false,
+  "status": 403,
+  "final": "https://ra.co/events/2035300",
+  "frame": false,
+  "why": "HTTP 403"
+ },
+ "https://cap.ucla.edu/event/live-night": {
+  "ok": true,
+  "status": 200,
+  "final": "https://cap.ucla.edu/event/live-night",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://www.youtube.com/watch?v=fazhMbEH8bQ": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.youtube.com/watch?v=fazhMbEH8bQ",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/gopalkraman/status/1841647480238395513": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/gopalkraman/status/1841647480238395513",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/gopalkraman/status/1841647480238395513": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/gopalkraman/status/1841647480238395513",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1860524647021969900": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1860524647021969900",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1795891829566472318": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1795891829566472318",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1768336650231546049": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1768336650231546049",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1820827755598184729": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1820827755598184729",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1828485425041940743": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1828485425041940743",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1803547762287583647": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1803547762287583647",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1799553927001882771": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1799553927001882771",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1820550097425559756": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1820550097425559756",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1819805456170397707": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1819805456170397707",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1799998589105746327": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1799998589105746327",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1811921270151483578": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1811921270151483578",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1750225562281632048": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1750225562281632048",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://luma.com/jokxud96": {
+  "ok": true,
+  "status": 200,
+  "final": "https://luma.com/jokxud96",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1732562172411363591": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1732562172411363591",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1729248497143259409": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1729248497143259409",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1734737530606825599": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1734737530606825599",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1741538324819652736": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1741538324819652736",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1624731336702566402": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1624731336702566402",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1732562172411363591": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1732562172411363591",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://www.youtube.com/watch?v=mPxf5x9wMAY": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.youtube.com/watch?v=mPxf5x9wMAY",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://www.devonstern.com/art/lake-party": {
+  "ok": true,
+  "status": 200,
+  "final": "https://www.devonstern.com/art/lake-party",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://twitter.com/graycrawford/status/1536543460534013952": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1536543460534013952",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1559349301104365570": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1559349301104365570",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1600921304453959680": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1600921304453959680",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1600922629086453760": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1600922629086453760",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1437134825836531712": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1437134825836531712",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1400884788718825474": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1400884788718825474",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://newyorklivearts.org/event/opening-reception-live-ideas-2019/": {
+  "ok": true,
+  "status": 200,
+  "final": "https://newyorklivearts.org/event/opening-reception-live-ideas-2019/",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://edas.info/web/2019ieeegem/papertitles.html": {
+  "ok": true,
+  "status": 200,
+  "final": "https://edas.info/web/2019ieeegem/papertitles.html",
+  "frame": true,
+  "why": "no framing restriction"
+ },
+ "https://twitter.com/graycrawford/status/1177142224615698434": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1177142224615698434",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://graycrawford.com/thesis.html": {
+  "ok": true,
+  "status": 200,
+  "final": "https://graycrawford.com/thesis.html",
+  "frame": true,
+  "why": "own site"
+ },
+ "https://twitter.com/graycrawford/status/1232766457521377281": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1232766457521377281",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://twitter.com/graycrawford/status/1100935327374626818": {
+  "ok": true,
+  "status": 200,
+  "final": "https://twitter.com/graycrawford/status/1100935327374626818",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/992961382705491968": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/992961382705491968",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://ideate.cmu.edu/news-and-announcements/2018/December/subsurface-festival.html": {
+  "ok": true,
+  "status": 200,
+  "final": "https://ideate.cmu.edu/news-and-announcements/2018/December/subsurface-festival.html",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ },
+ "https://x.com/graycrawford/status/1044793820972339200": {
+  "ok": true,
+  "status": 200,
+  "final": "https://x.com/graycrawford/status/1044793820972339200",
+  "frame": false,
+  "why": "X-Frame-Options SAMEORIGIN"
+ }
+}

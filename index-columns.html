@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Selected products, projects, performances, presentations, and experience by Gray Crawford.">
+  <title>Gray Crawford</title>
+  <style>
+    :root {
+      --background: #fff;
+      --font-color: #000;
+      --link-color: #110563;
+      --accent: #7e5566;
+      --good-ease: cubic-bezier(.15, .02, 0, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    /* White past the page edges too (Safari's overscroll and toolbar take this, not body's). */
+    html { background: var(--background); color-scheme: light; }
+    body {
+      background: var(--background);
+      color: var(--font-color);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.4;
+      overflow: auto;
+    }
+    a {
+      color: var(--link-color);
+      filter: blur(.65px);
+      mix-blend-mode: plus-darker;
+      text-decoration: none;
+      transition: color .6s var(--good-ease), filter .6s var(--good-ease);
+    }
+    a:hover, a:focus-visible { color: #0400ff; filter: blur(2.5px); }
+    .cv {
+      align-items: flex-start;
+      display: flex;
+      gap: 20px;
+      min-height: 100vh;
+      overflow-x: auto;
+      padding: 0 20px 0 0;
+      scrollbar-width: none;
+    }
+    .cv::-webkit-scrollbar, .panel::-webkit-scrollbar { display: none; }
+    .identity, .panel {
+      flex: 0 0 352px;
+      padding: 28px 20px 60px;
+      scrollbar-width: none;
+    }
+    .identity {
+      align-self: flex-start;
+      background: transparent;
+      flex-basis: var(--stage-w);
+      left: 0;
+      min-height: 100vh;
+      padding-left: 28px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    :root { --stage-w: clamp(300px, 26vw, 400px); } /* ≥ 300: embedded tweets won't render narrower than 250px */
+    /* The stage: while an entry is hovered or locked, its media covers the whole sidebar,
+       starting level with the entry and scrolling with the page like the other columns. */
+    .stage-media {
+      background: var(--background);
+      left: 0;
+      opacity: 0;
+      padding: 0 20px 28px 28px;
+      pointer-events: none;
+      position: absolute;
+      right: 0;
+      top: var(--stage-y, 0px);
+      transition: opacity .25s var(--good-ease);
+      z-index: 3;
+    }
+    /* Appears at once; only the fade-out is eased. */
+    .identity.active .stage-media { opacity: 1; pointer-events: auto; transition: none; }
+    .view { display: none; }
+    .view.on { display: block; }
+    .part + .part { margin-top: 16px; }
+    .part-video video { background: #000; display: block; height: auto; width: 100%; }
+    .part-youtube iframe { aspect-ratio: 16 / 9; background: #000; border: 0; display: block; width: 100%; }
+    .tweet-frame { border: 0; display: block; height: 400px; max-width: 550px; width: 100%; }
+    .instagram-frame { aspect-ratio: 9 / 19; border: 0; border-radius: 6px; display: block; max-width: 400px; width: 100%; }
+    .page-frame { background: #fff; border: 0; border-radius: 6px; box-shadow: 0 0 0 1px rgba(17, 5, 99, .08); display: block; height: calc(100vh - 120px); width: 100%; }
+    /* Previews at rest in the margin (vertical layout): one row per entry, as tall as the entry. */
+    .previews { inset: 0; pointer-events: none; position: absolute; }
+    .preview-row { cursor: pointer; display: flex; gap: 6px; left: 0; pointer-events: auto; position: absolute; }
+    .preview-row > img, .preview-row > .mosaic { border-radius: 4px; height: 100%; width: auto; }
+    .preview-row > img { display: block; object-fit: cover; }
+    .mosaic { display: grid; overflow: hidden; }
+    .still-set { display: flex; gap: 6px; height: 100%; }
+    .still-set > * { height: 100%; }
+    /* A tweet at rest: a 400×520 window onto the post, scaled to the row's height. */
+    .tweet-mini { aspect-ratio: 400 / 520; border-radius: 4px; overflow: hidden; position: relative; }
+    .tweet-mini iframe { border: 0; height: 520px; left: 0; pointer-events: none; position: absolute; top: 0; transform: scale(calc(var(--row-h, 60) / 520)); transform-origin: 0 0; width: 400px; }
+    .mosaic img { display: block; height: 100%; min-height: 0; min-width: 0; object-fit: cover; width: 100%; }
+    .tweet-frame + .tweet-frame { margin-top: 16px; }
+    .part-tweet .twitter-tweet { filter: none; margin: 0 !important; }
+    .part-image img { display: block; height: auto; width: 100%; }
+    /* The site blurs links; a picture that links to its original stays sharp. */
+    .part-image a, .part-image a:hover, .part-image a:focus-visible { filter: none; mix-blend-mode: normal; }
+    .stage-caption {
+      filter: blur(.62px);
+      font-size: .84rem;
+      margin-top: 10px;
+      min-height: 1.4em;
+      mix-blend-mode: plus-darker;
+      opacity: .65;
+    }
+    /* Short enough that the grid and its caption fit on screen together. */
+    .grid-host { aspect-ratio: 9 / 16; display: flex; justify-content: center; max-height: calc(100vh - 120px); width: 100%; }
+    .grid { background: #000; overflow: hidden; position: relative; }
+    .grid .cell { left: 0; overflow: hidden; position: absolute; top: 0; will-change: transform; }
+    /* Each picture is placed by grid.js (left/top/width/height) so its crop can stay still on screen. */
+    .grid video, .grid img { display: block; height: 100%; left: 0; max-width: none; object-fit: fill; position: absolute; top: 0; width: 100%; }
+    .grid .full { opacity: 0; transition: opacity .25s var(--good-ease); }
+    .grid .full.on { opacity: 1; }
+    .entry[data-stage] { cursor: pointer; }
+    .part-image img, .part-video video, .part-youtube iframe, .grid { border-radius: 6px; }
+    .entry:hover, .entry.focused, .entry.match { transition: none; }
+    /* Filters: hovering previews, clicking keeps; entries outside the chosen kinds fade back. */
+    .filters { display: flex; flex-direction: column; margin-top: 14px; }
+    .filters button {
+      background: none; border: 0; color: var(--link-color); cursor: pointer; filter: blur(.65px);
+      font: inherit; mix-blend-mode: plus-darker; opacity: .55; padding: 0; text-align: left;
+      transition: filter .3s var(--good-ease), opacity .3s var(--good-ease);
+    }
+    .filters button .n { font-size: .73rem; font-variant-numeric: tabular-nums; margin-left: 5px; opacity: .45; }
+    .filters button:hover, .filters button.on { filter: blur(0); opacity: 1; }
+    .cv.filtering .entry:not(.match) { filter: blur(1.4px); opacity: .12; }
+    .cv.filtering .entry.match { filter: blur(0); opacity: .82; }
+    /* Section and year headings with nothing of the chosen kind fade back with their entries. */
+    .cv.filtering .group.no-match .group-title, .cv.filtering .panel.no-match .year { filter: blur(1.4px); opacity: .12; }
+    .preview-row { transition: opacity .3s var(--good-ease), filter .3s var(--good-ease); }
+    .preview-row.no-match { filter: blur(1.4px); opacity: .12; }
+    .panel[hidden] { display: none !important; } /* layouts that set .panel's display mustn't show hidden panels */
+    .entry.focused { filter: blur(0); opacity: .82; }
+    /* The entry being shown sits on a continuous-curvature round rect (drawn by stage.js):
+       light while hovered, filled in once clicked. */
+    .entry[data-stage] { isolation: isolate; position: relative; }
+    .entry .hl { fill: rgba(17, 5, 99, .045); opacity: 0; pointer-events: none; position: absolute; transition: opacity .3s var(--good-ease), fill .3s var(--good-ease); z-index: -1; }
+    .entry.focused .hl { opacity: 1; transition: none; }
+    .entry.locked .hl { fill: rgba(17, 5, 99, .1); }
+    .entry.focused .entry-title { filter: none; }
+    @media (max-width: 700px) {
+      /* No room beside the columns on a phone: a tapped entry opens its media over the page. */
+      :root { --stage-w: 220px; }
+      .stage-media { display: none; }
+      .identity.active .stage-media {
+        display: block;
+        inset: 0;
+        overflow-y: auto;
+        padding: 16px;
+        position: fixed;
+      }
+      .grid-host { max-height: calc(100dvh - 72px); }
+    }
+    .identity-card {
+      isolation: isolate;
+      position: relative;
+    }
+    .identity-card::before {
+      -webkit-backdrop-filter: blur(18px);
+      -webkit-mask-composite: source-in;
+      -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 48%, rgba(0, 0, 0, .94) 62%, rgba(0, 0, 0, .72) 76%, rgba(0, 0, 0, .32) 90%, transparent 100%), linear-gradient(180deg, #000 0%, #000 66%, rgba(0, 0, 0, .94) 76%, rgba(0, 0, 0, .72) 86%, rgba(0, 0, 0, .32) 95%, transparent 100%);
+      backdrop-filter: blur(18px);
+      background: rgba(255, 255, 255, .42);
+      content: "";
+      inset: -28px -80px -50px -28px;
+      mask-composite: intersect;
+      mask-image: linear-gradient(90deg, #000 0%, #000 48%, rgba(0, 0, 0, .94) 62%, rgba(0, 0, 0, .72) 76%, rgba(0, 0, 0, .32) 90%, transparent 100%), linear-gradient(180deg, #000 0%, #000 66%, rgba(0, 0, 0, .94) 76%, rgba(0, 0, 0, .72) 86%, rgba(0, 0, 0, .32) 95%, transparent 100%);
+      pointer-events: none;
+      position: absolute;
+      z-index: -1;
+    }
+    .name, .year {
+      color: var(--font-color);
+      filter: blur(2px);
+      font-size: 1.5rem;
+      font-weight: 600;
+      line-height: 1.15;
+      mix-blend-mode: plus-darker;
+      opacity: .6;
+      transition: filter .6s var(--good-ease);
+    }
+    .name:hover, .year:hover { filter: blur(3.6px); }
+    .lastname { filter: blur(2.2px); transition: filter .6s var(--good-ease); }
+    .lastname:hover { filter: blur(6.5px); }
+    .nav { display: flex; gap: 5px; margin-top: 14px; }
+    .nav-works { display: flex; flex-direction: column; gap: 0; margin-top: 8px; }
+    .nav strong { display: contents; }
+    .intro {
+      color: var(--font-color);
+      filter: blur(.75px);
+      margin-top: 14px;
+      mix-blend-mode: plus-darker;
+      opacity: .6;
+      transition: filter .6s var(--good-ease);
+    }
+    .intro:hover { filter: blur(1.4px); }
+    .year { margin-bottom: 31px; }
+    .group + .group { margin-top: 34px; }
+    .group-title {
+      color: var(--accent);
+      filter: blur(.7px);
+      font-size: .69rem;
+      font-weight: 750;
+      letter-spacing: .09em;
+      margin-bottom: 13px;
+      mix-blend-mode: plus-darker;
+      text-transform: uppercase;
+      transition: filter .6s var(--good-ease);
+    }
+    .group-title:hover { filter: blur(1.25px); }
+    .entry {
+      color: var(--font-color);
+      filter: blur(.62px);
+      mix-blend-mode: plus-darker;
+      opacity: .65;
+      transition: filter .6s var(--good-ease), opacity .6s var(--good-ease);
+    }
+    .entry + .entry { margin-top: 17px; }
+    .entry:hover { filter: blur(0); opacity: .82; }
+    .entry-head {
+      align-items: baseline;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .entry-title { font-weight: 650; min-width: 0; }
+    .date {
+      font-size: .73rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .025em;
+      opacity: .62;
+      white-space: nowrap;
+    }
+    .place, .details { display: block; }
+    .place { margin-top: 2px; }
+    .details { font-size: .84rem; margin-top: 4px; opacity: .72; }
+    .range { font-variant-numeric: tabular-nums; opacity: .55; }
+    .year-media { margin-top: 44px; }
+    .year + .year-media { margin-top: 0; }
+    .tweet-cluster + .tweet-cluster { margin-top: 44px; }
+    .twitter-tweet {
+      filter: blur(3px);
+      margin: 20px 0 !important;
+      max-width: 100% !important;
+      transition: filter .6s var(--good-ease);
+    }
+    .twitter-tweet:hover { filter: blur(0); }
+    .tweet-glow {
+      isolation: isolate;
+      position: relative;
+    }
+    .tweet-glow::before {
+      background: rgba(17, 5, 99, .18);
+      border-radius: 50%;
+      content: "";
+      filter: blur(80px);
+      inset: 6% -24%;
+      pointer-events: none;
+      position: absolute;
+      z-index: -1;
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="cv">
+    <header class="identity">
+      <div class="identity-card">
+        <a href="/index.html" aria-current="page"><h1 class="name">Gray <span class="lastname">Crawford</span></h1></a>
+        <p class="intro">generative designer * engineer * researcher * artist</p>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="https://twitter.com/graycrawford">tw</a>
+          <a href="https://www.instagram.com/graycrawford/">ig</a>
+        </nav>
+        <nav class="filters" aria-label="Filter by kind of work">
+          <button data-tag="product">product</button>
+          <button data-tag="video">realtime video</button>
+          <button data-tag="audio">realtime audio</button>
+          <button data-tag="latent">latent space</button>
+          <button data-tag="spatial">spatial</button>
+          <button data-tag="talks">talks</button>
+        </nav>
+        <nav class="filters views" aria-label="Order">
+          <button data-view="year" class="on">by year</button>
+          <button data-view="project">by project</button>
+        </nav>
+        <nav class="nav-works" aria-label="Selected works">
+          <a href="/parhelion/src/">parhelion</a>
+          <a href="/engiscope/">engiscope</a>
+          <a href="https://graycrawford.com/orbital/">orbital</a>
+        </nav>
+      </div>
+      <div class="stage-media" aria-live="polite"><p class="stage-caption"></p></div>
+    </header>
+
+    <section class="panel" aria-labelledby="y2026">
+      <h2 class="year" id="y2026">2026</h2>
+      <section class="group" aria-labelledby="y2026-product">
+        <h3 class="group-title" id="y2026-product">Design + eng · Luma AI</h3>
+        <article class="entry" data-tags="product" data-stage="image:luma-agents-2026">
+          <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Luma Agents</a><time class="date" datetime="2026-03-05">Mar</time></div>
+          <span class="details">Core design and engineering for agentic canvas.</span>
+        </article>
+        <article class="entry" data-stage="grid:latent-blend-grid image:latent-blend-canvas image:latent-blend" data-tags="product latent">
+          <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Latent Blend</a><time class="date" datetime="2026-03-05">Mar</time></div>
+          <span class="details">Directed research + training of custom in-house model for image embedding interpolation.</span>
+        </article>
+        <article class="entry" data-tags="product" data-stage="video:ray32-modify-2026">
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-ray-3-2">Ray3.2 Modify</a><time class="date" datetime="2026-06-09">Jun</time></div>
+          <span class="details">Core design and engineering of production-class multi-keyframe video-to-video feature.</span>
+        </article>
+        <article class="entry" data-tags="product" data-stage="image:luma-timeline-2026">
+          <div class="entry-head"><a class="entry-title" href="https://www.toolkitly.com/latest-updates/luma-ai">Timeline</a><time class="date" datetime="2026-06-20">Jun</time></div>
+        </article>
+        <article class="entry" data-tags="product" data-stage="image:luma-scenes-2026">
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-luma-scenes">Luma Scenes</a><time class="date" datetime="2026-08-12">Aug</time></div>
+          <span class="details">Core design and engineering of autoregressive multi-keyframe storyboarding feature.</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2026-projects">
+        <h3 class="group-title" id="y2026-projects">Projects</h3>
+        <article class="entry" data-stage="video:neophon-2026" data-tags="audio latent" data-size="big">
+          <div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/2011518368013303933">Neophon</a><time class="date" datetime="2026-01-14">Jan</time></div>
+          <span class="details">Custom instrument for expressive generative music performance using Lyria Realtime, focused on responsive high-dimensional interpolation.</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2026-side">
+        <h3 class="group-title" id="y2026-side">Side projects</h3>
+        <article class="entry" data-stage="video:exposure-2026" data-tags="product" data-size="normal">
+          <div class="entry-head"><span class="entry-title">Exposure</span><time class="date" datetime="2026-09">Sep</time></div>
+          <span class="details">RAW camera app with a single exposure control.</span>
+        </article>
+        <article class="entry" data-stage="page:/orbital/" data-still="orbital-2026">
+          <div class="entry-head"><a class="entry-title" href="/orbital/">Orbital</a><time class="date" datetime="2026-09-15">Sep</time></div>
+          <span class="details">Hydrogen eigenstates, superpositions, volumetric light and probability-current tracers, in WebGPU.</span>
+        </article>
+        <article class="entry" data-stage="page:/engiscope/">
+          <div class="entry-head"><a class="entry-title" href="/engiscope/">Engiscope</a><time class="date" datetime="2026-07-25">Jul</time></div>
+          <span class="details">Bench for the eye's point spread function: how a point of light looks through the eye's optics.</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2026-live">
+        <h3 class="group-title" id="y2026-live">Live</h3>
+        <article class="entry" data-tags="audio">
+          <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2355085">Optia · Cirrus</a><time class="date" datetime="2026-01-31">Jan</time></div>
+          <span class="place">TIAT, SF</span>
+        </article>
+        <article class="entry" data-tags="audio latent">
+          <div class="entry-head"><a class="entry-title" href="https://claude.com/code-with-claude">Neophon · Code with Claude</a><time class="date" datetime="2026-05-06">May</time></div>
+          <span class="place">Anthropic developer conference</span>
+          <span class="details">Two 3hr improvised performances of realtime audio generation instrument.</span>
+        </article>
+        <article class="entry" data-subtitle="C2C Festival, New York" data-stage="grid:arca-c2c" data-tags="video">
+          <div class="entry-head"><a class="entry-title" href="https://clubtoclub.it/event/c2c-festival-nyc-2026/">Arca</a><time class="date" datetime="2026-05-08">May</time></div>
+          <span class="place">C2C Festival, NY</span>
+          <span class="details">Realtime improvised streamDiffusion visuals.</span>
+        </article>
+        <article class="entry" data-tags="video">
+          <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2315644">Moritz von Oswald &amp; Azu Tiwaline</a><time class="date" datetime="2026-05-14">May</time></div>
+          <span class="place">Parameter, Gray Area, SF</span>
+          <span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
+        </article>
+        <article class="entry">
+          <div class="entry-head"><a class="entry-title" href="https://www.instagram.com/fwbfest.info/">FWB Fest</a><time class="date" datetime="2026-07-31">Jul</time></div>
+          <span class="place">Idyllwild Arts, CA</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2026-talks">
+        <h3 class="group-title" id="y2026-talks">Talks</h3>
+        <article class="entry" data-stage="video:demos-neophon-2026" data-tags="audio talks latent">
+          <div class="entry-head"><a class="entry-title" href="https://demos.club/">Generating New Sounds with Neophon</a><time class="date" datetime="2026-01-15">Jan</time></div>
+          <span class="place">Demos &amp; Chill, SF</span>
+        </article>
+        <article class="entry" data-page="/work/neophon/spc-demo-night/" data-stage="video:spc-neophon-2026 tweet:2024235626162434373" data-tags="audio talks latent">
+          <div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/2024235626162434373">Neophon · SPC Demo Night</a><time class="date" datetime="2026-02-12">Feb</time></div>
+          <span class="place">South Park Commons Demo Night, SF</span>
+        </article>
+        <article class="entry" data-stage="image:ai-on-the-lot-2026" data-tags="talks product">
+          <div class="entry-head"><a class="entry-title" href="https://app.aionthelot.com/agenda">What's the User Interface for Creative Work?</a><time class="date" datetime="2026-05-27">May</time></div>
+          <span class="place">AI on the Lot, Culver City</span>
+          <span class="details">Panel with Soleio Cuervo.</span>
+        </article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><a href="https://x.com/graycrawford/status/2011518368013303933"></a></blockquote>
+          <blockquote class="twitter-tweet" data-conversation="none"><a href="https://x.com/gopalkraman/status/2024235626162434373"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2025">
+      <h2 class="year" id="y2025">2025</h2>
+      <section class="group" aria-labelledby="y2025-product">
+        <h3 class="group-title" id="y2025-product">Product design · Luma AI</h3>
+        <article class="entry" data-tags="product"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan</time></div><span class="details">Model eval + finetuning data.</span></article>
+        <article class="entry" data-tags="product">
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-modify-video">Modify Video</a><time class="date" datetime="2025-06-02">Jun</time></div>
+          <span class="details">Core design of video-to-video feature.</span>
+        </article>
+        <article class="entry" data-tags="product"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/ray3">Ray3</a><time class="date" datetime="2025-09-18">Sep</time></div></article>
+      </section>
+      <section class="group" aria-labelledby="y2025-side">
+        <h3 class="group-title" id="y2025-side">Side projects</h3>
+        <article class="entry" data-stage="page:/parhelion/src/">
+          <div class="entry-head"><a class="entry-title" href="/parhelion/src/">Parhelion</a><time class="date" datetime="2025-11-22">Nov</time></div>
+          <span class="details">Ice-crystal halos, sun dogs and the sky around them, spectrally ray traced in WebGPU.</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2025-live">
+        <h3 class="group-title" id="y2025-live">Live</h3>
+        <article class="entry" data-subtitle="Palomosa, Montréal" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2245890">Arca</a><time class="date" datetime="2025-09-06">Sep</time></div><span class="place">Palomosa Festival, Montréal</span></article>
+        <article class="entry" data-subtitle="Portola, San Francisco" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://www.flaunt.com/post/portola-festival-2025">Arca</a><time class="date" datetime="2025-09-21">Sep</time></div><span class="place">Portola Festival, SF</span></article>
+        <article class="entry" data-subtitle="No LineUp, São Paulo" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://www.instagram.com/reel/DQQhlPsAPJS/">Arca</a><time class="date" datetime="2025-10-25">Oct</time></div><span class="place">Heineken No LineUp Festival, São Paulo</span></article>
+        <article class="entry" data-tags="video">
+          <div class="entry-head"><a class="entry-title" href="https://grayarea.org/event/recombinant-festival-2025-network-editions/">Hesaitix</a><time class="date" datetime="2025-12-05">Dec</time></div>
+          <span class="place">Recombinant Festival, Gray Area, SF</span><span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2025-talks">
+        <h3 class="group-title" id="y2025-talks">Talks</h3>
+        <article class="entry" data-tags="talks latent">
+          <div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Latent Space Image Variation</a><time class="date" datetime="2025-02-23">Feb</time></div>
+          <span class="place">TIAT #10, Internet Archive, SF</span>
+        </article>
+        <article class="entry" data-tags="talks latent video">
+          <div class="entry-head"><a class="entry-title" href="http://web.archive.org/web/20250807094834/https://www.fwbfest.info/schedule">Exploring Latent Spaces</a><time class="date" datetime="2025-08-02">Aug</time></div>
+          <span class="place">FWB Fest, Idyllwild Arts, CA</span>
+          <span class="details">Drop-in session playing with realtime diffusion and interpolating through latent space.</span>
+        </article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1910414274855657726"></a></blockquote>
+          <blockquote class="twitter-tweet" data-media-max-width="560"><a href="https://twitter.com/graycrawford/status/1930318575694426202"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1910421562542743690"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1890844353716994469"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2024">
+      <h2 class="year" id="y2024">2024</h2>
+      <section class="group" aria-labelledby="y2024-product">
+        <h3 class="group-title" id="y2024-product">Product design · Luma AI</h3>
+        <article class="entry" data-tags="product">
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/welcome-to-the-all-new-dream-machine">Dream Machine</a><time class="date" datetime="2024-11-20">Nov</time></div>
+        </article>
+      </section>
+      <section class="group" aria-labelledby="y2024-live">
+        <h3 class="group-title" id="y2024-live">Live</h3>
+        <article class="entry" data-tags="video"><div class="entry-head"><span class="entry-title">Optia · Hexcode Halloween Algorave</span><time class="date" datetime="2024-10-31">Oct</time></div><span class="place">Gray Area, SF</span></article>
+        <article class="entry" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2035300">Optia · HydeFM × The Lab</a><time class="date" datetime="2024-11-08">Nov</time></div><span class="place">The Lab, SF</span><span class="details">With Croatian Amor and ZZ/Elias.</span></article>
+        <article class="entry" data-subtitle="Live Night, CAP UCLA" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://cap.ucla.edu/event/live-night">Arca</a><time class="date" datetime="2024-12-07">Dec</time></div><span class="place">CAP UCLA / REDCAT Live Night, LA</span><span class="details">Realtime improvised streamDiffusion visuals alongside Carlos Sáez.</span></article>
+      </section>
+      <section class="group" aria-labelledby="y2024-talks">
+        <h3 class="group-title" id="y2024-talks">Talks</h3>
+        <article class="entry" data-tags="talks"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Envisioning Generative OSs</a><time class="date" datetime="2024-02-22">Feb</time></div><span class="place">Demos &amp; Chill, SF</span></article>
+        <article class="entry" data-stage="youtube:fazhMbEH8bQ" data-tags="talks video">
+          <div class="entry-head"><a class="entry-title" href="https://www.youtube.com/watch?v=fazhMbEH8bQ">AI and the Arts</a><time class="date" datetime="2024-03-10">Mar</time></div>
+          <span class="place">SeedAI Hack the Future, SXSW, Austin</span>
+          <span class="details">Panel with Ruby Justice Thelot, alongside a live streamDiffusion installation.</span>
+        </article>
+        <article class="entry" data-page="/work/new-behaviors/" data-stage="video:spc-new-behaviors-2024 tweet:1841647480238395513" data-tags="talks latent"><div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/1841647480238395513">New Behaviors</a><time class="date" datetime="2024-10-01">Oct</time></div><span class="place">South Park Commons Demo Night, SF</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <div class="tweet-glow">
+            <blockquote class="twitter-tweet" data-conversation="none" data-dnt="true"><a href="https://twitter.com/gopalkraman/status/1841647480238395513"></a></blockquote>
+          </div>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1860524647021969900"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1795891829566472318"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1768336650231546049"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1820827755598184729"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1828485425041940743"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1803547762287583647"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1799553927001882771"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1820550097425559756"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1819805456170397707"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1799998589105746327"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1811921270151483578"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1750225562281632048"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2023">
+      <h2 class="year" id="y2023">2023</h2>
+      <section class="group" aria-labelledby="y2023-talks">
+        <h3 class="group-title" id="y2023-talks">Talks</h3>
+        <article class="entry" data-tags="talks"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces</a><time class="date" datetime="2023-02-10">Feb</time></div><span class="place">Demos &amp; Chill, SF</span></article>
+        <article class="entry" data-tags="talks latent"><div class="entry-head"><a class="entry-title" href="https://luma.com/jokxud96">Growing Branches through Latent Space</a><time class="date" datetime="2023-03-25">Mar</time></div><span class="place">Show &amp; Tell: AI &amp; Design, SF</span></article>
+        <article class="entry" data-tags="talks"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces 2</a><time class="date" datetime="2023-10-02">Oct</time></div><span class="place">Demos &amp; Chill, SF</span></article>
+        <article class="entry" data-tags="talks"><div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Wide Views</a><span class="date">TIAT #2</span></div><span class="place">SF</span></article>
+      </section>
+      <section class="group" aria-labelledby="y2023-projects">
+        <h3 class="group-title" id="y2023-projects">Projects</h3>
+        <article class="entry" data-stage="video:waft-2023" data-tags="product spatial"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/1732562172411363591">Waft Locomotion</a><time class="date" datetime="2023-04">Apr</time></div><span class="place">Ultraleap</span><span class="details">Velocity-based hand locomotion for spatial computing.</span></article>
+      </section>
+      <section class="group" aria-labelledby="y2023-experience">
+        <h3 class="group-title" id="y2023-experience">Experience</h3>
+        <article class="entry" data-tags="product spatial"><div class="entry-head"><span class="entry-title">Interaction Design Engineer</span><span class="date range">2019–23</span></div><span class="place">Ultraleap</span><span class="details">Spatial interaction prototyping in Tracking and Interaction R&amp;D.</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1729248497143259409"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1734737530606825599"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1741538324819652736"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1624731336702566402"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1732562172411363591"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2022">
+      <h2 class="year" id="y2022">2022</h2>
+      <section class="group" aria-labelledby="y2022-live">
+        <h3 class="group-title" id="y2022-live">Live</h3>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.youtube.com/watch?v=mPxf5x9wMAY">Optia · Hexcode Halloween Algorave</a><time class="date" datetime="2022-10-27">Oct</time></div><span class="place">Gray Area, SF</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://www.devonstern.com/art/lake-party">Throw Your Phone into a Lake 2 · New Nostalgia</a><time class="date" datetime="2022-11">Nov</time></div><span class="place">Four One Nine, SF</span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1536543460534013952"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1559349301104365570"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1600921304453959680"></a></blockquote>
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1600922629086453760"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2021">
+      <h2 class="year" id="y2021">2021</h2>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://x.com/graycrawford/status/1437134825836531712"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1400884788718825474"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2019">
+      <h2 class="year" id="y2019">2019</h2>
+      <section class="group" aria-labelledby="y2019-xoromancy">
+        <h3 class="group-title" id="y2019-xoromancy">Exhibitions</h3>
+        <article class="entry" data-page="/work/xoromancy/" data-stage="video:xoromancy-2019 image:xoromancy-still-2019" data-tags="latent spatial"><div class="entry-head"><a class="entry-title" href="https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/">Xoromancy</a><time class="date" datetime="2019-02-22">Feb</time></div><span class="place">With Nama Tiwari, FRAME Gallery, Carnegie Mellon University</span></article>
+        <article class="entry" data-page="/work/xoromancy/" data-stage="image:xoromancy-gallery-2019" data-tags="latent spatial"><div class="entry-head"><a class="entry-title" href="https://newyorklivearts.org/event/opening-reception-live-ideas-2019/">Xoromancy · Live Ideas</a><time class="date" datetime="2019-05-08">May</time></div><span class="place">New York Live Arts</span></article>
+        <article class="entry" data-page="/work/xoromancy/" data-stage="image:xoromancy-sketch-2019" data-tags="latent spatial"><div class="entry-head"><a class="entry-title" href="https://edas.info/web/2019ieeegem/papertitles.html">Xoromancy: Image Creation via Gestural Control of High-Dimensional Spaces</a><time class="date" datetime="2019-06-19">Jun</time></div><span class="place">IEEE Games, Entertainment &amp; Media, Yale University</span></article>
+        <article class="entry" data-stage="video:filament-2019" data-tags="spatial"><div class="entry-head"><a class="entry-title" href="https://twitter.com/graycrawford/status/1177142224615698434">Filament</a><time class="date" datetime="2019-09">Sep</time></div><span class="place">Oculus Connect 6, San Jose</span></article>
+      </section>
+      <section class="group" aria-labelledby="y2019-education">
+        <h3 class="group-title" id="y2019-education">Education</h3>
+        <article class="entry" data-stage="video:thesis-2019" data-tags="latent"><div class="entry-head"><span class="entry-title">MDes in Design for Interactions</span><span class="date range">2017–19</span></div><span class="place">Carnegie Mellon University</span><span class="details">Masters thesis · <a href="/thesis.html"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em></a></span></article>
+      </section>
+      <section class="year-media" aria-label="Selected posts">
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1232766457521377281"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1100935327374626818"></a></blockquote>
+        </div>
+        <div class="tweet-cluster">
+          <blockquote class="twitter-tweet"><a href="https://twitter.com/graycrawford/status/1177142224615698434"></a></blockquote>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="y2018">
+      <h2 class="year" id="y2018">2018</h2>
+      <section class="group" aria-labelledby="y2018-work">
+        <h3 class="group-title" id="y2018-work">Projects</h3>
+        <article class="entry" data-page="/work/strata/" data-stage="video:strata-2018 image:strata-poster-2018" data-tags="spatial"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/992961382705491968">STRATA</a><time class="date" datetime="2018-03">Mar</time></div><span class="place">VR cloth physics instrument</span></article>
+        <article class="entry"><div class="entry-head"><a class="entry-title" href="https://ideate.cmu.edu/news-and-announcements/2018/December/subsurface-festival.html">PROP → Mach 1</a><time class="date" datetime="2018-12-01">Dec</time></div><span class="place">SubSurface, Brady’s Bend limestone mine, Pennsylvania</span><span class="details">Sound propagation synchronized with a tunnel-length chain of lights.</span></article>
+      </section>
+      <section class="group" aria-labelledby="y2018-experience">
+        <h3 class="group-title" id="y2018-experience">Work</h3>
+        <article class="entry" data-page="/work/jpl/" data-stage="video:jpl-axis-2018 image:jpl-2018" data-tags="product spatial"><div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/1044793820972339200">AR Design Prototyping Intern</a><span class="date">Summer</span></div><span class="place">NASA Jet Propulsion Laboratory</span><span class="details">Bimanual hand-anchored interfaces for ProtoSpace; Leap Motion tracking for HoloLens.</span></article>
+      </section>
+    </section>
+
+    <section class="panel" aria-labelledby="earlier">
+      <h2 class="year" id="earlier">Earlier</h2>
+      <section class="group" aria-labelledby="earlier-education">
+        <h3 class="group-title" id="earlier-education">Education</h3>
+        <article class="entry" data-page="/work/st-johns/" data-stage="image:st-johns-thesis-2015 image:st-johns-darwin-2015"><div class="entry-head"><span class="entry-title">BA in Liberal Arts</span><span class="date range">2011–15</span></div><span class="place">St. John’s College, Santa Fe</span><span class="details">Senior thesis · <a href="/work/st-johns/"><em>Graphical Representation of Motion and Time in the Works of Newton, Galileo, and Einstein</em></a></span></article>
+        <article class="entry"><div class="entry-head"><span class="entry-title">MA in Design for Interactions</span><span class="date range">2016–17</span></div><span class="place">Carnegie Mellon University</span></article>
+      </section>
+    </section>
+  </main>
+  <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+  <script type="module" src="/stage/stage.js"></script>
+  <script type="module" src="/stage/views.js"></script>
+  <script type="module" src="/stage/filters.js"></script>
+</body>
+</html>

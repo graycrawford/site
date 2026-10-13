@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="theme-color" content="#ffffff">
+<title>text lens</title>
+<style>
+  :root { --link: #110563; color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fff; color: #000; font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro", sans-serif; }
+  body { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr) 300px; padding: 28px; }
+  /* Same geometry as the grid at 1440px: 8 columns, normal tiles 2×2 (165px), big 4×4 (338px). */
+  .tiles { align-self: start; display: grid; gap: 8px; grid-auto-flow: dense; grid-template-columns: repeat(8, 1fr); width: 684px; }
+  .tile { aspect-ratio: 1; border-radius: 10px; grid-area: span 2 / span 2; overflow: hidden; position: relative; background: #000; }
+  .tile.big { grid-area: span 4 / span 4; }
+  .tile canvas, .tile .css-img { display: block; height: 100%; inset: 0; position: absolute; width: 100%; }
+  .tile .css-img { object-fit: cover; }
+  .tile .words { text-shadow: var(--shadow, none); align-items: flex-start; color: #fff; display: flex; flex-direction: column; font-size: 13.44px; gap: 2px; left: 12px; line-height: 1.25; position: absolute; top: 12px; right: 12px; }
+  .tile .words b { font-weight: 650; }
+  .tile .words span { display: none; } /* the grid hides months too */
+  /* CSS comparison: a backdrop blur under the words, masked to a soft rounded box. */
+  .tile .css-veil { -webkit-backdrop-filter: blur(var(--css-blur)) brightness(var(--css-bright)); backdrop-filter: blur(var(--css-blur)) brightness(var(--css-bright)); border-radius: 14px; position: absolute; -webkit-mask-image: radial-gradient(closest-side, #000 60%, transparent); mask-image: radial-gradient(closest-side, #000 60%, transparent); }
+  body:not(.css) .css-veil, body:not(.css) .css-img, body.css canvas { display: none; }
+  .panel { position: sticky; top: 28px; align-self: start; display: flex; flex-direction: column; gap: 10px; }
+  .panel h3 { font-size: 11px; letter-spacing: .08em; margin-top: 8px; opacity: .5; text-transform: uppercase; }
+  .row { display: grid; gap: 8px; grid-template-columns: 92px 1fr 44px; align-items: center; }
+  .row output { font-variant-numeric: tabular-nums; opacity: .6; text-align: right; }
+  .modes { display: flex; gap: 12px; }
+  .modes button, .copy { background: none; border: 0; color: var(--link); cursor: pointer; font: inherit; opacity: .55; padding: 0; }
+  .modes button.on { opacity: 1; }
+  .perf { font-variant-numeric: tabular-nums; opacity: .5; }
+  textarea { font: 11px ui-monospace, monospace; height: 120px; padding: 6px; width: 100%; }
+</style>
+</head>
+<body>
+<div class="tiles"></div>
+<aside class="panel">
+  <div class="modes"><button data-mode="shader" class="on">shader</button><button data-mode="css">css blur</button><button data-mode="none">none</button></div>
+  <div class="sliders"></div>
+  <div class="perf"></div>
+  <button class="copy">copy values</button>
+  <textarea readonly></textarea>
+</aside>
+<script type="module">
+// Text-over-image workbench. Each tile draws its picture (image or video) with a WebGL2 shader
+// that only acts inside a soft rounded box behind the words: variable blur via mipmap level
+// (one sample, nearly free), magnification + barrel (1 + k·r², as in the icon tuner), a little
+// colour split at the box edge, and darkening for legibility. The words stay real text on top.
+const M = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? '/media/' : 'https://media.freq.workers.dev/';
+// A plain white square: the hardest case for white words.
+const white = Object.assign(document.createElement('canvas'), { width: 512, height: 512 });
+white.getContext('2d').fillStyle = '#fff';
+white.getContext('2d').fillRect(0, 0, 512, 512);
+const SOURCES = [
+  { title: 'White', sub: 'worst case', src: white.toDataURL() },
+  { title: 'Luma Agents', src: M + 'luma-agents-2026/frame-900.avif' },
+  { title: 'Luma Scenes', src: M + 'luma-scenes-2026/scenes-900.avif' },
+  { title: 'Timeline', src: M + 'luma-timeline-2026/timeline-900.avif' },
+  { title: 'Exposure', src: M + 'exposure-2026/exposure.mp4', video: true, big: true },
+  { title: 'Arca', src: M + 'arca-c2c/clips/10.mp4', video: true },
+  { title: 'What\u2019s the User Interface for Creative Work?', src: M + 'ai-on-the-lot-2026/IMG_3358-900.avif' },
+];
+const P = {
+  pad: [-30, 40, 1, -12, 'px around the words (negative: capsule inside the words)'],
+  feather: [1, 120, 1, 58, 'px of falloff'],
+  inset: [0, 1, 0.01, 0, '0 feather grows outward · 1 feathers inward (shape stays put)'],
+  blur: [0, 7, 0.05, 5, 'max mip level'],
+  smooth: [0, 1, 1, 1, '5-tap smoothing'],
+  zoom: [0, 0.4, 0.005, 0, 'magnify'],
+  barrel: [-0.6, 0.6, 0.01, 0, 'barrel k'],
+  blend: [0, 3, 1, 1, '0 multiply · 1 plus-darker · 2 overlay · 3 highlights only'],
+  amount: [0, 1, 0.01, 0.2, 'blend strength'],
+  innerPad: [-30, 20, 1, 3, 'capsule: px around each line'],
+  innerFeather: [1, 40, 1, 17, 'capsule: px of falloff'],
+  innerBlend: [0, 3, 1, 1, 'capsule blend'],
+  innerAmount: [0, 1, 0.01, 0, 'capsule strength'],
+  shadowBlur: [0, 20, 0.5, 12.5, 'text shadow blur px'],
+  shadowY: [-6, 8, 0.5, 0, 'text shadow y px'],
+  shadowOpacity: [0, 1, 0.01, 0.5, 'text shadow opacity'],
+};
+const V = Object.fromEntries(Object.entries(P).map(([k, v]) => [k, v[3]]));
+
+const sliders = document.querySelector('.sliders');
+for (const [k, [min, max, step, val, hint]] of Object.entries(P)) {
+  const row = document.createElement('label');
+  row.className = 'row';
+  row.title = hint;
+  row.innerHTML = `<span>${k}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${val}"><output>${label(k, val)}</output>`;
+  const input = row.querySelector('input'), out = row.querySelector('output');
+  input.addEventListener('input', () => { V[k] = +input.value; out.textContent = label(k, input.value); cssVars(); });
+  sliders.append(row);
+}
+function label(k, v) { return k === 'blend' || k === 'innerBlend' ? ['multiply', 'plus-dk', 'overlay', 'hilite'][+v] : v; }
+function cssVars() {
+  document.body.style.setProperty('--shadow', `0 ${V.shadowY}px ${V.shadowBlur}px rgba(0,0,0,${V.shadowOpacity})`);
+  document.body.style.setProperty('--css-blur', `${V.blur * 3}px`);
+  document.body.style.setProperty('--css-bright', `${1 - V.amount * 0.6}`);
+}
+cssVars();
+for (const b of document.querySelectorAll('.modes button')) b.addEventListener('click', () => {
+  document.querySelectorAll('.modes button').forEach(x => x.classList.toggle('on', x === b));
+  document.body.classList.toggle('css', b.dataset.mode === 'css');
+  mode = b.dataset.mode;
+});
+let mode = 'shader';
+document.querySelector('.copy').addEventListener('click', () => {
+  const t = document.querySelector('textarea');
+  t.value = JSON.stringify(V, null, 1);
+  t.select();
+  navigator.clipboard?.writeText(t.value).catch(() => {});
+});
+
+const VERT = `#version 300 es
+in vec2 p; out vec2 uv;
+void main() { uv = p * 0.5 + 0.5; uv.y = 1.0 - uv.y; gl_Position = vec4(p, 0, 1); }`;
+const FRAG = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform sampler2D tex;
+uniform vec2 res;        // canvas px
+uniform vec2 texSize;    // picture px
+uniform vec4 boxes[8];   // one per line of words, px: x0 y0 x1 y1
+uniform int nBoxes;
+uniform vec4 hull;       // all lines together, for the lens centre
+uniform float pad, radius, feather, inset, blur, smoothTaps, zoom, barrel, blend, amount, on;
+uniform float innerPad, innerFeather, innerBlend, innerAmount;
+vec3 applyBlend(vec3 col, float mode, float a) {
+  vec3 g = vec3(0.5);
+  return mode < 0.5 ? col * (1.0 - a) :                                              // multiply by a grey
+    mode < 1.5 ? max(col - a * 0.6, 0.0) :                                           // plus-darker: S + D − 1
+    mode < 2.5 ? mix(col, mix(2.0 * col * g, 1.0 - 2.0 * (1.0 - col) * (1.0 - g), step(0.5, col)) * (1.0 - 0.5 * a), a) : // overlay
+    col * (1.0 - a * smoothstep(0.25, 1.0, dot(col, vec3(0.2126, 0.7152, 0.0722)))); // highlights only
+}
+// Smooth union, so neighbouring lines merge into one soft shape instead of two hard ones.
+float smin(float a, float b, float k) { float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0); return mix(b, a, h) - k * h * (1.0 - h); }
+float sdRound(vec2 p, vec2 c, vec2 h, float r) { vec2 q = abs(p - c) - h + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
+vec2 cover(vec2 u) { // fill the square tile like object-fit: cover
+  float ta = res.x / res.y, ia = texSize.x / texSize.y;
+  vec2 s = ia > ta ? vec2(ta / ia, 1.0) : vec2(1.0, ia / ta);
+  return (u - 0.5) * s + 0.5;
+}
+vec3 sampleAt(vec2 u, float lod) {
+  vec3 c = textureLod(tex, u, lod).rgb;
+  if (smoothTaps > 0.5 && lod > 0.01) { // four rotated taps soften the mip boxiness
+    vec2 d = exp2(lod) / texSize * 0.6;
+    c += textureLod(tex, u + vec2( d.x, d.y * 0.4), lod).rgb + textureLod(tex, u + vec2(-d.x * 0.4, d.y), lod).rgb
+       + textureLod(tex, u + vec2(-d.x, -d.y * 0.4), lod).rgb + textureLod(tex, u + vec2(d.x * 0.4, -d.y), lod).rgb;
+    c /= 5.0;
+  }
+  return c;
+}
+void main() {
+  vec2 px = uv * res;
+  float d = 1e5, di = 1e5;
+  for (int i = 0; i < 8; i++) {
+    if (i >= nBoxes) break;
+    vec4 b = boxes[i];
+    vec2 bc = (b.xy + b.zw) * 0.5;
+    vec2 bh = max((b.zw - b.xy) * 0.5 + pad, vec2(1.0));
+    d = smin(d, sdRound(px, bc, bh, min(radius, min(bh.x, bh.y))), max(pad, 0.0) + 1.0);
+    vec2 ih = max((b.zw - b.xy) * 0.5 + innerPad, vec2(1.0));
+    di = smin(di, sdRound(px, bc, ih, ih.y), 2.0); // capsule: fully rounded ends
+  }
+  // inset slides the falloff from outside the shape (0) to inside it (1), so feathering needn't grow it.
+  float m = on * (1.0 - smoothstep(-feather * inset, feather * (1.0 - inset), d));
+  float mi = on * (1.0 - smoothstep(-innerFeather * 0.5, innerFeather * 0.5, di));
+  vec2 c = (hull.xy + hull.zw) * 0.5, h = (hull.zw - hull.xy) * 0.5 + pad;
+  // Lens about the box centre: magnify, then barrel by normalised radius squared.
+  vec2 q = (px - c) / max(h.x, h.y);
+  float r2 = dot(q, q);
+  vec2 warped = c + (px - c) * (1.0 - zoom * m) * (1.0 + barrel * m * r2 * 0.25);
+  vec2 base = cover(warped / res);
+  float lod = blur * m;
+  vec3 col = sampleAt(base, lod);
+  // Toward legibility for white words: the soft outer shape, then the tighter capsule on top.
+  col = applyBlend(col, blend, amount * m);
+  col = applyBlend(col, innerBlend, innerAmount * mi);
+  o = vec4(col, 1.0);
+}`;
+
+function program(gl) {
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s); return s; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(p);
+  return p;
+}
+
+const tilesEl = document.querySelector('.tiles');
+const tiles = [];
+for (const s of SOURCES) {
+  const el = document.createElement('div');
+  el.className = s.big ? 'tile big' : 'tile';
+  el.innerHTML = `<canvas></canvas><div class="css-veil"></div><div class="words"><b>${s.title}</b><span>${s.sub ?? ''}</span></div>`;
+  tilesEl.append(el);
+  const media = s.video
+    ? Object.assign(document.createElement('video'), { src: s.src, muted: true, loop: true, playsInline: true, autoplay: true, crossOrigin: 'anonymous' })
+    : Object.assign(document.createElement('img'), { src: s.src, crossOrigin: 'anonymous' });
+  media.className = 'css-img';
+  el.prepend(media); // also the CSS comparison's picture
+  const canvas = el.querySelector('canvas');
+  const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false });
+  const prog = program(gl);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const u = n => gl.getUniformLocation(prog, n);
+  const U = Object.fromEntries(['tex', 'res', 'texSize', 'boxes', 'nBoxes', 'hull', 'pad', 'radius', 'feather', 'inset', 'blur', 'smoothTaps', 'zoom', 'barrel', 'blend', 'amount', 'innerPad', 'innerFeather', 'innerBlend', 'innerAmount', 'on'].map(n => [n, u(n)]));
+  tiles.push({ el, s, media, canvas, gl, tex, U, ready: false, size: [1, 1] });
+}
+
+// One rect per line of actual text: measure the text nodes, not their elements, whose boxes can
+// stretch the full width of the tile.
+function textLines(el) {
+  const out = [];
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    if (!n.textContent.trim()) continue;
+    range.selectNodeContents(n);
+    for (const q of range.getClientRects()) if (q.width > 1) out.push(q);
+  }
+  return out.slice(0, 8);
+}
+
+// One loop for every tile: upload the picture (each frame for video), set uniforms, draw.
+let last = performance.now(), avg = 0;
+function frame(now) {
+  const t0 = performance.now();
+  for (const t of tiles) {
+    const { gl, canvas, media, U } = t;
+    const dpr = devicePixelRatio, r = canvas.getBoundingClientRect();
+    const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const w0 = media.videoWidth ?? media.naturalWidth, h0 = media.videoHeight ?? media.naturalHeight;
+    const ready = t.s.video ? media.readyState >= 2 : media.complete && w0 > 0;
+    if (!ready) continue;
+    if (t.s.video || !t.ready) {
+      gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, media);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      t.ready = true;
+      t.size = [w0, h0];
+    }
+    // The words' own line boxes (each line as wide as its text), not the whole block.
+    const words = t.el.querySelector('.words');
+    const lines = textLines(words);
+    const wr = words.getBoundingClientRect();
+    const veil = t.el.querySelector('.css-veil');
+    veil.style.cssText = `left:${wr.left - r.left - V.pad}px;top:${wr.top - r.top - V.pad}px;width:${wr.width + 2 * V.pad}px;height:${wr.height + 2 * V.pad}px`;
+    gl.viewport(0, 0, w, h);
+    gl.uniform2f(U.res, w, h);
+    gl.uniform2f(U.texSize, t.size[0], t.size[1]);
+    const flat = new Float32Array(32);
+    lines.forEach((q, i) => flat.set([(q.left - r.left) * dpr, (q.top - r.top) * dpr, (q.right - r.left) * dpr, (q.bottom - r.top) * dpr], i * 4));
+    gl.uniform4fv(U.boxes, flat);
+    gl.uniform1i(U.nBoxes, lines.length);
+    const hx0 = Math.min(...lines.map(q => q.left)), hy0 = Math.min(...lines.map(q => q.top)), hx1 = Math.max(...lines.map(q => q.right)), hy1 = Math.max(...lines.map(q => q.bottom));
+    gl.uniform4f(U.hull, (hx0 - r.left) * dpr, (hy0 - r.top) * dpr, (hx1 - r.left) * dpr, (hy1 - r.top) * dpr);
+    gl.uniform1f(U.pad, V.pad * dpr);
+    gl.uniform1f(U.radius, 1e4); // always a full capsule
+    gl.uniform1f(U.feather, V.feather * dpr);
+    gl.uniform1f(U.inset, V.inset);
+    gl.uniform1f(U.innerPad, V.innerPad * dpr);
+    gl.uniform1f(U.innerFeather, V.innerFeather * dpr);
+    gl.uniform1f(U.innerBlend, V.innerBlend);
+    gl.uniform1f(U.innerAmount, V.innerAmount);
+    gl.uniform1f(U.blur, Math.max(0, V.blur + Math.log2(dpr / 2))); // mip levels are device px; tuned at 2x
+    for (const k of ['zoom', 'barrel', 'blend', 'amount']) gl.uniform1f(U[k], V[k]);
+    gl.uniform1f(U.smoothTaps, V.smooth);
+    gl.uniform1f(U.on, mode === 'shader' ? 1 : 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  const ms = performance.now() - t0;
+  avg = avg * 0.95 + ms * 0.05;
+  document.querySelector('.perf').textContent = `${avg.toFixed(2)} ms per frame for ${tiles.length} tiles (JS + GL submit)`;
+  last = now;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

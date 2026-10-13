@@ -1,0 +1,212 @@
+{
+ "neophon": {
+  "title": "Neophon",
+  "years": "2026",
+  "blurb": "Custom instrument for expressive generative music performance using Lyria Realtime, focused on responsive high-dimensional interpolation. Performed at Code with Claude and FWB Fest; demoed at South Park Commons and Demos & Chill.",
+  "cover": "video:demos-neophon-2026",
+  "assets": [
+   "video:spc-neophon-2026",
+   "video:demos-neophon-2026",
+   "tweet:2011518368013303933",
+   "tweet:2024235626162434373"
+  ]
+ },
+ "streamdiffusion": {
+  "title": "StreamDiffusion live",
+  "years": "2024–26",
+  "blurb": "Realtime improvised streamDiffusion visuals for Arca (CAP UCLA, Palomosa, Portola, São Paulo, C2C), Moritz von Oswald & Azu Tiwaline, Hesaitix, and Optia sets.",
+  "cover": "grid:arca-c2c",
+  "assets": [
+   "grid:arca-c2c",
+   "instagram:DQQhlPsAPJS",
+   "youtube:mPxf5x9wMAY",
+   "youtube:fazhMbEH8bQ"
+  ]
+ },
+ "luma": {
+  "title": "Luma",
+  "years": "2024–26",
+  "blurb": "Product design and engineering at Luma AI: Dream Machine, Ray2 and Ray3, Modify, Luma Agents, Timeline, Luma Scenes, and directed research on Latent Blend.",
+  "cover": "grid:latent-blend-grid",
+  "assets": [
+   "video:ray32-modify-2026",
+   "image:luma-agents-2026",
+   "grid:latent-blend-grid",
+   "image:latent-blend-canvas",
+   "image:latent-blend",
+   "image:luma-timeline-2026",
+   "image:luma-scenes-2026",
+   "image:ai-on-the-lot-2026"
+  ]
+ },
+ "earlier": {
+  "title": "Earlier work & talks",
+  "years": "2017–24",
+  "blurb": "Spatial interaction at Ultraleap and <a href=\"/work/jpl/\">NASA JPL</a>, <a href=\"/work/xoromancy/\">Xoromancy</a>, Filament, <a href=\"/work/strata/\">STRATA</a>, and talks on latent space and interfaces.",
+  "cover": "video:spc-new-behaviors-2024",
+  "assets": [
+   "video:spc-new-behaviors-2024",
+   "tweet:1732562172411363591",
+   "tweet:1177142224615698434",
+   "tweet:992961382705491968"
+  ]
+ },
+ "xoromancy": {
+  "title": "Xoromancy",
+  "years": "2019",
+  "blurb": "Gestural exploration of neural network latent spaces. A collaboration with Nama Tiwari, spring 2019.",
+  "cover": "video:xoromancy-2019",
+  "assets": [
+   {
+    "part": "video:xoromancy-2019",
+    "caption": "Documentation from the first showing, at the FRAME Gallery, Carnegie Mellon University, February 2019."
+   },
+   {
+    "text": "<ul><li>First shown at the <a href=\"https://art.cmu.edu/event/aman-tiwari-gray-crawford-xoromancy/\">FRAME Gallery</a>, Carnegie Mellon University, 22–24 February 2019.</li><li>Public debut at <a href=\"https://newyorklivearts.org/event/opening-reception-live-ideas-2019/\">New York Live Arts Ideas</a> in May 2019.</li><li>Shown at <a href=\"https://edas.info/web/2019ieeegem/papertitles.html\">IEEE GEM 2019</a> at Yale as <em>Xoromancy: Image Creation via Gestural Control of High-Dimensional Spaces.</em></li><li>Shown at <a href=\"https://studioforcreativeinquiry.org/news-item/intersections\"><em>Intersections</em></a>, the Frank-Ratchye STUDIO for Creative Inquiry’s 30th anniversary retrospective exhibition, at the Miller ICA in October–November 2019.</li></ul><p>Elaborated on in my <a href=\"/thesis.html\">Masters thesis</a>.</p><p>Xoromancy explores methods for hand-gestural control of high dimensional spaces, in the realtime production of images by generative adversarial networks.</p><p>Correlation between proprioception and visual feedback builds an intuitive understanding for navigating the highly-nonlinear mappings between input dimensions and generated output imagery.</p><p>Xoromancy uses a Leap Motion to map movement and rotation of the hands to control the input vectors of BigGAN, trained on ImageNet, which outputs a sequence of images generated in real-time. This direct engagement allows users to develop an embodied fluency in exploring high-dimensional spaces.</p>"
+   },
+   "image:xoromancy-still-2019",
+   {
+    "text": "<p>Many tools for exploring the image latent space of generative adversarial networks (GANs) provide only stepwise, image-by-image traversal. Xoromancy’s use of hand tracking for controlling many latent space vectors simultaneously with realtime image response enables rapid and fluent exploration.</p><p>It is the first interactive real-time tool leveraging the human body’s proprioception and fine motor control to control the generation of images by neural networks. These images, produced by BigGAN (Brock et al, 2018) are high-resolution and can often near-photorealistically represent objects and scenes that would be otherwise time-consuming to render through other means.</p><p>Artistically these BigGAN images exist in spaces that can range from the highly realistic to the distinctly surreal, often containing perceptual cues conveying realistic lighting, texture, and forms but with decidedly unreal subjects.</p><p>However, the input spaces of BigGAN and similar networks are extremely high-dimensional and are prohibitively difficult to explore and conceptualize. This makes exhaustive exploration intractable and random exploration slow and often unrewarding.</p><p>We recognize that the human body is itself a continuous and high-dimensional control system, and modern body tracking such as the Leap Motion sensor enables the body’s motion to drive the high-dimensional input vector controlling the GAN’s visual output.</p><p>Although the possible dimensions of bodily movement are many, only a subset are mechanically comfortable to control and conceptually intuitive. The input mappings chosen for Xoromancy support both fast exploration through a variety of images and specific refinement towards a goal once an image has been found.</p><p>Xoromancy includes distinct gesture categories to independently control the subject of the generated image and its specific composition and form.</p><blockquote>What does it feel like to move your body through 14 dimensions simultaneously (xyz + quaternion wxyz per hand)</blockquote>"
+   },
+   {
+    "part": "video:xoromancy-hands-2019",
+    "caption": "Steering it by hand, October 2019."
+   },
+   "image:xoromancy-gallery-2019",
+   {
+    "text": "<h2>Sketches, planning</h2>"
+   },
+   "image:xoromancy-sketch-2019"
+  ]
+ },
+ "jpl": {
+  "title": "NASA JPL hand interface",
+  "years": "2018",
+  "blurb": "AR hand interface for 3D manipulation, designed and prototyped in summer 2018 at NASA Jet Propulsion Laboratory, OpsLab, for the ProtoSpace AR CAD collaboration tool. Combining Leap Motion hand tracking + HoloLens, exploring bimanual interaction patterns.",
+  "cover": "image:jpl-2018",
+  "assets": [
+   "youtube:Nad8kF2WnRk",
+   {
+    "text": "<p>Previously, if a ProtoSpace user wanted to move an AR CAD object precisely on a single axis, they pre-choose the “X-Axis only” (etc) tool, airtapping through many menu levels.</p><p>My redesign allows the grabbing hand to start, and the nondominant hand’s orientation constrains.</p>"
+   },
+   {
+    "part": "video:jpl-axis-2018",
+    "caption": "The world axes anchored to the nondominant hand visually and audially indicate when the hand has snapped into axis orientation."
+   },
+   {
+    "text": "<p>It’s much faster to rapidly reorient the hand than invoking a menu, and the gestures semantically match the invoked constraint.</p><p>Without a visual representation of my hand in AR space, I often missed grabbing objects if there was any hand tracking miscalibration. Rather than superimposing a whole hand model, I anchored two “cursor” dots at my index and thumbtip, and I came to embody and identify them as me.</p>"
+   },
+   "image:jpl-sketch-2018",
+   "image:jpl-board-2018",
+   {
+    "text": "<p>I explored other bimanual spatial UI interactions, like <strong>selection behavior</strong> [on the right].</p><p>Immerse your finger in an object, but any confirmation gesture with that hand might displace the selection point. Instead, show selected object at pinch point of other hand, pinching it to confirm.</p><p>A key challenge was prototyping this future SUI (that needs an expansive FOV) on present hardware with limited FOV. I considered, if the hand is extraperipheral but normally has relevant UI anchored, ways that the system can hold the UI at the FOV edge until the hand reenters [see top middle].</p>"
+   },
+   "image:jpl-2018",
+   {
+    "text": "<p>I was interested in how UI iconography could morph into the tool UI itself, anchoring to the hand, rather than merely initiating that tool mode.</p><p>Thus the icon’s visual signification matches the resulting spatial UI form, as they are one and the same object.</p>"
+   },
+   "image:jpl-fov-2018",
+   "tweet:1044793820972339200"
+  ]
+ },
+ "strata": {
+  "title": "STRATA",
+  "years": "2018",
+  "blurb": "A cloth-based VR instrument, spring 2018. Strata is an exploration of material dynamics within VR and how they might drive / map to / influence sources of sound, and a visual and interactive experience of my music.",
+  "cover": "video:strata-2018",
+  "assets": [
+   {
+    "part": "video:strata-2018",
+    "caption": "Full edit, May 2018."
+   },
+   {
+    "text": "<p>I composed a simultaneous, secondary melody that plays in silence.</p><p>I <strong>mapped</strong> the <strong>vertical displacement of a cloth</strong> to the <strong>volume of the secondary melody</strong> using a tanh function, ensuring that a maximal displacement wouldn’t force the audio to clip.</p><p>This mapping allows me to not only “play” the cloth (and thus the melody) but also allows the cloth’s post-displacement <strong>oscillations to drive the melody’s presence</strong>, providing a material physicality to the creation of sound.</p><p>Other parameters mapped to other cloths’ displacements included a low-pass filter on the overall audio, and the volume and low-pass filter of a noise track.</p><p>The bed of tines was a reaction to a previous iteration of this project where I triggered a music sample upon collision with an object. This binary interaction’s lack of dynamism was unsatisfying.</p><p>In response I replicated out a thin rectangular prism bound to its base by a spring allowing mildly elastic motion in multiple directions. Collectively these tines move in a greater fluid whole, even though each’s movement is relatively simple.</p><p>I randomly applied a music sample from a set of eleven to each tine, and to reduce the total number of samples triggered when passing my hand through the mass of tines, I set the probability of triggering a sample upon collision to be much less than one.</p><p>I noticed that my brain <strong>confabulates subtle tactile sensation</strong> on my hands when I interact with this stack of cloths.</p><p>Something about the visual feedback and the physical dynamics <strong>strongly evokes the qualities of cobwebs</strong>, and multiple participants have experienced the illusion of texture where there is none.</p>"
+   },
+   "image:strata-poster-2018",
+   {
+    "text": "<p>I explored Unity’s cloth physics’ parameter space, modulating the cloths’ flexibility, dampening, etc to produce a set of behaviors ranging from highly elastic and oscillatory to something truly dampened, almost closer to sheet metal.</p><p>Conceived within the confines of a narrative-driven project, I developed a method to differentiate the end from the beginning by slowly shrinking the environment in the final moments to a singular point. This inexorable change cements the finality of the experience as objects shrink and cloth folds in on itself, wrinkling into a bundled mass before resetting to the introduction space, ready for another playthrough of the experience.</p><p><a href=\"https://github.com/graycrawford/STRATA\">Playable build and Unity files available on my GitHub</a>.</p><h2>Earlier forms of this project</h2>"
+   },
+   {
+    "part": "youtube:8UE-W7K59lg",
+    "caption": "Sphere displacement of cloth, tines with configurable joints."
+   },
+   {
+    "part": "youtube:WhIbxtgr7Ug",
+    "caption": "Sonic explorations in VR, March 2018."
+   }
+  ]
+ },
+ "st-johns": {
+  "title": "St. John’s College",
+  "years": "2011–15",
+  "blurb": "BA in Liberal Arts, St. John’s College, Santa Fe. A senior thesis on how diagrams show motion and time, and a sophomore paper on the sections made by intersecting conic surfaces.",
+  "cover": "image:st-johns-thesis-2015",
+  "assets": [
+   {
+    "text": "<h2>Senior thesis</h2><p><em>Giving to Airy Nothing a Habitation and a Shape: Graphical Representation of Motion and Time in the Works of Newton, Galileo, and Einstein.</em> 30 March 2015. Submitted in partial fulfillment of the requirements for the degree of Bachelor of Arts.</p><p>I wrote this essay to explore the <em>graphical rhetoric</em> used by Newton and others to visually represent time and motion on the exclusively static medium of paper.</p><p>This essay was the result of months and months of effort and thought, and was the culmination of many years of observing the use of diagrams in numerous scientific and mathematical texts.</p>"
+   },
+   {
+    "part": "image:st-johns-thesis-2015",
+    "caption": "Newton, <em>Principia</em>, Proposition 1.",
+    "width": 620
+   },
+   {
+    "text": "<h2>Introduction</h2><p>This paper will explore how graphical presentation shapes and reflects the understanding of motion and time. Presenting motion in a picture necessarily requires ingenuity. Paper is static; motion is not. A map can show a nation’s boundaries and a painting can depict a scene or a face, but a diagram can only communicate motion and time by finding some symbolic way to invoke what it cannot actually depict. Yet scientific works routinely use diagrams to portray events that unfold in time. The works of Galileo and Newton, Einstein and Minkowski rely on diagrams to convey the movement of objects and the passage of time and to formulate mathematical descriptions of these movements.</p><p>Focusing on diagrams <em>as diagrams</em> requires a change in attitude toward the texts examined. Scientific diagrams frequently appear to be transparent presentations of the subject matter they treat, with no content independent of the text. Indeed, the ideal diagram will attempt to <em>efface itself</em>. Its author wants the reader/viewer’s attention to look <em>through</em> the diagram as if it were transparent and to gaze on the subject matter of the work as if it were visible without interference or bias. A diagram that obviously interposes itself, appearing to distort or alter the subject matter it conveys, is faulty. However, all diagrams shape the subject matter in presenting it and if they do so <em>subtly</em> rather than obviously it is all the more important to notice influences that might otherwise escape our attention.</p><p>This paper’s project is to look at the diagrams <em>as diagrams</em> and not mere vehicles for the concepts they are communicating. The subject of this essay is <em>graphical rhetoric</em> as it applies to the presentation of time and motion. We may wish to think very abstractly about the nature of time as it “really” is, but in reading the work of any author, what we confront is that author’s <em>expression</em> of time. Words are one form of expression, and someone might explore the <em>verbal</em> rhetoric of presentation of time—whether it is likened to a stream, to a circle, to a number, or is represented in some other way. The choices that authors make among the words available to them—and possibly the limitations imposed upon them by limited vocabulary or available comparisons—contribute to shaping the way in which they think about the subject. So, for instance, Einstein imagines time as measured by countless synchronous clocks permeating space; Aristotle would never—could never—imagine time through such a comparison. Similarly, time is also presented <em>graphically</em> and different authors show time differently in pictures and diagrams. The choices that authors make, and the constraints placed upon them by the limitations of the medium in which they work, also contribute to shaping the way in which they think of the subject.</p><p>The fundamental issue is present in Newton’s ‘Scholium to the Definitions’ in <em>Philosophiæ Naturalis Principia Mathematica</em>:</p><blockquote><p>1. Absolute, true, and mathematical time, in itself and by its nature without relation to anything external, <strong>flows uniformly</strong> and by another name is called “duration”…</p><p>2. Absolute space, by its nature, without relation to anything external, <strong>always remains similar and motionless</strong>…</p></blockquote><p>Newton structures these as parallel definitions. However, the crucial difference that distinguishes them—the dynamism of time, the stasis of space—points to exactly the problem we face with all static representations of time we have.</p><p>Visual presentations of time differ in a variety of ways. Thus, to describe this subject it will be necessary to develop a taxonomy of many kinds of features found in diagrams. A number of distinctions will be useful. Is the presentation of time <em>direct</em> or <em>indirect</em>? Since a direct presentation of time would require showing a moving image, they have not been available until recently. In the diagrams of the texts explored below, all graphical presentations of time are <em>indirect</em> because paper is incapable of showing a moving image except in very primitive ways, e.g., a flip-book. Is the presentation of time <em>explicit</em> or <em>implicit</em>? Some show time <em>explicitly</em> by presenting it as a graphical object, often a “time line.” Others omit such a device and leave the reader/viewer to imagine the progress of time. Is the presentation of time <em>sequential</em> or <em>simultaneous</em>? Some diagrams show successive states of a moving system in separate drawings; some present the trace of an object’s trajectory as if the temporally extended sequence could be seen all together. There are other variations as well, all discussed below.</p><p>This examination of the graphical rhetoric of time might be compared to a reading of a poem or other piece of literature. It is possible to read a work of literature in order to explore the subject matter discussed—to read the <em>Iliad</em> as an exploration of courage or mortality, or to read <em>Pride and Prejudice</em> as a guide to social structures and romantic rituals of 19th century England. However, to examine these works <em>as pieces of literature</em> often means considering not exclusively, and perhaps not <em>principally</em>, what they say but <em>how they say it</em>. Similarly here. The principal aim of this paper is not to reach a conclusion about the nature of time but to explore <em>how</em> time is presented through the differing graphical presentations of different authors. This paper does not look at Newton and Galileo to get at the notions concerning falling bodies. It looks at the graphical portions of their works and thinks about them as one can treat a poem, focusing on the manner of their presentation. This is the project.</p><h2>Adjacency and Comparison</h2><p>An illustration can adjacently show things that are, in reality, only sequential, or entirely separate. It can place side-by-side things that, in reality, never appear together. These adjacencies can be tremendously useful, making ink-and-paper illustrations preferable to unmediated contemplation of things as they appear in reality. The author/illustrator should be aware of how best to make illustrations that take advantage of this capacity.</p><p>A moving object is never seen at both its start and end points simultaneously. A moving object’s <em>trajectory</em> is never directly visible. (Though an indirect method, a cloud chamber captures the trajectory of a particle with tiny droplets of alcohol vapor; in other demonstrations, one might try to capture a path by rolling balls on carbon paper or by some other means.) A static <em>visual representation</em> of a trajectory, however, is eminently visible. Further, since multiple, temporally-distinct moments can be presented simultaneously in a visual representation, their position relative to each other is available to be seen. This ease of comparison—possible in a static medium—is impossible in everyday reality. Parts of Proposition 1’s visible trajectory <em>ABCDEF</em> can be <strong>compared</strong> to other parts of itself specifically because it is static, and multiple moments in the body’s movement can be seen simultaneously.</p><p>Since the points <em>A</em> and <em>B</em> are visible simultaneously, their relative locations can be compared. This comparison is something that we approximate with our memory and imagination, but it is <strong>indirect</strong> (in that we must hold a previous state in memory, which may itself be faulty, in order to compare it to the current state). For complicated trajectories, this process becomes arduous indeed, and ultimately impossible to imagine accurately. Paper, with enduring consistency, holds ‘prior’ and ‘current’ states present for the mind to peruse at ease.</p><p>Distinct from singular trajectories (complicated or otherwise), paper allows a further removal from reality by enabling the simultaneous depiction of <em>alternate</em> trajectories. Consider the diagram for Newton’s Proposition 1 in the <em>Principia</em>. If the body passes point <em>B</em> without interference, it will continue along to point <em>c</em> unabated. If the body <em>is</em> struck by a sudden impulse at point <em>B</em>, it will go off at an angled trajectory <em>BC</em>. These two trajectories are mutually exclusive (in that a body cannot be both impulsed and unimpulsed). Only one of these trajectories would occur (and therefore be visible) in reality. Since depictions on paper are not bound by the laws of reality (that is, they can show things that are physically impossible or that reality is incapable of showing), <em>both</em> trajectories can be shown simultaneously. This adjacency allows comparisons to be observed that would otherwise be impossible in reality.</p><p>In order to better differentiate and compare the adjacent elements, their <strong>aspect</strong> must be communicated by the figure and/or the text.</p><h2>Explicit and Implicit</h2><p>Another distinction, similar but not quite identical to that between direct and indirect presentation, separates <em>explicit</em> from <em>implicit</em> features of a diagram. Even an idea that can only be <em>indirectly</em> presented may be given <em>explicitly</em> if there is some feature of the diagram that is devoted deliberately to showing it. In other cases, the idea may be merely implicit and left entirely to the reader/viewer’s imagination.</p>"
+   },
+   {
+    "part": "image:st-johns-galileo-2015",
+    "caption": "Galileo, <em>Two New Sciences</em>, Proposition 1 Theorem 1: “line <em>AB</em> represent[s] the time in which the space <em>CD</em> is traversed by a moveable.” Time shown indirectly, but explicitly.",
+    "width": 260
+   },
+   {
+    "part": "image:st-johns-pendulum-2015",
+    "caption": "Galileo’s pendulum ‘experiment’: time only implicit. The weight is at <em>C</em> <em>before</em> it reaches <em>D</em>, yet <em>C</em> and <em>D</em> are shown simultaneously.",
+    "width": 620
+   },
+   {
+    "part": "image:st-johns-einstein-2015",
+    "caption": "Einstein’s train and embankment, from <em>Über die spezielle und die allgemeine Relativitätstheorie</em>: a ‘snapshot’ with no explicit time, ambiguous about which frame of reference it shows.",
+    "width": 720
+   },
+   {
+    "part": "image:st-johns-minkowski-2015",
+    "caption": "The same situation as a Minkowski space-time diagram. By representing time explicitly, both frames of reference can be shown, delineated by their angle.",
+    "width": 560
+   },
+   {
+    "part": "image:st-johns-lemma-2015",
+    "caption": "Newton’s Lemma 7 functions similarly to a mechanism: as <em>B</em> moves towards <em>A</em> along <em>ACB</em>, other elements of the construction move in tandem, articulating, through their motion, the logic of the proof.",
+    "width": 520
+   },
+   {
+    "part": "image:st-johns-parabola-2015",
+    "caption": "Galileo marries point-for-point the equable distances and the equable times: the smooth, continuous infinitude of the horizontal time-line matches the smooth, continuously accelerating downward motion.",
+    "width": 460
+   },
+   {
+    "part": "image:st-johns-darwin-2015",
+    "caption": "Darwin’s vertical axis is a direct representation of time, and also “a section of the successive strata of the earth’s crust including extinct remains.”",
+    "width": 900
+   },
+   {
+    "text": "<h2>Conclusion</h2><p>By exploring a range of graphical rhetorics concerning the depiction of motion and time in a static medium, it is possible to observe details of the presentation that affect the author’s and the reader’s conception of the concept. This exploration provides a valuable vantage point—one that is often overlooked—precisely because the rhetoric of diagrams so often is to efface themselves and point instead towards the concept.</p><p class=\"fine\">Texts referenced: Dana Densmore, <em>Newton’s Principia: The Central Argument</em> (Green Lion Press, 2010). Galileo Galilei, <em>Two New Sciences</em>, trans. Stillman Drake (University of Wisconsin Press, 1974). Albert Einstein, <em>Relativity: The Special and the General Theory</em>, trans. Robert W. Lawson (Penguin, 2006). H. A. Lorentz, A. Einstein, H. Minkowski, H. Weyl, <em>The Principle of Relativity</em>, trans. W. Perrett and G. B. Jeffery (Dover, 1952). Charles Darwin, <em>On the Origin of Species</em> (John Murray, 1859).</p><h2>A Study on Sections Produced by the Intersections of Conic Surfaces</h2><p>In sophomore mathematics (May 2013) at St. John’s College, I read Apollonius’ <em>Conics</em>, exploring the aspects of conic surfaces and their intersections with flat planes. I wrote this paper partially in response to Apollonius and partially in response to Blaise Pascal’s explorations in projective geometry. In this paper I explore what sections are created if <em>two conic surfaces</em> are themselves made to intersect. I created all of the diagrams myself. Here is the <a href=\"/work/st-johns/conic-sections-2013.pdf\">original pdf</a>.</p>"
+   },
+   {
+    "part": "image:st-johns-conics-2013",
+    "width": 720
+   },
+   {
+    "part": "image:st-johns-conics-2-2013",
+    "width": 720
+   },
+   {
+    "part": "image:st-johns-conics-3-2013",
+    "width": 720
+   },
+   {
+    "part": "image:st-johns-conics-4-2013",
+    "width": 720
+   }
+  ]
+ }
+}
