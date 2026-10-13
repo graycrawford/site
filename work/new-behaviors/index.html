@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="New Behaviors, a talk by Gray Crawford at South Park Commons Demo Night: branching through image variation, moving through latent space by hand, and interfaces that operate inside the model's world.">
+  <title>New Behaviors · South Park Commons Demo Night</title>
+  <link rel="stylesheet" href="/work/talk.css">
+</head>
+<body data-media="spc-new-behaviors-2024">
+  <header>
+    <h1>New Behaviors</h1>
+    <p class="sub">Exploring what generative models can do, and what their interfaces could become</p>
+    <p class="meta">Gray Crawford · South Park Commons Demo Night, San Francisco · October 1, 2024 · <button data-at="0">watch the whole talk (11 min)</button></p>
+    <nav class="modes"><a href="#">Walkthrough</a><a href="#script">Full script</a></nav>
+  </header>
+
+  <section>
+    <h2>Introduction — <b>Losing my place</b> <span class="len">(1½ min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="0"><img data-frame="hero-5" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="5"><img data-frame="t-8" alt=""><p>Working on images, I iterate a lot, and I follow <b>many different branches</b> of the exploration at once.</p></div>
+        <div class="beat" data-at="26"><img data-frame="t-25" alt=""><p>But Midjourney only shows it as <b>a huge grid</b>, and I lose my place.</p></div>
+        <div class="beat" data-at="44"><img data-frame="t-50" alt=""><p>Variation is a tree. An image has children; one of them becomes <b>the new parent</b>; three of its children branch again. By the end I've followed the tree twenty ways.</p></div>
+        <div class="beat" data-at="62"><img data-frame="t-62" alt=""><p>Then I only ever see it <b>chronologically</b>, every branch snipped off and lined up, and I have to hold <b>the whole structure in my head</b> to know how I got to an image.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="0">I've been interested in a lot of things, especially image generation recently. If you're like me, you use Midjourney a lot, and then your computer slows down when you try to zoom out.</p>
+        <p data-at="14">There's a lot of iteration that happens when I'm working on images, and sometimes I'll follow many, many different branches of the exploration process. But the Midjourney UI only shows it in a huge grid, and I end up losing my place a lot. There are so many moments of deciding, oh, I wish this one could be the new parent, so I could vary it and look around that spot in the embedding.</p>
+        <p data-at="44">Usually my experience of iteration is that I can branch out very casually in a canvas UI. Image variation always felt like this: I'd have an image, I'd get some children, I'd take one of them and say, that's the parent, what are some children of this? I'd get to the next generation, like three of them, and that branches out, and that branches out. By the end I've followed this tree twenty different ways.</p>
+        <p data-at="70">But I only ever see it in a chronological view. All these branches get snipped off and arranged chronologically, and I lose my place looking at this gargantuan mass of images. There's so much here, and so much mental structure I have to maintain about where I was when I got to this image.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 1 — <b>Coral variation</b> <span class="len">(2 min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="96"><img data-frame="hero-150" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="96"><img data-frame="t-100" alt=""><p>I sketched this in the summer of 2022 and landed on what I called <b>coral variation</b>.</p></div>
+        <div class="beat" data-at="125"><img data-frame="t-125" alt=""><p>It was hard to build with GPT-4. It finally worked with <b>Claude 3.5 Sonnet</b>.</p></div>
+        <div class="beat" data-at="135"><img data-frame="t-140" alt=""><p>If I like an image, I <b>extrude it out</b>, and its children grow from it: random directions around its spot in the embedding, each with a little noise injected.</p></div>
+        <div class="beat" data-at="155"><img data-frame="t-170" alt=""><p>This isn't running live; it replays a path I took with DALL·E 2 in April 2022. It feels <b>much closer to how I actually explore</b>, and drilling down, I can still see <b>which image led to which</b>.</p></div>
+        <div class="beat" data-at="188"><img data-frame="t-185" alt=""><p>Getting there took a lot of back and forth, writing <b>specs from the bugs</b> I was getting until every aspect was notated.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="96">So I ended up sketching these sorts of things back in summer 2022, and I landed on what I called a coral variation method. I was really interested to try to make this with GPT-4 at the time, and it was really quite challenging. I'll just show you.</p>
+        <p data-at="125">I finally got this to work with Claude 3.5 Sonnet. Assuming these are the images you'd get out of a given generation: if I like this one, perchance, I'll extrude it out, and now these are all children. In essence, these are random directions around this spot in the embedding; noise has been injected into each.</p>
+        <p data-at="150">And if I like this one, I'll say, what if this one has some children? I can pull it down. And maybe I'll like this one, so I'll pull it down too. This is not running live, by the way. It's a specific exploration path I took with DALL·E 2 back in April of 2022.</p>
+        <p data-at="169">It feels much closer to my own sense of exploration. As I keep drilling down, I can remember the specific image that led to a specific generation.</p>
+        <p data-at="188">It was especially hard with GPT-4 to really articulate it myself, and it took a lot of back and forth with Claude 3.5 Sonnet to get to that point. I ended up writing specs like this based on the bugs I was getting, trying to notate every single aspect, and I was really happy to finally get it there.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Interlude — <b>Moving through latent space</b> <span class="len">(2½ min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="215"><img data-frame="hero-255" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="220"><img data-frame="t-228" alt=""><p>GANBreeder ran BigGAN, trained on ImageNet's categories. You could ask <b>how much peacock</b>, and maybe <b>some negative alligator</b>. It was my first real encounter with latent space.</p></div>
+        <div class="beat" data-at="244"><img data-frame="t-262" alt=""><p>But you could only drag <b>one slider at a time</b>. With Nama Tiwari at CMU, I built a realtime version, <b>Xoromancy</b>: each hand's six degrees of freedom drive twelve dimensions of the latent vector at once.</p></div>
+        <div class="beat" data-at="264"><img data-frame="t-280" alt=""><p>It was the first time I felt what it's like to <b>phase myself through latent space</b> and get articulate feedback from the system.</p></div>
+        <div class="beat" data-at="293"><img data-frame="t-320" alt=""><p>We train these models on gargantuan amounts of data, and then the space is <b>far too large to ever explore</b>, especially one slider at a time.</p></div>
+        <div class="beat" data-at="311"><img data-frame="t-335" alt=""><p>Today one prompt gives one image, or four. DALL·E 2's beta gave ten, and ten sample points let you <b>feel the variance</b> of a prompt, like everyone feeling the elephant.</p></div>
+        <div class="beat" data-at="333"><img data-frame="t-350" alt=""><p>I want that <b>expressiveness</b> back for today's image and video models. The challenge is <b>the semantic mapping</b> between inputs and outputs.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="215">I'd like to talk more about latent space exploration in general. If you remember Artbreeder, or GANBreeder back in the day, in 2018 and 2019, they were running BigGAN. BigGAN was trained on ImageNet, so it had about a thousand different categories, and you could adjust how much peacock is in this, maybe some negative alligator, and you could sort of see it.</p>
+        <p data-at="244">But I could really only drag one slider at a time, and I'd have to let up, and I was still having to wait. It was still incredible, and it was my first real encounter with latent space at all. But I really wanted to move multiple sliders at the same time, so I worked with my friend Nama Tiwari at CMU on a realtime version of this.</p>
+        <p data-at="263">What we ended up building is called Xoromancy. We took the six degrees of freedom, rotation and translation, of each hand, so just twelve, and mapped those to the weights of the first twelve components of the thousand-dimensional Z vector, which controls the composition, not the category. This was the first time I was really encountering what it feels like to phase myself through latent space and get more articulate feedback from the system.</p>
+        <p data-at="293">The hard part is that we train these models on gargantuan amounts of data, but then it's nearly impossible to find anything, because the space is way too large to ever actually explore, especially if you're only ever exploring it one slider at a time.</p>
+        <p data-at="309">I feel that way with a lot of image generation systems now. You put in one prompt and, with DALL·E 3, you get one image out, as if that's the sole image. With Midjourney you get four. DALL·E 2 at the beginning gave you ten, at least in the private beta. Otherwise you're blind; everyone's trying to feel the elephant. With ten sample points you can really get a sense of the variance in a prompt.</p>
+        <p data-at="333">I yearn for the days we can get to this level of expressiveness with latent space in more LLM-based image models and video models. The challenge then is: what's the semantic mapping between your inputs and the outputs?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 2 — <b>Children, stacked</b> <span class="len">(1 min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="357"><img data-frame="hero-375" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="361"><img data-frame="t-365" alt=""><p>I love variation where I'm <b>not dealing with the prompt anymore</b>: I like this image, give me four more that are its children.</p></div>
+        <div class="beat" data-at="387"><img data-frame="t-385" alt=""><p>Pull one up and it becomes the primary, with <b>its own children</b>. Keep drilling down, or back out and try a sibling.</p></div>
+        <div class="beat" data-at="398"><img data-frame="t-400" alt=""><p>It's <b>the same structure as coral</b>, arranged differently, closer to the iPhone's multitasking cards.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="357">The other demo I wanted to show is this one, where the scale got messed up with the projector so it doesn't fit anymore. Like everyone who's used Midjourney or similar models: you put in a prompt, you get maybe four images out. I really love doing image variation where I'm not even dealing with the prompt anymore. I'm just saying, I like this image, give me four more that are children adjacent to it.</p>
+        <p data-at="387">So I pull this one up, and now it's my primary one, and it has its own set of children. You can keep drilling your way down, or maybe you didn't like that one and want to check out this one instead. It's effectively the exact same structure as before, just using a slightly different arrangement, more similar to iPhone X–style multitasking.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 3 — <b>Inheriting the world's materials</b> <span class="len">(1 min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="416"><img data-frame="hero-450" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="418"><img data-frame="t-425" alt=""><p>This is locomotion work from Leap Motion: moving through VR <b>more embodiedly</b>. It's in Unity, so it's meshes being animated around.</p></div>
+        <div class="beat" data-at="439"><img data-frame="t-440" alt=""><p>Through a video-to-video model, with a prompt about <b>forms congealing out of mist</b>, it instantly takes on whole new materials.</p></div>
+        <div class="beat" data-at="456"><img data-frame="t-460" alt=""><p>These models have seen so much video of <b>how the universe operates</b> that you inherit nuanced material dynamics for free, and it becomes <b>a far more flexible medium</b>.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="416">What else can I show? A lot of what's happening now is video to video. This is some work I did at Leap Motion back in the day, involving locomotion in VR, where you can move through space more embodiedly. It's in Unity, so you're having to animate meshes around.</p>
+        <p data-at="439">But I toss it into one of these new video-to-video models, and the kinds of materials you get are just incredible. I was obviously putting in a pretty crazy prompt, about forms congealing out of mist or what have you, but I love that instantly you inherit so much nuanced material dynamics, because these models have seen so much video of how the universe operates. It becomes a much more flexible medium to express yourself.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 4 — <b>Bound to the representation</b> <span class="len">(1½ min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="473"><img data-frame="hero-505" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="473"><img data-frame="t-482" alt=""><p>The hard part: you're still reliant on <b>the base representation</b>.</p></div>
+        <div class="beat" data-at="484"><img data-frame="t-500" alt=""><p>In this tldraw experiment, the fish underneath is an ellipse and two triangles. Animating it, you're <b>bound to the affordances</b> of that canvas.</p></div>
+        <div class="beat" data-at="503"><img data-frame="t-520" alt=""><p>To open its gills, <b>there's no handle</b>. It's vector shapes made to look nice by a style transfer.</p></div>
+        <div class="beat" data-at="516"><img data-frame="t-535" alt=""><p>Most AI tools operate on the classical representation <b>instead of in the world model</b> of the latent space. A realtime model could build a gizmo around the fin and <b>adapt to the dynamics</b> you're after.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="473">The hard part, though, is that you're still reliant on what the base representation is. For example, some people at tldraw have been working on this canvas tool. The underlying representation of this fish is an ellipse, a triangle, another triangle. If you want to animate the fish, you're bound to the affordances of that underlying canvas.</p>
+        <p data-at="503">If I want to go in and actually open up the gills, there's really no handle in this model, because all it really is is some vector shapes. It looks nice because of the style transfer.</p>
+        <p data-at="516">I think this is my main issue with a lot of these AI tools: you can only operate them on the underlying, more classical representation, instead of operating in the world model of the latent space itself. Hopefully these more realtime models will actually have an understanding of, oh, you generated a fin, and build a 3D gizmo around it, and fully adapt to the dynamics you're going for.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Closing — <b>Interfaces inside the world model</b> <span class="len">(1½ min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="551"><img data-frame="hero-610" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="554"><img data-frame="t-560" alt=""><p>I'm excited for how UI changes once it's <b>generated in real time</b>, not as code that gets rendered.</p></div>
+        <div class="beat" data-at="565"><img data-frame="t-580" alt=""><p>Today it's all <b>classical forms</b>, rectangles dragged around. What if the interface were <b>a running, interactive video</b> that takes input, inheriting the material dynamics of the world?</p></div>
+        <div class="beat" data-at="600"><img data-frame="t-600" alt=""><p>Here someone makes a Boolean-cut sphere "an orange." But the operations are still <b>the underlying system's</b>.</p></div>
+        <div class="beat" data-at="619"><img data-frame="t-618" alt=""><p>I can't squeeze it, get juice, mix the juice with milk and watch it curdle. Working <b>within the world model</b>, all of that comes <b>for free</b>.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="551">There are more things I could show; I feel like I've touched on a lot. In general I get really excited about how UI is going to change once we can generate it in real time. Not generating Swift code that gets rendered: all of this right now is animated rectangles being dragged around, all classical forms.</p>
+        <p data-at="577">But if this were a running bitmap video, continually and interactively, and it could take in input, what's the space of expression you could get to if you're running with an entire world model that inherits all of the material dynamics of the world?</p>
+        <p data-at="600">For the last thing I'll show: this is a very similar thing someone's doing, but in 3D. I think they're doing some Boolean subtraction on a sphere and saying, make this an orange. But again, you're still bound to the operations of the underlying system.</p>
+        <p data-at="619">I can't squeeze this orange, get juice out of it, mix the juice with milk and get it to curdle. But if you were operating the underlying mechanism within the world model, you could get all those material dynamics for free. Hopefully we can get closer to that as these systems get more and more articulate. Thank you.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer><a href="/">Gray Crawford</a></footer>
+  <script type="module" src="/work/talk.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+/* Talk pages (work/<project>/<talk>/): each part of a talk as a large frame that plays it from the
+   start, beside its moments, each a small frame that plays from there. #script swaps the moments
+   for the whole talk, cleaned of filler words; each paragraph plays from where it starts. */
+:root { --background: #fff; --font-color: #000; --link-color: #110563; --muted: rgba(0, 0, 0, .5); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--background); color-scheme: light; }
+body { color: var(--font-color); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif; padding: 0 16px 120px; }
+a { color: var(--link-color); text-decoration: none; }
+header { margin: 72px auto 64px; max-width: 1060px; }
+h1 { font-size: 2.4rem; font-weight: 650; letter-spacing: -.01em; line-height: 1.05; }
+.sub { font-size: 1.1rem; margin-top: 10px; }
+.meta { color: var(--muted); font-size: .9rem; margin-top: 14px; }
+.meta button { background: none; border: 0; color: var(--link-color); cursor: pointer; font: inherit; }
+section { margin: 0 auto 72px; max-width: 1060px; }
+h2 { font-size: 1.15rem; font-weight: 500; margin-bottom: 18px; text-align: center; }
+h2 b { font-weight: 650; }
+h2 .len { color: var(--muted); font-size: .85rem; }
+.part { align-items: start; display: grid; gap: 28px; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+.screen { aspect-ratio: 16 / 9; background: #000; border-radius: 8px; cursor: pointer; overflow: hidden; position: sticky; top: 16px; }
+.screen img, .screen video { display: block; height: 100%; object-fit: cover; width: 100%; }
+.beats { display: grid; gap: 14px; }
+.beat { align-items: start; cursor: pointer; display: grid; gap: 14px; grid-template-columns: 112px minmax(0, 1fr); }
+.beat img { aspect-ratio: 16 / 9; border-radius: 4px; display: block; object-fit: cover; width: 100%; }
+.beat p { font-size: .92rem; }
+.beat:hover p, .beat.on p { color: var(--link-color); }
+.beat .at { color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; margin-right: 4px; }
+footer { color: var(--muted); font-size: .85rem; margin: 0 auto; max-width: 1060px; }
+.modes { display: flex; gap: 14px; margin-top: 18px; }
+.modes a { color: var(--muted); font-size: .9rem; }
+.modes a.on { color: var(--font-color); font-weight: 600; }
+.script { display: none; }
+.script p { cursor: pointer; font-size: .95rem; margin-bottom: 12px; }
+.script p:hover, .script p.on { color: var(--link-color); }
+body.full-script .beats { display: none; }
+body.full-script .script { display: block; }
+@media (max-width: 760px) {
+  header { margin-top: 40px; }
+  h1 { font-size: 1.9rem; }
+  .part { grid-template-columns: 1fr; }
+  .screen { position: relative; top: 0; }
+}

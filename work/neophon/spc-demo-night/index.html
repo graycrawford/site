@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Neophon, a talk by Gray Crawford at South Park Commons Demo Night: performing music by steering a realtime audio model through prompts, probability and interpolated space.">
+  <title>Neophon · South Park Commons Demo Night</title>
+  <link rel="stylesheet" href="/work/talk.css">
+</head>
+<body data-media="spc-neophon-2026">
+  <header>
+    <h1>Neophon</h1>
+    <p class="sub">Performing music by steering a realtime audio model</p>
+    <p class="meta">Gray Crawford · South Park Commons Demo Night, San Francisco · February 12, 2026 · <button data-at="0">watch the whole talk (6 min)</button></p>
+    <nav class="modes"><a href="#">Walkthrough</a><a href="#script">Full script</a></nav>
+  </header>
+
+  <section>
+    <h2>Introduction — <b>Starting from DJ Mode</b> <span class="len">(1½ min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="0"><img data-frame="hero-3" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="5"><img data-frame="t-5" alt=""><p>Generative audio has become really interesting in the last few years. One of my favorite tools came from Google's <b>Magenta</b> team, who made one of the earliest <b>realtime</b> audio models.</p></div>
+        <div class="beat" data-at="40"><img data-frame="t-40" alt=""><p>Their MusicFX DJ Mode streams music live. You type <b>text prompts</b>, weight them against each other however you like, and hear the mix change as it plays.</p></div>
+        <div class="beat" data-at="55"><img data-frame="t-55" alt=""><p>But its defaults (some mandolin?) quietly <b>set the bounds of what a new user imagines</b> they can do with it.</p></div>
+        <div class="beat" data-at="64"><img data-frame="t-68" alt=""><p>As soon as I was playing with it, I was writing prompts in <b>the most absurd, explicit, melodic terminology</b> I could find.</p></div>
+        <div class="beat" data-at="78"><img data-frame="t-80" alt=""><p>Google released an open-source approximation of the interface. On December 24th I gave it to Claude Opus and asked for it as a <b>Swift app</b> instead.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="0">So I've been really interested in some of these recent generative models. Have you all heard of these? Audio generation specifically has been quite interesting in recent years.</p>
+        <p data-at="11">One of my favorite online tools for music generation was put out by Project Magenta, a team at Google. They made one of the earliest realtime audio models. Let me plug my phone in so I can show you what I wanted to show you.</p>
+        <p data-at="35">I was really excited seeing the kind of UI Google put out with their tool, MusicFX DJ Mode. You can put in text prompts, weight them arbitrarily, and it's all streaming live.</p>
+        <p data-at="50">But I was a little sad about the defaults they had. Do you want to listen to some mandolin? It constrained the imagination space of the beginning user to the domain of what they could imagine doing.</p>
+        <p data-at="64">Whereas as soon as I was playing with it, I was putting in prompts like this: just the most absurd, explicit, melodic terminology.</p>
+        <p data-at="75">Google made an approximation of this interface available as open source code that anyone could use. So I gave that to Opus and asked, could you put this in a Swift app instead? That was December 24th last year.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 1 — <b>A front end for the model</b> <span class="len">(1 min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="92"><img data-frame="hero-100" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="95"><img data-frame="t-96" alt=""><p>That became <b>Neophon</b>, a front end for Lyria RealTime that plays as you change it.</p></div>
+        <div class="beat" data-at="123"><img data-frame="t-124" alt=""><p>Any prompt is <b>just typed in</b>: "mandolin by a burbling brook," then raise its weight.</p></div>
+        <div class="beat" data-at="134"><img data-frame="t-135" alt=""><p>Prompts can be <b>soloed</b>, one or several at once, and pulled back out when a transition is too sharp.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="95">And so I ended up making this tool called Neophon, a front end for this audio model. Let me press play while we go, and hope that the temperature is nice.</p>
+        <p data-at="113">The really fun thing about this is there are so many different parameters to choose from. You can literally type in anything you want. I can add “mandolin by a burbling brook” and increase its weight. Maybe I'll solo it. Maybe I'll solo multiple. That's a sharp transition, so I'll pull it back out instead.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 2 — <b>Playing with probability</b> <span class="len">(40 sec)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="141"><img data-frame="hero-151" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="145"><img data-frame="t-146" alt=""><p>The model has many more parameters to play with, like <b>token improbability</b>. I love that you can put a log-probability graph in a UI and people will go along with it.</p></div>
+        <div class="beat" data-at="155"><img data-frame="t-156" alt=""><p>It's an abstracted way to perform. Instead of <b>this note, then this note, then this note</b>, I imagine <b>where the song would probably go</b>, and steer that.</p></div>
+        <div class="beat" data-at="171"><img data-frame="t-172" alt=""><p>A low <b>temperature</b> keeps it close. Raising it lets the model reach for <b>more and more improbable tokens</b>.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="141">The really interesting thing is there are a bunch of different parameters to play with, like token improbability. I love that you can put a log-prob graph in a UI and people will allow it.</p>
+        <p data-at="155">It's an interesting, abstracted way of approaching audio generation, or audio performance. Instead of thinking “I want to create this note, and then this note, and then this note,” it's more that I can imagine the song would probabilistically go in this direction.</p>
+        <p data-at="171">So I can keep the temperature quite low, then bring it up higher and let it access more and more improbable tokens.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 3 — <b>A space of prompts</b> <span class="len">(1 min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="180"><img data-frame="hero-196" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="183"><img data-frame="t-185" alt=""><p>Each prompt had been its own <b>linear slider</b>. I wanted to <b>phase through the space</b> of possible prompts instead.</p></div>
+        <div class="beat" data-at="194"><img data-frame="t-195" alt=""><p>So I made a pad. <b>Each point is a set of prompts</b>, and a control knob moves toward any of them.</p></div>
+        <div class="beat" data-at="209"><img data-frame="t-210" alt=""><p>Rather than hopping from one to the next, they all sit in <b>one continuous, interpolated space</b>.</p></div>
+        <div class="beat" data-at="220"><img data-frame="t-222" alt=""><p>Drums and bass come back in, and the music keeps playing <b>underneath the talk</b>.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="180">Then I started going really ham. Instead of each of these text prompts being its own separate linear slider, I wanted to phase through the space of possible text prompts.</p>
+        <p data-at="194">So I made this graph that lets you move this control knob toward any of these points. Each point is its own prompt set, and I can hop into a different one. But instead of hopping into them separately, I can have them all in one continuous, interpolative space.</p>
+        <p data-at="216">Let me switch it to something more fun. There are no drums or bass right now, so I'll bring that back in. This might start to collide with my own voice while I give this presentation, but it seems to be working okay.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 4 — <b>Grids of grids</b> <span class="len">(35 sec)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="237"><img data-frame="hero-254" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="237"><img data-frame="t-241" alt=""><p>I also wanted to change the prompts <b>at each vertex</b>, not just move between them.</p></div>
+        <div class="beat" data-at="249"><img data-frame="t-253" alt=""><p>Up one level, <b>each vertex is its own grid</b>. You interpolate within each one, and between them.</p></div>
+        <div class="beat" data-at="258"><img data-frame="t-259" alt=""><p>That makes <b>a vast space to explore</b>, immediately at your fingertips.</p></div>
+        <div class="beat" data-at="263"><img data-frame="t-265" alt=""><p>Performing live, the last thing I want is to think of <b>a sentence to type</b>. I want to be there with the music, with <b>direct manipulation</b>.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="237">What's really lovely, too: instead of only interpolating between these text prompt regions, I wanted to change the text prompt region at each vertex. So I'll pop up one more level. Each vertex can be its own grid that you interpolate within, and then you can interpolate between them.</p>
+        <p data-at="258">It produces this really vast exploration space that's immediately at your fingertips, because the last thing I want to be doing during a live audio performance is thinking about what sentence I can type. I just want to be there with the music, with direct manipulation.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Demo 5 — <b>Like radio</b> <span class="len">(1 min)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="271"><img data-frame="hero-296" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="284"><img data-frame="t-285" alt=""><p>Because it's <b>live-streaming audio</b>, I can turn the phone off and it keeps playing.</p></div>
+        <div class="beat" data-at="293"><img data-frame="t-294" alt=""><p>I can be in the car, driving, and the song <b>just keeps going</b> in the background.</p></div>
+        <div class="beat" data-at="301"><img data-frame="t-303" alt=""><p>The bar on the lock screen isn't song progress. I mapped it to <b>temperature and density</b>.</p></div>
+        <div class="beat" data-at="313"><img data-frame="t-314" alt=""><p>Find a nice pocket, turn the temperature down, leave it at <b>a light simmer</b>, and walk away.</p></div>
+        <div class="beat" data-at="323"><img data-frame="t-324" alt=""><p>Skip, and it jumps to <b>something totally new</b>, like switching <b>radio stations</b> until one makes you stop driving and start playing again.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="271">One of my favorite parts about this: let me pop back to a personal favorite song. What's lovely is I can have this going, turn my phone off, and it still shows up. So I can be in the car driving and the song just keeps going in the background, because it's live-streaming audio.</p>
+        <p data-at="301">And the really fun part is that this is not the song progress. I've mapped it to the temperature and the density. So if I find a really nice pocket, I can turn the temperature down, leave it at a light simmer, and just walk away.</p>
+        <p data-at="323">It behaves like radio, too. I can skip to the next song and it jumps to something totally novel. It's like switching radio stations until you find one you like, and then I'm like, I should actually stop driving and start playing with this song again. And so I can keep playing.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Closing — <b>Passing it around</b> <span class="len">(50 sec)</span></h2>
+    <div class="part">
+      <div class="screen" data-at="342"><img data-frame="hero-382" alt=""></div>
+      <div class="beats">
+        <div class="beat" data-at="342"><img data-frame="t-345" alt=""><p>I've performed live with it, <b>an iPad and a phone</b>, mixing across the two.</p></div>
+        <div class="beat" data-at="355"><img data-frame="t-356" alt=""><p>I produce music myself, and this is a very different way in: working with <b>a very weird latent space</b> in <b>a very novel way</b>.</p></div>
+        <div class="beat" data-at="367"><img data-frame="t-370" alt=""><p>It's on <b>TestFlight</b>. Go back to back on a song with friends, or <b>hand your phone around the audience</b> and let everyone add a prompt.</p></div>
+      </div>
+      <div class="script">
+        <p data-at="342">I ended up doing a live performance with an iPad running this and a phone running this, mixing across them. It's a really fun way to create music. I'm a producer myself, so it's very interesting to interact with this very weird latent space in this very novel way.</p>
+        <p data-at="367">It's on TestFlight, so if anyone wants, they can scan this QR code and try it themselves. Wow your friends. Go back to back making a song together. You can hand your phone off to everyone in the audience and they can each add a prompt. That's really all I have to say about this. Thank you.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer><a href="/work/neophon/">Neophon</a> · <a href="/">Gray Crawford</a></footer>
+
+  <script type="module" src="/work/talk.js"></script>
+</body>
+</html>
