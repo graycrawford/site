@@ -211,6 +211,54 @@ strong:hover {
           /* box-shadow: 0px 20px 50px rgba(0, 109, 211, 0.4); */
           filter: blur(0px);
         }
+        /* Figures: clips and stills placed beside the text that discusses them */
+        figure.media {
+          margin: 28px 0 40px;
+          max-width: 760px;
+        }
+
+        figure.media.square { max-width: 560px; }
+
+        figure.media.tweet { max-width: 550px; }
+
+        figure.media video,
+        figure.media img {
+          display: block;
+          width: 100%;
+          height: auto;
+          border-radius: 6px;
+          background: #0001;
+        }
+
+        figure.media.playing video { filter: blur(0px); }
+
+        figure.media .part-image > a,
+        figure.media .part-image > a:hover {
+          filter: none;
+          mix-blend-mode: normal;
+        }
+
+        figure.media .tweet-frame {
+          display: block;
+          border: 0;
+          width: 100%;
+          height: 400px;
+        }
+
+        figure.media figcaption {
+          margin-top: 10px;
+          font-size: 0.85em;
+          line-height: 140%;
+          color: var(--font-color);
+          opacity: 0.6;
+          mix-blend-mode: plus-darker;
+          transition: filter 0.6s var(--good-ease);
+          filter: blur(1px);
+        }
+
+        figure.media figcaption:hover { filter: blur(1.8px); }
+
+        .thesis-links a { white-space: nowrap; }
       </style>
       
     
@@ -228,14 +276,15 @@ strong:hover {
             <strong><a href="/thesis.html">thesis</a></strong>
         </div>
 
-        <blockquote class="twitter-tweet">
-          <a href="https://twitter.com/graycrawford/status/1232766457521377281"></a>
-      </blockquote>
 
 
              <h1>Developing Embodied Familiarity with Hyperphysical Phenomena</h1>
              <p>A thesis submitted to the School of Design, Carnegie Mellon University, for the degree of Master of Design in Design for Interactions.</p>
              <p>May 2019</p>
+             <p class="thesis-links">Prototype builds and documentation: <a href="https://github.com/graycrawford/masters-thesis-VR">github.com/graycrawford/masters-thesis-VR</a> · <a href="https://github.com/graycrawford/masters-thesis-VR/blob/master/Gray%20Crawford%20-%20Master%27s%20Thesis%20-%20Developing%20Embodied%20Familiarity%20with%20Hyperphysical%20Phenomena.pdf">full thesis PDF</a> (57 pages)</p>
+             <figure class="media square" data-stage="video:thesis-2019">
+               <figcaption>A minute of the thesis prototypes, shared with the thesis on <a href="https://x.com/graycrawford/status/1232766457521377281">X</a>, February 2020.</figcaption>
+             </figure>
              <h2>Abstract</h2>
              <p>Spatial computing (VR, etc) reveals an expansive and underexplored possibility-space of interactions in which <strong>the physics subtending affordances and phenomena can itself be designed</strong>, rewarding novel approaches to interaction design.</p>
              <p>Through reviewing literature and prototyping spatial interactions, this thesis explores the impact of previously-unencountered physical dynamics upon the <strong>development of familiarity</strong> with systems and identifies significant <strong>representations of external objects and the body itself</strong>, with an eye towards the larger goal of transformative tools for thought.</p>
@@ -369,6 +418,9 @@ strong:hover {
              <h2>Overview of Prototypes</h2>
              
              <p>In the following sections I am going to discuss prototypes (available at <a href="https://github.com/graycrawford/masters-thesis-VR">github.com/graycrawford/masters-thesis-VR</a>) I built to investigate the development of familiarity with novel embodied interactions.</p>
+             <figure class="media" data-stage="video:thesis-presentation-loop">
+               <figcaption>A loop of the prototypes made for the thesis presentation, April 2019.</figcaption>
+             </figure>
              
              
              
@@ -381,6 +433,9 @@ strong:hover {
              <p>I had seen this <a href="https://kev.town/raymarching-toolkit/">technique</a> used for external objects, but never for the rendering of the hands themselves, and I suspected it might be quite compelling.</p>
              
              <p>After placing two raymarched spheres on my thumbtip and index fingertip, upon pinching the spheres smoothly transitioned from separate objects to a rounded hourglass to a single ellipsoid. I added the other eight fingertips and populated the world with a sphere and a couple cylinders to observe raymarched fusion with external objects. This was immediately mesmerizing, and changing the effective isosurface radius changed my hands from separate spheres only overlapping within close proximity to a singular doughy mass where the underlying proprioceptive motion remained intact if not only slightly masked.</p>
+             <figure class="media" data-stage="video:thesis-blend-body">
+               <figcaption><em>Blend Body</em>: raymarched signed-distance-field hands fusing with a sphere and cylinders, and the torus palms holding UI. Leap Motion in Unity, October 2018 (<a href="https://x.com/graycrawford/status/1053432626239979522">posted on X</a>).</figcaption>
+             </figure>
              
              <p>I added spheres for the rest of my finger joints and knuckles, and found that it felt slightly more dynamic to only include the joints that I could move separately. My knuckles weren't contributing to the prehensility and only added to the lumpiness's visual extent, so I removed them.</p>
              
@@ -398,6 +453,9 @@ strong:hover {
              <p>It is common in mundane [<em>in-universe / established / classical / common / foundational / base / "real"</em>] physics to act upon objects directly or via intermediating structures that mechanically extend us. Thus we become familiar with relying on our bodies and tools to interact with external structures. However, computers can simulate hyperphysics that support action at an (apparent) distance, the simulation itself being the subtending structure allowing for mediation across more than physical movement, but any pairing of parameters. How might this capability affect perception of causality between events and user agency?</p>
              
              <p>In the simple case of a hyperphysically simulated, purely movement-based causal link, the computer keeps track of every detail of the interaction, translating the movement of the acting object to the affected object even if such objects are not mechanically in contact as we would expect in mundane physics (generally — of course magnetism and gravitation act at a distance but I refer to more common human-scale interactions). This leads to hyperphysical interactions without any necessary and apparent visually intermediating structures, potentially confusing users expecting consistency with mundane physics.</p>
+             <figure class="media" data-stage="video:thesis-hidden-force">
+               <figcaption><em>Hidden Force Mappings</em>: the rotation of each hand sets the scale, intensity and drag of tessellated vector fields acting on millions of Unity VFX Graph particles. November 2018 (<a href="https://x.com/graycrawford/status/1061774350020472832">posted on X</a>).</figcaption>
+             </figure>
              
              <h2>3. Slightness of Bodily Representation</h2>
              <h3>Dust Bodies 1-3</h3>
@@ -407,6 +465,15 @@ strong:hover {
              <p>For example, a direct 1:1 mapping of a sphere's position to the palm's position allows immediate identification with the driven structure, as visual movement is immediately correlatable with proprioception, even if the structure differs from our physiology. However, a mapping where [body part location :: sound frequency or amplitude] is not a sensorially-equivalent mapping of like with like, but the agency is still apparent (if the scaling is such that the sound changes are discernible), and that recognition only falls out of direct engagement and perception of the effects.</p>
              
              <p>It can become increasingly difficult to identify one's self with the observed phenomena as the amount of abstraction between the input body data and the output environmental behavior increases, as seen in <em>Dust Bodies.</em> The Unity VFX Graph particles conform to the signed distance field of my hand, and the raw visual input varies greatly though is nevertheless causally mapped to my bodily motion. Some particles may be so close to my hand SDF that they are drawn quite closely to my hand's motion and are thus positioned essentially 1:1 with my hand surface, being immediately correlatable and thus identifiable as me, whereas further-flung particles receive weaker forces drawing them towards the SDF and enter ever-changing and decaying orbits that somewhat mask the structural basis for their motion.</p>
+             <figure class="media" data-stage="video:thesis-dust-bodies">
+               <figcaption><em>Dust Body</em>: VFX Graph particles drawn to the signed distance field of the tracked hand, using Nama Tiwari's MeshToSDF converter. March 2019 (<a href="https://x.com/graycrawford/status/1105584468901933057">posted on X</a>).</figcaption>
+             </figure>
+             <figure class="media banner" data-stage="image:thesis-dust-1">
+               <figcaption><em>Dust Body 1</em>: the hand as glowing, loosely bound particles.</figcaption>
+             </figure>
+             <figure class="media banner" data-stage="image:thesis-dust-3">
+               <figcaption><em>Dust Body 3</em>: sparse embers trailing the hands in the dark.</figcaption>
+             </figure>
              
              <h2>4. Parameter Space Exploration via Play</h2>
              <h3>Bulk Particle Series</h3>
@@ -414,6 +481,15 @@ strong:hover {
              <p>Whereas the previous particle systems were reactive on a massive scale, they were unable to collide with each other. In the search for a more physically reactive system, I discovered NVIDIA's Flex particle simulation library for Unity. Flex allows for many thousands of colliding particles, and as long as they are all the same radius, they can be meshed into flexible fabrics, enclosed volumes, rigid- and soft-bodies, or remain free-flowing fluids.</p>
              
              <p>Without a strict plan of attack, I began placing particle emitters on my head and hands, any place that offered me manual control over the placement of the particles in realtime. Immediately I found the physical dynamics captivating, spending multiple hours tuning the available parameters. As the particles were emitted from my palm and came to collide with a flat surface I erected, I changed the parameters of the simulation such that there was supremely increased friction, causing the particles to bunch up immediately upon colliding with each other or the surface, behaving more like a highly viscous goo.</p>
+             <figure class="media" data-stage="video:thesis-flex-particles">
+               <figcaption><em>Bulk Particle Series</em>: NVIDIA Flex particles streaming onto the hands, colliding with each other, the hands and the floor. November 2018.</figcaption>
+             </figure>
+             <figure class="media" data-stage="video:thesis-flex-tangle">
+               <figcaption>Ropes of particles attached to the fingertips, tangling as the hands move.</figcaption>
+             </figure>
+             <figure class="media" data-stage="video:thesis-flex-kelp">
+               <figcaption>With gravity reversed and damping high, the fingertip ropes drift like kelp.</figcaption>
+             </figure>
              
              <h2>5. Hypermaterial Validity via Multisensory Integration</h2>
              <h3>VR Wrist-Finger Haptics</h3>
@@ -421,6 +497,12 @@ strong:hover {
              <p>As mentioned in the <em>Coherence and Coordination of Phenomena</em> section, simultaneous stimuli across the senses reinforce each other to form more concrete perceptions of given phenomena.</p>
              
              <p>Physical controllers such as the Oculus Touch provide haptic feedback with embedded vibration motors, and their haptics are used very successfully in many VR experiences. Valve's <em>The Lab</em>'s <em>Longbow</em> provides haptics when the user draws the bowstring back, replicating the subtle clicks when tensioning a string. When combined with stereo audio feedback spatialized from the location of the string, the visual feedback of the string, and the proprioception of the pulling finger, these sensory channels fuse into a relatively rich perception of a bow. Curiously, <strong>sensations not directly provided by the VR output surfaces can be somewhat provoked or confabulated out of the perceptions from other senses</strong>. The combination of sense inputs from <em>Longbow</em> serve to also hint at the sensation of tension between the arms, forces a real bow is able to impart but that are impossible with the provided technology. Similarly, passing the hands through the stack of physically-reactive cloths in my 2018 VR music piece <a href="http://www.graycrawford.com/#/strata/"><em>Strata</em></a> has for myself and others independently produced the sensation of cobwebs or some light tactile texture, even though there is only visual indication of the dynamics and materiality of the physical structures.</p>
+             <figure class="media banner" data-stage="image:thesis-watch-haptics">
+               <figcaption><em>VR Wrist-Finger Haptics</em>: an Apple Watch on the wrist plays a haptic pulse when the tracked fingertip touches a virtual surface.</figcaption>
+             </figure>
+             <figure class="media" data-stage="video:thesis-wrist-haptics">
+               <figcaption>In VR, March 2019: each fingertip touch sends an OSC message to an iPhone app, which pulses the watch.</figcaption>
+             </figure>
              
              <h2>6. Embodiedly Controlling High-Dimensional but Non-Spatial, Non-Physical Structures</h2>
              <h3><a href="https://www.graycrawford.com/xoromancy">Xoromancy</a></h3>
@@ -439,7 +521,10 @@ strong:hover {
              
              <h3>Xoromancy</h3>
              
-             <p>I collaborated with fellow student <a href="http://www.aman.work">Aman Tiwari</a> (CMU, 2019) over the course of one month to create an interactive BigGAN explorer controlled by body motion entitled <em>Xoromancy</em>. By surfacing fourteen components of the z-vector to be controlled by the motion of the hands, seven per hand, <em>Xoromancy</em> provides opportunities for proprioception to sync with the visual output from BigGAN, increasing the rate of exploration and reinforcing the perceived agency over and unity with the dynamics of the output.</p>
+             <p>I collaborated with fellow student <a href="http://www.aman.work">Nama Tiwari</a> (CMU, 2019) over the course of one month to create an interactive BigGAN explorer controlled by body motion entitled <em>Xoromancy</em>. By surfacing fourteen components of the z-vector to be controlled by the motion of the hands, seven per hand, <em>Xoromancy</em> provides opportunities for proprioception to sync with the visual output from BigGAN, increasing the rate of exploration and reinforcing the perceived agency over and unity with the dynamics of the output.</p>
+             <figure class="media" data-stage="video:thesis-xoromancy">
+               <figcaption><em>Xoromancy</em> (Tiwari &amp; Crawford, 2019): hand motion steering BigGAN images, projected in the gallery. Excerpt from the 2019 documentation video.</figcaption>
+             </figure>
              
              <p>Though the body classically builds fluency with spatial, physical interactions, <em>Xoromancy</em> demonstrates that the spatial extent of the body can be tied to explicitly non-spatial outputs while nevertheless retaining the species of familiarity-development common to spatial interactions, as the output responds in concert with specific body motions.</p>
              
@@ -452,10 +537,16 @@ strong:hover {
              <p>Attempts to map all 128 z-vector components onto the hand is a near-impossibility given current hand-tracking fidelity, and much work needs to be done to explore/determine what the maximum number of orthogonal dimensions might be mapped onto the set of contortions of the hand. Conversations with computational artist Memo Akten illuminated the possibility of treating the high-dimensional space of all possible comfortable and mechanically valid conformations of the hand as a subsidiary, embedded "manifold" of all possible 3D arrangements of the 20-odd joint vertices (ignoring mechanical limitations). A neural network could be trained to project between the mechanically-valid manifold and the 128- or 1128-dimensional space of BigGAN images, optimizing for maximum visual difference of output per given input movement. Such an approach highlights the size of the design space once neural network optimization is used to descend towards mappings that might be impossible to arrive at manually, but that a computer would have little trouble in balancing.</p>
              
              <p>Upon mapping hand motion in those fourteen total dimensions to the first fourteen components of the z-vector, the nuance possible was immediately apparent. Although there is no explicit meaning behind the ordering or operation of each z-vector component, once each component is mapped to a body movement, merely moving the body instantly displays how the visual form is controlled. <strong>Visual patterns of growth or sliding or transformation or inversion are apparent, and are reinforced when the proprioceptive awareness of the hands' movements are correlated to visual output.</strong> Since hand movements are reversible, and the visual feedback reflects that reversion in realtime, coordinates in BigGAN's "latent space" are available to be coherently returned to.</p>
+             <figure class="media tweet" data-stage="tweet:1100942523026030592">
+               <figcaption>Real-time BigGAN traversal with Leap Motion hand tracking, February 2019.</figcaption>
+             </figure>
              
              <p><em>Xoromancy </em>is distinct amongst the other prototypes in that 1. it is not VR-based, and 2. it is the only one deployed into the world and tested beyond myself, having had multiple public exhibitions.</p>
              
              <p>First premiering at CMU's <em>Frame Gallery</em>, February 22-24, 2019, <em>Xoromancy</em> enabled the audience to explore curated BigGAN images. Participants had a range of reactions, some of whom used exclusively gross movements, whereas others were quite meticulous and measured in their BigGAN traversal. Multiple participants expressed the sense that they were "mastering" it over time and this matched my and Tiwari's personal experience, where repeated engagement gave opportunities to increasingly attune oneself to the intricacies with the BigGAN model.</p>
+             <figure class="media tweet" data-stage="tweet:1100935327374626818">
+               <figcaption>Announcing <em>Xoromancy</em> after its premiere, February 2019.</figcaption>
+             </figure>
              
              <p><em>Xoromancy</em> premiered to the general public at New York Live Arts for their <em>2019 Live Ideas</em> festival from May 8-22.</p>
              
@@ -491,5 +582,24 @@ strong:hover {
         </div>
 
     </div>
+    <script type="module">
+      // Fill each <figure class="media" data-stage="kind:id"> with the site's shared media builder.
+      import { build } from '/stage/media.js';
+      for (const fig of document.querySelectorAll('figure.media[data-stage]')) {
+        const slot = document.createElement('div');
+        fig.prepend(slot); // build() takes over the box's class, so it gets its own
+        build(fig.dataset.stage, slot).then(async () => {
+          const vid = slot.querySelector('video');
+          if (!vid) return;
+          // build() leaves the source unset until its play(), but here the native controls play
+          // it (with sound), so give it its source now; preload="none" still loads nothing first.
+          const base = new URL('.', vid.poster);
+          const m = await (await fetch(new URL('manifest.json', base))).json();
+          vid.src = new URL(m.web, base);
+          vid.addEventListener('play', () => fig.classList.add('playing'));
+          vid.addEventListener('pause', () => fig.classList.remove('playing'));
+        }).catch(err => console.warn('thesis media', fig.dataset.stage, err));
+      }
+    </script>
 </body>
 </html>
