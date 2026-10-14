@@ -1820,12 +1820,28 @@ function applySnapshot(o,part){if(!o)return;
       setupGrid(keepN);basisDirty=true;antDirty=true;kernDirty=true;}}
   /* one synchronous batch, then one recompute: the view never draws a frame
      from a thumbnail's buffers */
-  function fill(){if(!state.gpu||gs.dead||state.sceneOn)return;let did=false;
+  function fill(){if(!state.gpu||gs.dead||state.sceneOn||!(seen||BAKE))return;let did=false;
     try{for(const p of all()){const k=thumbKey(p),hit=thumbs.get(p.id);
         if(hit&&hit.key===k)continue;
         const cv=renderThumb(p);did=true;if(!cv)break;
-        thumbs.set(p.id,{key:k,cv});paint(p.id);}}
+        thumbs.set(p.id,{key:k,cv});paint(p.id);if(!p.builtin)keep(p.id,k,cv);}}
     finally{if(did)runCompute();}}
+  /* thumbnails as pictures, so a load does no GPU work for them: the built-ins ship in thumbs/
+     (made by this page at ?bake), your own are kept in this browser once drawn. One whose preset
+     has changed since is drawn fresh. */
+  const BAKE=/[?&]bake\b/.test(location.search),TSTORE='engiscope.thumbs';
+  let kept={};try{kept=JSON.parse(localStorage.getItem(TSTORE)||'{}')||{};}catch(_){}
+  function keep(id,key,cv){try{kept[id]={key,url:cv.toDataURL('image/webp',.9)};
+      for(const k in kept)if(!LIB.some(p=>p.id===k))delete kept[k];
+      localStorage.setItem(TSTORE,JSON.stringify(kept));}catch(_){/* full or private: draw again next time */}}
+  const picture=(id,key,url)=>{const img=new Image();img.src=url;
+    return img.decode().then(()=>{thumbs.set(id,{key,cv:img});paint(id);}).catch(()=>{});};
+  const shipped=BAKE?Promise.resolve():fetch('thumbs/index.json').then(r=>r.ok?r.json():{}).catch(()=>({}))
+    .then(idx=>Promise.all(all().map(p=>{const k=thumbKey(p),s=p.builtin?idx[p.id]:kept[p.id];
+      return s&&s.key===k?picture(p.id,k,p.builtin?'thumbs/'+s.file:s.url):null;})));
+  /* drawn only while the library is on screen (in the reel's column it may never be) */
+  let seen=false;
+  new IntersectionObserver(([e])=>{seen=e.isIntersecting;if(seen)shipped.then(()=>setTimeout(fill,0));}).observe(wrap);
   function paint(id){const t=thumbs.get(id),c=wrap.querySelector('canvas[data-id="'+CSS.escape(id)+'"]');
     if(t&&c){c.getContext('2d').drawImage(t.cv,0,0,c.width,c.height);}}
   function load(p,part){applySnapshot(p.snap,part);if(!part){libCurrent=p.id;
@@ -1875,8 +1891,9 @@ function applySnapshot(o,part){if(!o)return;
       file.value='';};
     r.readAsText(f);});
   render();
-  /* thumbnails once the first frame is up; again if the grid changes */
-  setTimeout(fill,600);
+  /* thumbnails once the first frame is up (and the shipped ones are in); again if the grid changes */
+  shipped.then(()=>setTimeout(()=>{fill();
+    if(BAKE)window.bakedThumbs=BUILTIN.map(p=>({id:p.id,key:thumbKey(p),url:thumbs.get(p.id)?.cv.toDataURL('image/webp',.92)}));},600));
   window.libFill=fill;
 })();
 

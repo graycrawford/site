@@ -1,0 +1,42 @@
+{
+ "b:Diffraction-limited": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "file": "diffraction-limited.webp"
+ },
+ "b:Defocus": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0.6,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "file": "defocus.webp"
+ },
+ "b:Astigmatism": {
+  "key": "{\"coeff\":{\"astig0\":0.6,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "file": "astigmatism.webp"
+ },
+ "b:Coma": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0.5,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "file": "coma.webp"
+ },
+ "b:Trefoil": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0.5,\"trefY\":0},\"near\":false}",
+  "file": "trefoil.webp"
+ },
+ "b:Spherical": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0.5,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "file": "spherical.webp"
+ },
+ "b:Keratoconus": {
+  "key": "{\"coeff\":{\"astig0\":0.28,\"astig45\":0,\"comaX\":0,\"comaY\":0.42,\"defocus\":0.18,\"sph\":0,\"trefX\":0.3,\"trefY\":0},\"near\":false}",
+  "file": "keratoconus.webp"
+ },
+ "b:Typical eye": {
+  "key": "{\"coeff\":{\"astig0\":0.08,\"astig45\":0,\"comaX\":0,\"comaY\":0.05,\"defocus\":0,\"sph\":0.1,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "file": "typical-eye.webp"
+ },
+ "b:speck": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"lashOn\":true,\"lidOn\":false,\"near\":true,\"nearLog\":1.176,\"zoom\":3}",
+  "file": "speck.webp"
+ },
+ "b:squint": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0.25,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"lashOn\":true,\"lidLower\":0.6,\"lidOn\":true,\"lidUpper\":0.6,\"near\":false}",
+  "file": "squint.webp"
+ }
+}
