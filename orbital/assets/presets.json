@@ -3639,7 +3639,6 @@
       }
     },
     "scope": "session",
-    "startup": true,
     "states": [
       {
         "amplitude": 0.059206469653033264,
@@ -4001,6 +4000,7 @@
     },
     "schemaVersion": 2,
     "scope": "session",
+    "startup": true,
     "states": [
       {
         "amplitude": 1,

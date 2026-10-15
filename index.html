@@ -13,7 +13,6 @@
       --accent: #7e5566;
       --good-ease: cubic-bezier(.15, .02, 0, 1);
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
     /* White past the page edges too (Safari's overscroll and toolbar take this, not body's). */
@@ -300,32 +299,54 @@
     .cv.reel-mode.reading .pane.home > .scroll { grid-template-columns: minmax(0, 1fr); }
     .cv.reel-mode.reading .tile-col { padding: 22px 8px 160px 12px; }
     .cv.reel-mode.reading .tile .words { font-size: .74rem; padding: 7px 8px; } /* small tiles: less inset, smaller type */
-    .reel { flex: 1 1 0; height: 100%; min-width: 0; position: relative; } /* unclipped, so shadows fall softly onto the grid; the page clips at the window */
+    .reel { flex: 1 1 0; height: 100%; min-width: 0; position: relative; touch-action: pan-y; } /* unclipped, so shadows fall softly onto the grid; the page clips at the window */
     .cv.reel-mode:not(.reading) .reel { display: none; }
-    /* The reel starts just right of the grid, so the packed columns' tabs (16px, jutting left of edges
-       that pack to 16px left of the reel) stand one grid gap past the tiles. It blends onto the grid
+    /* The reel starts just right of the grid, so the packed columns' tabs settle right beside the tiles. It blends onto the grid
        as one layer (multiply), so shadows and anything overlapping let the tiles show. */
-    .cv.reel-mode.reading .reel { isolation: isolate; margin-left: 32px; mix-blend-mode: multiply; }
+    .cv.reel-mode.reading .reel { margin-left: 8px; }
+    /* ?debug "sharp text": the soft blur off wherever it's on (filtering still dims what doesn't match) */
+    html.sharp-text :is(a, .stage-caption, .filters button, .name, .year, .lastname, .intro, .group-title, .entry, .tyear h2, .tyear h3) { filter: none; mix-blend-mode: normal; }
+    /* ?debug "dark grid while reading" */
+    html.dark-grid .cv.reel-mode.reading .tile-col { background: #000; }
+    html.dark-grid .cv.reel-mode.reading .tile-col :is(h2, h3) { color: #eee; }
     /* Full-size columns placed by tiles.js (translateX); each lies over the one before it. */
-    .reel .col { background: var(--background) center / cover no-repeat; box-shadow: -16px 0 30px -14px rgba(0, 0, 0, calc(.16 * var(--shade, 1))); height: 100%; left: 0; overflow: visible; position: absolute; top: 0; will-change: transform; }
-    .reel .col > .scroll { height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+    .reel .col { background: var(--background) center / cover no-repeat; height: 100%; left: 0; overflow: visible; position: absolute; top: 0; will-change: transform; }
+    /* Its shadow on the column before it: an image strip (cheap to move; no blur), faded by tiles.js. */
+    .reel .col > .shade { background: url(/stage/shade.png) 0 0 / 128px 256px repeat-y; height: 100%; pointer-events: none; position: absolute; right: 100%; top: 0; width: 128px; } /* a smooth falloff with blue-noise dither baked in (stage/shade.png), each column's at its own vertical offset, so stacked shadows average out instead of banding */
+    .reel .col > .scroll { height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; touch-action: pan-y; }
     /* Bookmarks: a tab of the entry's picture jutting from the column's left edge, in a row of its own,
        so the packed columns' tabs stack into a column. */
-    .reel .col .mark { background: #e9e9ef center / cover no-repeat; border: 0; border-radius: 4px 0 0 4px; box-shadow: -2px 0 6px rgba(0, 0, 0, .12); cursor: pointer; height: 16px; left: -16px; padding: 0; position: absolute; top: calc(30px + var(--row, 0) * 19px); width: 16px; z-index: 2; }
-    .reel .col .mark.hot, .reel .col .mark:hover { box-shadow: -2px 0 8px rgba(17, 5, 99, .35), inset 0 0 0 1.5px var(--link-color); }
-    /* Hovering a tab unfurls its name out to the left, over the tiles' soft blur. */
-    .reel .col .mark .name { -webkit-backdrop-filter: blur(6px) brightness(.8); backdrop-filter: blur(6px) brightness(.8); border-radius: 999px; color: #fff; font: 600 .78rem/1 -apple-system, BlinkMacSystemFont, sans-serif; opacity: 0; padding: 4px 10px; pointer-events: none; position: absolute; right: calc(100% + 4px); text-shadow: 0 0 10px rgba(0, 0, 0, .45); top: -1px; transform: scaleX(.2); transform-origin: right center; transition: transform .22s var(--good-ease), opacity .15s linear; white-space: nowrap; }
-    .reel .col .mark:hover .name { opacity: 1; transform: none; }
+    .reel .col .mark { background: none; border: 0; cursor: pointer; height: 16px; left: -16px; padding: 0; position: absolute; top: 30px; width: 16px; z-index: 2; }
+    .reel .col .mark .pic { background: #e9e9ef center / cover no-repeat; inset: 0; position: absolute; }
+    /* A hovered tab's (or tile's) name: sharp text in a frosted capsule (the old sidebar's blur and
+       white wash, behind the text only), fading in quickly beside the tab. It lives outside the moving
+       columns (tiles.js), on whole pixels. */
+    .tab-label { align-items: center; -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); background: rgba(255, 255, 255, .42); border-radius: 999px; color: var(--link-color); display: flex; font: 650 .78rem/1 -apple-system, BlinkMacSystemFont, sans-serif; height: 26px; opacity: 0; padding: 0 11px; pointer-events: none; position: fixed; transition: opacity .12s linear; white-space: nowrap; z-index: 40; }
+    .tab-label.on { opacity: 1; }
+    .reel-debug { background: rgba(255, 255, 255, .9); border-radius: 10px; bottom: 12px; box-shadow: 0 1px 8px rgba(0, 0, 0, .12); display: grid; font: 11px/1.3 -apple-system, sans-serif; gap: 4px; left: 12px; padding: 10px 12px; position: fixed; z-index: 50; }
     .tile.hot::after { box-shadow: inset 0 0 0 2.5px var(--link-color); }
     .reel .col:not(.open) { cursor: pointer; }
-    .reel .col .body { padding: 28px 32px 120px 24px; }
+    .reel .col .body { padding: 16px 16px 120px; } /* the same on top as at the sides: the gap between its pictures */
+    .entry-view .media.posts { column-gap: 8px; columns: 2; } /* a year's posts, two across (masonry) */
+    /* A row: pictures side by side at one height, each as wide as its proportions (tiles.js sets flex). */
+    .entry-view .media .row { display: flex; gap: 8px; }
+    .entry-view .media .row > * { flex: 1 1 0; min-width: 0; }
+    .entry-view .media .row > * + * { margin-top: 0; }
+    .entry-view .media .row img { height: auto; max-height: none; width: 100%; }
+    .entry-view .part-image.alpha img { background: none; border-radius: 0; } /* transparent pictures stay plain */
+    /* More of the same work under its own header, further down the column. */
+    .entry-view .sub-head { margin: 34px 0 10px; }
+    .entry-view .sub-head .title { font-size: 1rem; }
+    .entry-view .media.posts > * { break-inside: avoid; margin: 0 0 8px; }
+    .entry-view .media.posts > * + * { margin-top: 0; }
     .reel.scrolling iframe { pointer-events: none; }
     /* A live page fills its column; the entry's words float over it, where its own background shows. */
+    .reel .col.page-card { background-color: #0b0b0d; } /* dark under the white words until the page (or its still) is there */
     .reel .col.page-card .body { height: 100%; padding: 0; }
-    .reel .col.page-card .mark { box-shadow: 0 0 0 .5px rgba(255, 255, 255, .3); }
+    .reel .col > .veil { background: var(--background); inset: 0; opacity: 0; pointer-events: none; position: absolute; z-index: 1; } /* a page card fades back to the page colour as it packs down */
     .reel .col.page-card .entry-view { height: 100%; position: relative; }
-    .reel .col.page-card .entry-view > :not(.media) { color: #fff; padding: 0 32px 0 24px; pointer-events: none; position: relative; text-shadow: 0 0 12px rgba(0, 0, 0, .6); z-index: 1; }
-    .reel .col.page-card .entry-view .title { padding-top: 28px; }
+    .reel .col.page-card .entry-view > :not(.media) { color: #fff; padding: 0 16px; pointer-events: none; position: relative; text-shadow: 0 0 12px rgba(0, 0, 0, .6); z-index: 1; }
+    .reel .col.page-card .entry-view .title { padding-top: 16px; }
     .reel .col.page-card .entry-view a { color: #fff; pointer-events: auto; }
     .reel .col.page-card .entry-view .meta, .reel .col.page-card .entry-view .text { opacity: .85; }
     .reel .col.page-card .entry-view .media, .reel .col.page-card .entry-view .media > div { height: 100%; inset: 0; position: absolute; }
@@ -343,11 +364,17 @@
     .tgrid { display: grid; gap: 8px; grid-auto-flow: dense; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-auto-rows: calc((100cqw - 56px) / 8); }
     .tyear { container-type: inline-size; } /* rows as tall as columns are wide, so spans make squares (and 1×2 portraits) */
     .tyear h3 { filter: blur(.7px); font-size: .69rem; font-weight: 750; letter-spacing: .09em; margin: 18px 0 10px; opacity: .55; text-transform: uppercase; }
+    /* a click on a heading folds its grid away (tiles.js), and its entries leave the reel */
+    .tyear > :is(h2, h3) { cursor: pointer; user-select: none; }
+    .tyear.folded > .tgrid { display: none; }
+    .tyear.folded > h2 { opacity: .25; }
+    .tyear.folded + .tyear { margin-top: 18px; }
     .tyear .tyear { margin-top: 0; }
     /* Tiles are .entry for the filters, but not the text styling entries get (opacity, blur, blend). */
     /* The sky behind the page (sky.js): a small canvas stretched to the window; ?debug tunes it. */
     canvas.sky { height: 100vh; inset: 0; pointer-events: none; position: fixed; width: 100vw; z-index: -1; }
     html.has-sky body { background: transparent; }
+    html:not(.sky-controls) .sky-debug { display: none !important; } /* ?debug: shown with "sky controls" */
     .sky-debug { background: rgba(255, 255, 255, .85); border-radius: 10px; bottom: 12px; box-shadow: 0 1px 8px rgba(0, 0, 0, .12); display: grid; font: 11px/1.2 -apple-system, sans-serif; gap: 4px; padding: 10px 12px; position: fixed; right: 12px; z-index: 10; }
     .sky-debug label { align-items: center; display: grid; gap: 8px; grid-template-columns: 56px 140px 36px; }
     .sky-debug select { grid-column: span 2; }

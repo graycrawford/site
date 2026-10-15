@@ -26,6 +26,7 @@ export async function build(part, box, ctx = {}) {
   if (kind === 'image') {
     // A web-size copy; the image links to the untouched original.
     const m = await (await fetch(`${base}manifest.json`)).json();
+    if (m.alpha) box.classList.add('alpha'); // has transparency: shown plain, no backing or corner clip
     const a = Object.assign(document.createElement('a'), { href: base + m.original });
     a.append(Object.assign(document.createElement('img'), {
       alt: m.alt, width: m.width, height: m.height, decoding: 'async',
@@ -51,12 +52,15 @@ export async function build(part, box, ctx = {}) {
     // An HDR (HLG, 10-bit HEVC) copy where the browser plays it; m.web is the SDR H.264 for the rest.
     const src = m.hdr && vid.canPlayType('video/mp4; codecs="hvc1.2.4.L123.B0"') ? m.hdr : m.web;
     return {
+      // Sound only when it's the one in front (loud) and the visitor has clicked or tapped (browsers
+      // allow sound only after that); otherwise muted.
       play() {
         if (!vid.src) vid.src = base + src;
-        vid.muted = !(loud() || navigator.userActivation?.hasBeenActive);
+        vid.muted = !(loud() && navigator.userActivation?.hasBeenActive);
         vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
       },
       pause() { vid.pause(); },
+      sound(on) { vid.muted = !(on && navigator.userActivation?.hasBeenActive); },
     };
   }
   if (kind === 'year') {
@@ -103,7 +107,17 @@ export async function build(part, box, ctx = {}) {
       pause() { f.src = 'about:blank'; },
     };
   }
-  if (kind === 'tweet') box.append(tweetFrame(id));
+  if (kind === 'tweet') {
+    // The post laid out at its natural width (550) and zoomed to fit its box, so it reads the same at
+    // any width (two across in a column of posts, or squeezed) instead of reflowing.
+    const fit = document.createElement('div');
+    fit.className = 'tweet-fit';
+    const f = tweetFrame(id);
+    Object.assign(f.style, { maxWidth: 'none', width: '550px' });
+    fit.append(f);
+    box.append(fit);
+    new ResizeObserver(([e]) => { const w = e.contentRect.width; if (w) f.style.zoom = Math.min(1, w / 550); }).observe(fit);
+  }
   if (kind === 'instagram') {
     box.append(Object.assign(document.createElement('iframe'), {
       className: 'instagram-frame', title: 'Post on Instagram', loading: 'lazy',
@@ -121,7 +135,13 @@ addEventListener('message', e => {
   if (!/^https:\/\/platform\.(twitter|x)\.com$/.test(e.origin)) return;
   let msg;
   try { msg = (typeof e.data === 'string' ? JSON.parse(e.data) : e.data)?.['twttr.embed']; } catch { return; }
-  const f = frames.get(e.source);
+  // A frame can report its height before it was registered (it loaded before joining the page), so
+  // look it up among the post frames by window, too.
+  let f = frames.get(e.source);
+  if (!f) {
+    f = [...document.querySelectorAll('iframe.tweet-frame')].find(x => x.contentWindow === e.source);
+    if (f) frames.set(e.source, f);
+  }
   if (f && msg?.method === 'twttr.private.resize') {
     const h = msg.params?.[0]?.height;
     if (h) f.style.height = `${Math.ceil(parseFloat(h))}px`;
