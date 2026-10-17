@@ -1,42 +1,50 @@
 {
  "b:Diffraction-limited": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "diffraction-limited.webp"
  },
  "b:Defocus": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0.6,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":1.3499999999999999,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "defocus.webp"
  },
  "b:Astigmatism": {
-  "key": "{\"coeff\":{\"astig0\":0.6,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":1.3499999999999999,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "astigmatism.webp"
  },
  "b:Coma": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0.5,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":1.6875,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "coma.webp"
  },
  "b:Trefoil": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0.5,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":1.6875,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "trefoil.webp"
  },
  "b:Spherical": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0.5,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":5.44638283060418,\"sph\":2.53125,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "spherical.webp"
  },
  "b:Keratoconus": {
-  "key": "{\"coeff\":{\"astig0\":0.28,\"astig45\":0,\"comaX\":0,\"comaY\":0.42,\"defocus\":0.18,\"sph\":0,\"trefX\":0.3,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0.6300000000000001,\"astig45\":0,\"comaX\":0,\"comaY\":1.4175,\"defocus\":0.40499999999999997,\"sph\":0,\"trefX\":1.0125,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "keratoconus.webp"
  },
  "b:Typical eye": {
-  "key": "{\"coeff\":{\"astig0\":0.08,\"astig45\":0,\"comaX\":0,\"comaY\":0.05,\"defocus\":0,\"sph\":0.1,\"trefX\":0,\"trefY\":0},\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0.08,\"astig45\":0,\"comaX\":0,\"comaY\":0.05,\"defocus\":0,\"sph\":-0.12,\"trefX\":0,\"trefY\":0},\"D\":6,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":false,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":false,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "typical-eye.webp"
  },
  "b:speck": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"lashOn\":true,\"lidOn\":false,\"near\":true,\"nearLog\":1.176,\"zoom\":3}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0.3,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":true,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":true,\"near\":true,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1.6,\"zref\":6}",
   "file": "speck.webp"
  },
  "b:squint": {
-  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0.25,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"lashOn\":true,\"lidLower\":0.6,\"lidOn\":true,\"lidUpper\":0.6,\"near\":false}",
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0.5625,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":4,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":true,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":true,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0.78,\"tint\":false,\"zoom\":1,\"zref\":6}",
   "file": "squint.webp"
+ },
+ "b:blink": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":0,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":5,\"absExp\":true,\"blink\":0.45,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":true,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":true,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
+  "file": "blink.webp"
+ },
+ "b:myope": {
+  "key": "{\"coeff\":{\"astig0\":0,\"astig45\":0,\"comaX\":0,\"comaY\":0,\"defocus\":-2.5371838001497227,\"sph\":0,\"trefX\":0,\"trefY\":0},\"D\":7,\"absExp\":true,\"blink\":0,\"exposure\":1,\"eye\":\"R\",\"gamma\":1,\"lambda\":550,\"lashClump\":0.35,\"lashCurl\":0.45,\"lashDens\":1,\"lashDepth\":6,\"lashFan\":40,\"lashJit\":9,\"lashLo\":0.7,\"lashOn\":true,\"lashThick\":0.07,\"lashUp\":1.8,\"lca\":false,\"lcaStrength\":1,\"lidOn\":true,\"near\":false,\"nearLog\":1.176,\"specSamples\":14,\"spectral\":true,\"squint\":0,\"tint\":false,\"zoom\":1,\"zref\":6}",
+  "file": "myope.webp"
  }
 }

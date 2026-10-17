@@ -5,17 +5,6 @@ are listed once so the ground truth stays next to the code that used it.
 
 ## Next
 
-- **Straylight beyond the computed field.** Bright lights in a scene glare only
-  as far as the PSF grid reaches (±1.5° at 2048). Add the eye's straylight
-  outside it, from the CIE 2002 glare spread function (θ in degrees, 0.1°–100°):
-  Ψ(θ) = 10/θ³ + (5/θ² + 0.1p/θ)·[1 + (A/62.5)⁴] + 0.0025p sr⁻¹,
-  with A = age and p = pigmentation (0 dark … 1 blue-green). It is analytic,
-  so it can fill the whole scene kernel. Near streetlights it reaches
-  12–16 mag/arcsec² at 10° (Bará, arXiv 2212.09103).
-- **Dotted vertical line in the night scene.** It appears only with glare on.
-  Likely the kernel or the spectrum-product pass.
-- **Re-bake built-in preset thumbnails** (`?bake`). They changed with the
-  6 mm reference and the new eye, so they currently redraw live on first visit.
 - **Scene sources.**
   - A real sky from a star catalogue (all on jsDelivr with CORS):
     - d3-celestial `stars.6.json` (657 KB) or `stars.8.json`
@@ -106,3 +95,10 @@ Ritschel et al. 2009, *Temporal Glare*, and related work.
   (sph/cyl/axis, 12 mm vertex).
 - Absolute exposure on by default.
 - GPU scene convolution at the PSF's own scale, with true point sources.
+- Straylight in scenes:
+  - Uses the CIE 2002 glare spread function, with an age control.
+  - Full resolution inside the computed field, a coarse 3×-wide grid beyond it.
+  - It buries the float32 rounding of the FFT around very bright lights.
+- Antialiased pupil edge, which removed axis-aligned spikes.
+- Built-in presets completed from the defaults.
+- Thumbnails re-baked.

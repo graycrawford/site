@@ -291,6 +291,7 @@
           <div class="ctrl"><div class="row"><label>fov</label><span class="num" id="n_sceneFov"></span></div><input type="range" id="sceneFov" min="1" max="40" step="0.1" value="12" title="field of view (long side)"></div>
           <div class="ctrl"><div class="row"><label>yaw</label><span class="num" id="n_sceneYaw"></span></div><input type="range" id="sceneYaw" min="-180" max="180" step="0.5" value="0" title="yaw"></div>
           <div class="ctrl"><div class="row"><label>pitch</label><span class="num" id="n_scenePitch"></span></div><input type="range" id="scenePitch" min="-85" max="85" step="0.1" value="1.5" title="pitch"></div>
+          <div class="ctrl"><div class="row"><label>age</label><span class="num" id="n_sceneAge"></span></div><input type="range" id="sceneAge" min="10" max="80" step="1" value="30" title="age (straylight grows with it)"></div>
           <div class="ctrl"><div class="row"><label>exposure</label><span class="num" id="n_sceneExp"></span></div><input type="range" id="sceneExp" min="-8" max="12" step="0.05" value="0" title="scene exposure (EV from auto)"></div>
         </div>
       </div>
@@ -364,14 +365,14 @@ const state={ N:256,Nreq:2048,D:4.0,camThresh:0.5,camSoft:0.05,camInvert:false,c
   eye:'R',blink:0,squint:0,lidOn:false,
   lashOn:false,lashUp:1.8,lashLo:0.7,lashFan:40,lashJit:9,lashDens:1,lashClump:0.35,lashCurl:0.45,lashDepth:6,lashThick:0.07,
   gamma:1,exposure:1,zoom:1,absExp:true,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
-  sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:1.5,sceneExp:0,sceneGlare:true,gpu:true,
+  sceneOn:false,sceneAge:30,sceneFov:12,sceneYaw:0,scenePitch:1.5,sceneExp:0,sceneGlare:true,gpu:true,
   near:false,nearLog:1.176 };   /* nearLog = log10(source distance, mm) — 15 mm ≈ a speck on glasses */
 ZMODES.forEach(m=>state.coeff[m.id]=0);
 
 let dx, gr=null, zb=null, fbin=null, re=null, im=null, psf=null;
 let antMask=null, antSpecRe=null, antSpecIm=null;
 let accX=null, accY=null, accZ=null;
-let sumA=0, peak=1, peakY=1, peakYdl=1, strehl=1, basisDirty=false, antDirty=true, throughput=1;
+let sumA=0, sumA2=0, peak=1, peakY=1, peakYdl=1, strehl=1, basisDirty=false, antDirty=true, throughput=1;
 let EC={};
 function rotc(c,s,ang){const m=Math.hypot(c,s),t=Math.atan2(s,c)+ang;return [m*Math.cos(t),m*Math.sin(t)];}
 function computeEC(){const a=state.rot*Math.PI/180,c=state.coeff;EC={defocus:c.defocus,sph:c.sph,comaX:c.comaX,comaY:c.comaY,trefX:c.trefX,trefY:c.trefY};
@@ -473,17 +474,28 @@ function ensureCpu(){const N=state.N;if(cpuN===N)return;const len=N*N;ensureOut(
     gr.c2[i]=Math.cos(2*th);gr.s2[i]=Math.sin(2*th);gr.c3[i]=Math.cos(3*th);gr.s3[i]=Math.sin(3*th);}
   cpuN=N;buildBasis();
   lashCpuKey='';}   /* antSpec is new */
-/* same inside-pupil test as the CPU basis (float32 radius <= R) */
-function pupilCount(){const N=state.N,c=N/2,R=state.D/2;let cnt=0;
-  for(let iy=0;iy<N;iy++){const y=(iy-c)*dx;for(let ix=0;ix<N;ix++){const x=(ix-c)*dx;if(Math.fround(Math.sqrt(x*x+y*y))<=R)cnt++;}}
-  return cnt;}
-function buildBasis(){if(cpuN!==state.N){sumA=pupilCount();return;}
-  const len=state.N*state.N,R=state.D/2,a=1/RREF,a2=a*a,a3=a2*a,a4=a3*a;let cnt=0;
-  for(let i=0;i<len;i++){if(gr.r[i]<=R){const rho=a*gr.r[i],rho2=a2*gr.r2[i],rho3=a3*gr.r3[i],rho4=a4*gr.r4[i];
+/* The pupil edge is antialiased over one texel. A hard r<=R disc is a
+   staircase whose flat runs at top, bottom and sides diffract faint spikes
+   along the grid axes -- invisible on a PSF, but a dotted line through every
+   bright light in a scene. sumA = Σa (sets the diffraction-limited peak),
+   sumA2 = Σa² (the energy). */
+function pupilA(r,R){const t=(R-r)/dx+0.5;return t<=0?0:t>=1?1:t;}
+function pupilCount(){const N=state.N,c=N/2,R=state.D/2,ro=R+0.5*dx,ri=R-0.5*dx;let s1=0,s2=0;
+  for(let iy=0;iy<N;iy++){const y=(iy-c)*dx;if(Math.abs(y)>=ro)continue;
+    /* full-amplitude interior counted in one go, only the rim texels looped */
+    const xi=ri*ri>y*y?Math.sqrt(ri*ri-y*y):-1,xo=Math.sqrt(ro*ro-y*y);
+    const i0=Math.max(0,Math.floor(c-xo/dx)-1),i1=Math.min(N-1,Math.ceil(c+xo/dx)+1);
+    const j0=xi>=0?Math.ceil(c-xi/dx)+1:i1+1,j1=xi>=0?Math.floor(c+xi/dx)-1:i1;
+    if(j1>=j0){s1+=j1-j0+1;s2+=j1-j0+1;}
+    for(let ix=i0;ix<=i1;ix++){if(ix>=j0&&ix<=j1)continue;const x=(ix-c)*dx,a=pupilA(Math.fround(Math.sqrt(x*x+y*y)),R);s1+=a;s2+=a*a;}}
+  sumA=s1;sumA2=s2;}
+function buildBasis(){if(cpuN!==state.N){pupilCount();return;}
+  const len=state.N*state.N,R=state.D/2,a=1/RREF,a2=a*a,a3=a2*a,a4=a3*a;
+  for(let i=0;i<len;i++){if(gr.r[i]<R+0.5*dx){const rho=a*gr.r[i],rho2=a2*gr.r2[i],rho3=a3*gr.r3[i],rho4=a4*gr.r4[i];
     zb[0][i]=S3*(2*rho2-1);zb[1][i]=S5*(6*rho4-6*rho2+1);zb[2][i]=S6*rho2*gr.c2[i];zb[3][i]=S6*rho2*gr.s2[i];
-    const cc=(3*rho3-2*rho);zb[4][i]=S8*cc*gr.c1[i];zb[5][i]=S8*cc*gr.s1[i];zb[6][i]=S8*rho3*gr.c3[i];zb[7][i]=S8*rho3*gr.s3[i];cnt++;}
+    const cc=(3*rho3-2*rho);zb[4][i]=S8*cc*gr.c1[i];zb[5][i]=S8*cc*gr.s1[i];zb[6][i]=S8*rho3*gr.c3[i];zb[7][i]=S8*rho3*gr.s3[i];}
     else{for(let k=0;k<zb.length;k++)zb[k][i]=0;}}
-  sumA=cnt;}
+  pupilCount();}
 
 /* ---- eye: lids and lashes ------------------------------------------------
    Everything is in the pupil frame, mm, from the patient's side looking out:
@@ -605,8 +617,9 @@ function fieldAtPupil(lambdaNm,cDeff){const N=state.N,len=N*N,k0=2*Math.PI/(lamb
   const lash=LASH.list.length>0,G=state.lidOn?lidGeom():null,soft=1.5*dx,camL=CAM.on&&!state.camColor&&antMask;
   if(lash){ensureLashCpu();if(lashDepthOn())applyFresnel(lambdaNm,LASH.z);else{for(let i=0;i<len;i++){re[i]=lashM[i];im[i]=0;}}}
   for(let i=0;i<len;i++){
-    if(gr.r[i]<=R||openAll){const W=cDeff*zb[0][i]+cS*zb[1][i]+cA0*zb[2][i]+cA45*zb[3][i]+cCx*zb[4][i]+cCy*zb[5][i]+cTx*zb[6][i]+cTy*zb[7][i];
-      const ph=k0*W;let m=1;
+    const ae=openAll?1:pupilA(gr.r[i],R);
+    if(ae>0){const W=cDeff*zb[0][i]+cS*zb[1][i]+cA0*zb[2][i]+cA45*zb[3][i]+cCx*zb[4][i]+cCy*zb[5][i]+cTx*zb[6][i]+cTy*zb[7][i];
+      const ph=k0*W;let m=ae;
       if(G){const iy=(i/N)|0;m*=lidT(G,(i-iy*N-c0)*dx,(iy-c0)*dx,soft);}
       if(camL)m*=antMask[i];
       const cph=m*Math.cos(ph),sph=m*Math.sin(ph);
@@ -721,10 +734,10 @@ function finishSpectral(ybSum,ybPk){const len=state.N*state.N;let pk=0,sY=0;
    ybSum = Σ ȳ (energy), ybPk = Σ ȳ·specW (diffraction-limited peak). */
 function finishStats(pk,sY,ybSum,ybPk){const len=state.N*state.N;peak=peakY=pk;if(ybPk===undefined)ybPk=ybSum;
   if(state.near){peakYdl=ybSum;           /* geometric irradiance of the open pupil */
-    strehl=ybSum>0?pk/ybSum:0;throughput=(sumA>0&&ybSum>0)?sY/(sumA*ybSum):1;return;}
+    strehl=ybSum>0?pk/ybSum:0;throughput=(sumA2>0&&ybSum>0)?sY/(sumA2*ybSum):1;return;}
   peakYdl=sumA*sumA*ybPk;                  /* diffraction-limited peak */
   strehl=sumA>0?Math.min(1,pk/peakYdl):0;
-  throughput=(sumA>0&&ybSum>0)?sY/(len*sumA*ybSum):1;}
+  throughput=(sumA2>0&&ybSum>0)?sY/(len*sumA2*ybSum):1;}
 
 function wlRGB(wl){let R=0,G=0,B=0;
   if(wl<440){R=-(wl-440)/60;B=1;}else if(wl<490){G=(wl-440)/50;B=1;}else if(wl<510){G=1;B=-(wl-510)/20;}
@@ -923,7 +936,8 @@ function gsCtx(){
       ' float m=(useMask==1)?texelFetch(mk,fc,0).r:1.0;if(useCam==1)m*=dot(texelFetch(cm,fc,0).rgb,cw);\n'+
       ' if(lidOn==1){float u=x-lu.y,v=x-ll.y;m*=smoothstep(0.0,1.0,(lu.x-lu.z*u*u+lu.w*x-y)/lsoft+0.5)*smoothstep(0.0,1.0,(y-ll.x-ll.z*v*v)/lsoft+0.5);}\n'+
       ' vec2 t=vec2(m,0.0);if(lashMode==1)t*=texelFetch(lm,fc,0).r;else if(lashMode==2)t=texelFetch(lm,fc,0).rg*(lmScale*m);\n'+
-      ' if(r<=R){float rho=a*r,rho2=rho*rho,rho3=rho2*rho,rho4=rho3*rho;float c1=r>0.0?x/r:1.0,s1=r>0.0?y/r:0.0;\n'+
+      ' float ae=clamp((R-r)/dx+0.5,0.0,1.0);if(openAll==0)t*=ae;\n'+
+      ' if(ae>0.0){float rho=a*r,rho2=rho*rho,rho3=rho2*rho,rho4=rho3*rho;float c1=r>0.0?x/r:1.0,s1=r>0.0?y/r:0.0;\n'+
       '  float c2=c1*c1-s1*s1,s2=2.0*c1*s1,c3=c1*(4.0*c1*c1-3.0),s3=s1*(3.0-4.0*s1*s1),cc=3.0*rho3-2.0*rho;\n'+
       '  float W=cD*S3*(2.0*rho2-1.0)+cS*S5*(6.0*rho4-6.0*rho2+1.0)+cA0*S6*rho2*c2+cA45*S6*rho2*s2+cCx*S8*cc*c1+cCy*S8*cc*s1+cTx*S8*rho3*c3+cTy*S8*rho3*s3;\n'+
       '  float ph=k0*W;ph-=TAU*floor(ph/TAU);float cp=cos(ph),sp=sin(ph);o=vec4(t.x*cp-t.y*sp,t.x*sp+t.y*cp,0.0,0.0);}\n'+
@@ -1438,9 +1452,17 @@ ctrlCol.addEventListener('dragover',e=>{if(!dragCard)return;e.preventDefault();c
    every one of them is spread by the PSF itself rather than smeared into
    the blocks of an equirect map. Extended light (sky, moon disc) is drawn
    analytically or sampled with filtering, and is convolved too.
-   Units: radiance per sr, flux in units of a magnitude-0 star. */
+   Units: radiance per sr, flux in units of a magnitude-0 star.
+   Past the edge of the computed PSF field the eye still scatters light --
+   cornea, lens, fundus -- out to tens of degrees. That straylight is the CIE
+   2002 glare spread function (θ in degrees, A = age, p = pigmentation):
+     Ψ(θ) = 10/θ³ + (5/θ² + 0.1p/θ)(1 + (A/62.5)⁴) + 0.0025p   sr⁻¹
+   added from 0.1° out (the wave PSF has no scatter in it). It is smooth, so it is
+   convolved on a coarse 256² grid spanning 3× the view (no wrap-around into
+   what you see) and added back. It also buries the FFT's float32 rounding
+   (~1e-11 of a source, along its row and column) under real veil. */
 const POLY_URL="https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/moonless_golf_4k.exr";
-const SC={NS:2048,PAD:1.15,src:null,srcVer:0,set:null,kKey:'',sKey:'',ks:[1,1,1],psfVer:0,eqVer:-1,ptVer:-1,ptN:0};
+const SC={NS:2048,PAD:1.15,NL:256,PADL:3,lset:null,lkKey:'',lsKey:'',lrKey:'',fout:0,src:null,srcVer:0,set:null,kKey:'',sKey:'',ks:[1,1,1],psfVer:0,eqVer:-1,ptVer:-1,ptN:0};
 let hdriStatus='night';
 function setSceneStatus(s){if(s!==undefined)hdriStatus=s;const e=document.getElementById("sceneStatus");if(e)e.textContent=hdriStatus;}
 function sceneFovEff(){return state.sceneFov/Math.max(1,state.zoom);}
@@ -1456,7 +1478,8 @@ function bvRGB(bv){const T=4600*(1/(0.92*bv+1.7)+1/(0.92*bv+0.62)),t=T/100;
 function airmass(lat){const a=Math.max(0.5,lat*180/Math.PI);return 1/Math.sin((a+244/(165+47*Math.pow(a,1.1)))*Math.PI/180);}
 /* procedural night: a dark rural-ish sky over a distant town. ~30k stars to
    mag 8 (counts rising ~10^0.45m), two planets, a moon off to the left,
-   and ~1500 town lights from mag -10 to -1: sodium, LED, warm white,
+   and ~700 lights of a town a few km off (1000 cd lamps ≈ mag -2 at 10 km),
+   mag +0.5 to -5: sodium, LED, warm white,
    a few signals. Stars near the horizon are extincted and reddened. */
 function loadProcedural(){const w=2048,h=1024,d=new Float32Array(w*h*3),rng=mulberry32(7);
   for(let y=0;y<h;y++){const lat=(0.5-(y+0.5)/h)*Math.PI;
@@ -1475,10 +1498,10 @@ function loadProcedural(){const w=2048,h=1024,d=new Float32Array(w*h*3),rng=mulb
   push(dirOf(-0.35,0.14),Math.pow(10,1.76),bvRGB(0.8));       /* Venus-like, mag -4.4 */
   push(dirOf(0.42,0.52),Math.pow(10,1.0),bvRGB(0.9));         /* Jupiter-like, mag -2.5 */
   const COL=[[1,0.55,0.16],[1,0.9,0.78],[1,0.74,0.48],[1,0.12,0.06],[0.25,1,0.45],[0.6,0.75,1]];
-  for(let s=0;s<1500;s++){const street=rng()<0.6;let lon,lat;
+  for(let s=0;s<700;s++){const street=rng()<0.6;let lon,lat;
     if(street){const k=(rng()*14)|0,a=-0.55+k*0.08,t=rng();lon=a+t*0.06;lat=-0.004+t*0.007*(k%2?1:-0.4);}
     else{lon=(rng()*2-1)*0.62;lat=-0.012+rng()*0.016;}
-    const u=rng(),ci=u<0.45?0:u<0.8?1:u<0.95?2:3+((rng()*3)|0),m=rng()<0.02?-7-2*rng():-0.5-5.5*Math.pow(rng(),2.5);
+    const u=rng(),ci=u<0.45?0:u<0.8?1:u<0.95?2:3+((rng()*3)|0),m=rng()<0.03?-4-1.5*rng():0.5-3.5*Math.pow(rng(),1.8);
     const c=COL[ci],Y=0.2126*c[0]+0.7152*c[1]+0.0722*c[2];push(dirOf(lon,lat),Math.pow(10,-0.4*m)/Y,c);}
   push(dirOf(0.03,0.055),Math.pow(10,1.2),[1,0.12,0.05]);    /* a mast beacon */
   setSource({name:'night',eq:{w,h,data:d},pts:new Float32Array(P),
@@ -1509,7 +1532,7 @@ function extractPoints(eq){const {w,h,data}=eq,Y=new Float32Array(w*h),P=[];
 function setSource(src){const eq=src.eq,Ys=[];   /* median of the sky (upper half) */
   for(let i=0;i<eq.w*(eq.h>>1);i+=97)Ys.push(0.2126*eq.data[i*3]+0.7152*eq.data[i*3+1]+0.0722*eq.data[i*3+2]);
   Ys.sort((a,b)=>a-b);const med=Ys[Ys.length>>1]||1;
-  src.base=0.012/Math.max(1e-12,med);  /* auto exposure: the sky just above black */
+  src.base=0.006/Math.max(1e-12,med);  /* auto exposure: the sky just above black */
   SC.src=src;SC.srcVer++;setSceneStatus(src.name+' · '+eq.w+'×'+eq.h+' · '+(src.pts.length/6|0)+' points');
   if(state.sceneOn)requestCompute();}
 function setHDRI(name,parsed){setSceneStatus('finding point lights…');
@@ -1517,7 +1540,7 @@ function setHDRI(name,parsed){setSceneStatus('finding point lights…');
 
 /* --- GPU --------------------------------------------------------------- */
 function scCtx(){if(SC.ready)return true;if(SC.failed||!gsCtx())return false;const gl=gs.gl;
-  try{SC.blend=!!gl.getExtension('EXT_float_blend');gl.getExtension('OES_texture_float_linear');
+  try{SC.blend=!!gl.getExtension('EXT_float_blend');SC.flin=!!gl.getExtension('OES_texture_float_linear');
     const H='#version 300 es\nprecision highp float;precision highp int;\n';
     const mk=(vs,fs,attrs)=>{const c=(t,src)=>{const sh=gl.createShader(t);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
       const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,vs));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fs));
@@ -1541,38 +1564,52 @@ function scCtx(){if(SC.ready)return true;if(SC.failed||!gsCtx())return false;con
       'vec3 at(vec2 p){vec2 f=floor(p);vec2 a=p-f;ivec2 i=ivec2(f);if(i.x<0||i.y<0||i.x+1>=N||i.y+1>=N)return vec3(0.0);\n'+
       ' vec3 s=mix(mix(texelFetch(acc,i,0).rgb,texelFetch(acc,i+ivec2(1,0),0).rgb,a.x),mix(texelFetch(acc,i+ivec2(0,1),0).rgb,texelFetch(acc,i+ivec2(1,1),0).rgb,a.x),a.y);return s;}\n'+
       'void main(){ivec2 k=ivec2(gl_FragCoord.xy);vec2 d=vec2(k.x<NS/2?k.x:k.x-NS,k.y<NS/2?k.y:k.y-NS);float h=float(N/2);\n'+
-      ' float e=max(abs(d.x),abs(d.y))*ratio/h;if(e>1.0){o=vec4(0.0);return;}vec3 X=vec3(0.0);\n'+
+      ' float e=length(d)*ratio/h;if(e>1.0){o=vec4(0.0);return;}vec3 X=vec3(0.0);\n'+
       ' for(int j=0;j<16;j++){if(j>=n)break;for(int i=0;i<16;i++){if(i>=n)break;vec2 u=(d+(vec2(i,j)+0.5)/float(n)-0.5)*ratio;X+=at(vec2(h)-u);}}\n'+
       ' vec3 c=vec3(3.2406*X.x-1.5372*X.y-0.4986*X.z,-0.9689*X.x+1.8758*X.y+0.0415*X.z,0.0557*X.x-0.2040*X.y+1.0570*X.z);\n'+
-      /* the computed field ends in a square; ease it out over its outer quarter so
-         the brightest lights don't print that square */
+      /* the computed field is ended in a circle, eased out over its outer
+         quarter, so the brightest lights don't print the grid's square */
       ' float tp=0.5+0.5*cos(3.14159265*clamp((e-0.75)/0.25,0.0,1.0));o=vec4(max(c,0.0)*tp,0.0);}');
     /* spectrum product, unpacking (R+iG, B) on both sides */
-    SC.pMUL=mk(GS_VS,H+'uniform sampler2D sc;uniform sampler2D kr;uniform int NS;uniform vec3 ks;out vec4 o;\n'+
+    SC.pMUL=mk(GS_VS,H+'uniform sampler2D sc;uniform sampler2D kr;uniform sampler2D k2;uniform int use2;uniform int NS;uniform vec3 ks;out vec4 o;\n'+
       'vec2 cm(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}\n'+
       'void main(){ivec2 k=ivec2(gl_FragCoord.xy),q=ivec2((NS-k.x)%NS,(NS-k.y)%NS);vec4 s=texelFetch(sc,k,0),sn=texelFetch(sc,q,0),c=texelFetch(kr,k,0),cn=texelFetch(kr,q,0);\n'+
       ' vec2 Zs=s.xy,Zsn=vec2(sn.x,-sn.y),Zk=c.xy,Zkn=vec2(cn.x,-cn.y);\n'+
-      ' vec2 R=(Zs+Zsn)*0.5,G=cm(Zs-Zsn,vec2(0.0,-0.5)),KR=(Zk+Zkn)*0.5*ks.x,KG=cm(Zk-Zkn,vec2(0.0,-0.5))*ks.y;\n'+
-      ' o=vec4(cm(R,KR)+cm(vec2(0.0,1.0),cm(G,KG)),cm(s.zw,c.zw*ks.z));}');
-    /* tone: ACES on exposure, visible crop, k×k box */
-    SC.pTON=mk(GS_VS,H+'uniform sampler2D src;uniform ivec2 c0;uniform int k;uniform float E;uniform int NS;out vec4 o;\n'+
+      ' vec2 R=(Zs+Zsn)*0.5,G=cm(Zs-Zsn,vec2(0.0,-0.5)),KR=(Zk+Zkn)*0.5*ks.x,KG=cm(Zk-Zkn,vec2(0.0,-0.5))*ks.y;vec2 KB=c.zw*ks.z;\n'+
+      ' if(use2==1){vec4 e=texelFetch(k2,k,0),en=texelFetch(k2,q,0);vec2 Z2=e.xy,Z2n=vec2(en.x,-en.y);KR+=(Z2+Z2n)*0.5;KG+=cm(Z2-Z2n,vec2(0.0,-0.5));KB+=e.zw;}\n'+
+      ' o=vec4(cm(R,KR)+cm(vec2(0.0,1.0),cm(G,KG)),cm(s.zw,KB));}');
+    /* straylight kernel on the coarse grid. The wave PSF has diffraction and
+       aberration but no scatter, so Ψ is added everywhere (inside the
+       computed field too), ramped in over 0.1-0.3° where the CIE fit starts. */
+    /* far: the coarse-grid share, near: the full-resolution share; they hand
+       over between c0 and c1 degrees, inside the computed field */
+    SC.pSLK=mk(GS_VS,H+'uniform int NL;uniform float psd;uniform float om;uniform float age;uniform float pig;uniform float g;uniform int far;uniform vec2 cx;out vec4 o;\n'+
+      'void main(){ivec2 k=ivec2(gl_FragCoord.xy);vec2 d=vec2(k.x<NL/2?k.x:k.x-NL,k.y<NL/2?k.y:k.y-NL);\n'+
+      ' float th=max(length(d)*psd,0.1);float f=1.0+pow(age/62.5,4.0),hand=smoothstep(cx.x,cx.y,th),w=smoothstep(0.1,0.3,th)*(far==1?hand:1.0-hand);\n'+
+      ' float psi=10.0/(th*th*th)+(5.0/(th*th)+0.1*pig/th)*f+0.0025*pig;float v=psi*om*w*g;o=vec4(v,v,v,0.0);}');
+    /* tone: ACES on exposure, visible crop, k×k box, plus the coarse straylight */
+    SC.pTON=mk(GS_VS,H+'uniform sampler2D src;uniform sampler2D lo;uniform int slOn;uniform float EL;uniform float lsc;uniform int NL;uniform ivec2 c0;uniform int k;uniform float E;uniform int NS;out vec4 o;\n'+
       'vec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}\n'+
       'vec3 s2s(vec3 c){vec3 lo=12.92*c;vec3 hi=1.055*pow(max(c,0.0),vec3(1.0/2.4))-0.055;return mix(lo,hi,step(0.0031308,c));}\n'+
       'void main(){ivec2 p=c0+ivec2(gl_FragCoord.xy)*k;vec3 s=vec3(0.0);float n=0.0;\n'+
-      ' for(int j=0;j<k;j++)for(int i=0;i<k;i++){ivec2 q=p+ivec2(i,j);if(q.x<NS&&q.y<NS){s+=s2s(aces(max(texelFetch(src,q,0).rgb,0.0)*E));n+=1.0;}}o=vec4(s/max(n,1.0),1.0);}');
+      ' for(int j=0;j<k;j++)for(int i=0;i<k;i++){ivec2 q=p+ivec2(i,j);if(q.x<NS&&q.y<NS){vec3 c=max(texelFetch(src,q,0).rgb,0.0)*E;\n'+
+      '  if(slOn==1){vec2 u=((vec2(q)+0.5-float(NS/2))*lsc+float(NL/2))/float(NL);c+=max(texture(lo,u).rgb,0.0)*EL;}\n'+
+      '  s+=s2s(aces(c));n+=1.0;}}o=vec4(s/max(n,1.0),1.0);}');
     SC.pvao=gl.createVertexArray();gl.bindVertexArray(SC.pvao);SC.pbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,SC.pbuf);
     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12);
     gl.bindVertexArray(gs.vao);
     SC.ready=true;return true;
   }catch(e){console.warn('scene GPU init failed:',e.message);SC.failed=true;return false;}}
-function scSet(){const gl=gs.gl,NS=SC.NS;if(SC.set&&SC.set.NS===NS)return SC.set;
-  const S={NS,tex:[],fbo:[]};
+function scSet(low){const gl=gs.gl,NS=low?SC.NL:SC.NS,cur=low?SC.lset:SC.set;if(cur&&cur.NS===NS)return cur;
+  const S={NS,tex:[],fbo:[]},filt=(low&&SC.flin)?gl.LINEAR:gl.NEAREST;
   const tex=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filt);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filt);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,NS,NS);S.tex.push(t);return t;};
   const fbo=t=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);S.fbo.push(f);return f;};
   S.A=tex();S.B=tex();S.K=tex();S.Ssp=tex();S.fA=fbo(S.A);S.fB=fbo(S.B);S.fK=fbo(S.K);S.fS=fbo(S.Ssp);
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);SC.set=S;return S;}
+  if(!low){S.K2=tex();S.fK2=fbo(S.K2);}
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);if(low)SC.lset=S;else SC.set=S;return S;}
 /* the PSF FFT program on RGBA: two complex signals per texel */
 function scFFT(S,fromA,sign){const gl=gs.gl,n=S.NS,P=gs.pFFT;gl.useProgram(P);gl.viewport(0,0,n,n);
   gl.uniform1i(P.u('N'),n);gl.uniform1i(P.u('src'),0);gl.uniform1f(P.u('sgn'),sign);gl.activeTexture(gl.TEXTURE0);
@@ -1584,6 +1621,26 @@ function camMat(){const p=state.scenePitch*Math.PI/180,y=state.sceneYaw*Math.PI/
   const R=[[cy,sy*sp,sy*cp],[0,cp,-sp],[-sy,cy*sp,cy*cp]];   /* rows */
   return {M:[R[0][0],R[1][0],R[2][0],R[0][1],R[1][1],R[2][1],R[0][2],R[1][2],R[2][2]],
           Mi:[R[0][0],R[0][1],R[0][2],R[1][0],R[1][1],R[1][2],R[2][0],R[2][1],R[2][2]]};}
+/* background + moon + points into S.A, for a grid of S.NS spanning fov (rad) */
+function scRender(S,t,fov,cm){const gl=gs.gl,NS=S.NS,src=SC.src,P=SC.pSCN;
+  gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,SC.eqTex);gl.uniform1i(P.u('eq'),0);
+  gl.uniformMatrix3fv(P.u('M'),false,cm.M);gl.uniform1f(P.u('t'),t);gl.uniform1i(P.u('NS'),NS);gl.uniform1f(P.u('pxa'),fov/NS);
+  const m=src.moon;gl.uniform1i(P.u('moonOn'),m?1:0);
+  if(m){gl.uniform3f(P.u('md'),m.dir[0],m.dir[1],m.dir[2]);gl.uniform1f(P.u('mr'),m.rad);gl.uniform3f(P.u('mL'),m.L*m.rgb[0],m.L*m.rgb[1],m.L*m.rgb[2]);}
+  gsQuad();
+  if(SC.blend&&SC.ptN){const Q=SC.pPTS;gl.useProgram(Q);gl.bindVertexArray(SC.pvao);
+    gl.uniformMatrix3fv(Q.u('Mi'),false,cm.Mi);gl.uniform1f(Q.u('t'),t);gl.uniform1i(Q.u('NS'),NS);gl.uniform1f(Q.u('om'),Math.pow(2*t/NS,2));
+    gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.drawArrays(gl.POINTS,0,SC.ptN);gl.disable(gl.BLEND);gl.bindVertexArray(gs.vao);}}
+/* FFT S.A in place and keep the spectrum in S.Ssp */
+function scSpectrum(S){const gl=gs.gl,inA=scFFT(S,true,-1);gl.useProgram(gs.pCPY);gl.uniform1i(gs.pCPY.u('src'),0);gl.uniform1i(gs.pCPY.u('mode'),2);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,S.fS);gl.viewport(0,0,S.NS,S.NS);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);gsQuad();}
+/* product of S.Ssp and S.K, back to space; returns the texture holding it */
+function scProduct(S,ks,k2){const gl=gs.gl,P=SC.pMUL,NS=S.NS;gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,S.Ssp);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,S.K);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,k2||S.K);gl.uniform1i(P.u('k2'),2);gl.uniform1i(P.u('use2'),k2?1:0);
+  gl.uniform1i(P.u('sc'),0);gl.uniform1i(P.u('kr'),1);gl.uniform1i(P.u('NS'),NS);gl.uniform3f(P.u('ks'),ks[0],ks[1],ks[2]);gsQuad();
+  return scFFT(S,true,1)?S.A:S.B;}
 function sceneCompute(){
   if(!gs.frame||!scCtx()||!SC.src){const msg=!SC.src?'loading…':'scene needs the GPU path';setSceneStatus(msg);draw0();return;}
   const gl=gs.gl,S=scSet(),NS=S.NS,src=SC.src,fov=sceneFovEff()*SC.PAD*Math.PI/180,t=Math.tan(fov/2),ps=fov/NS*ARCSEC;
@@ -1596,8 +1653,23 @@ function sceneCompute(){
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,eq.w,eq.h,0,gl.RGBA,gl.FLOAT,rgba);
     gl.bindBuffer(gl.ARRAY_BUFFER,SC.pbuf);gl.bufferData(gl.ARRAY_BUFFER,src.pts,gl.STATIC_DRAW);SC.ptN=src.pts.length/6;SC.eqVer=SC.srcVer;}
   const glare=state.sceneGlare;
+  /* coarse straylight: kernel, scene and product on the 256² grid */
+  const L=scSet(true),NL=L.NS,fovL=sceneFovEff()*SC.PADL*Math.PI/180,tL=Math.tan(fovL/2),psL=fovL/NL*ARCSEC,pp=arcAt(gs.cur.N);
+  const lkKey=[throughput.toFixed(6),psL.toFixed(5),ps.toFixed(5),pp.toFixed(5),gs.cur.N,state.sceneAge].join('|');
+  if(glare&&lkKey!==SC.lkKey){
+    /* hand-over inside the computed field: 40-70% of its radius */
+    const Rf=gs.cur.N/2*pp/3600,cx=[0.4*Rf,0.7*Rf],px=new Float32Array(4);let dc=0;
+    const slk=(T,n,psec,far,dst)=>{const P=SC.pSLK;gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,T.fA);gl.viewport(0,0,n,n);
+      gl.uniform1i(P.u('NL'),n);gl.uniform1f(P.u('psd'),psec/3600);gl.uniform1f(P.u('om'),Math.pow(psec/ARCSEC,2));gl.uniform1i(P.u('far'),far);
+      gl.uniform2f(P.u('cx'),cx[0],cx[1]);gl.uniform1f(P.u('age'),state.sceneAge);gl.uniform1f(P.u('pig'),0.5);gl.uniform1f(P.u('g'),Math.max(0,throughput));gsQuad();
+      const inA=scFFT(T,true,-1);gl.useProgram(gs.pCPY);gl.uniform1i(gs.pCPY.u('src'),0);gl.uniform1i(gs.pCPY.u('mode'),2);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,dst);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?T.A:T.B);gsQuad();
+      gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);dc+=px[0];};
+    slk(L,NL,psL,1,L.fK);slk(S,NS,ps,0,S.fK2);
+    /* the energy scattered out comes from the core */
+    SC.fout=Math.min(0.5,Math.max(0,dc/Math.max(1e-9,throughput)));SC.lkKey=lkKey;SC.lrKey='';SC.kKey='';SC.sKey='';}
   /* kernel spectrum: once per PSF frame and scene scale */
-  const kKey=SC.psfVer+'|'+ps.toFixed(5)+'|'+NS;
+  const kKey=SC.psfVer+'|'+ps.toFixed(5)+'|'+NS+'|'+SC.fout.toFixed(6);
   if(glare&&kKey!==SC.kKey){const P=SC.pKER,N=gs.cur.N,ratio=ps/arcAt(N);
     gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gs.cur.acc[gs.cur.cur]);gl.uniform1i(P.u('acc'),0);
@@ -1607,37 +1679,33 @@ function sceneCompute(){
     gl.useProgram(gs.pCPY);gl.uniform1i(gs.pCPY.u('src'),0);gl.uniform1i(gs.pCPY.u('mode'),2);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fK);
     gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);gsQuad();
     const px=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);
-    const tp=Math.max(0,throughput);SC.ks=[px[0]>0?tp/px[0]:0,px[1]>0?tp/px[1]:0,px[2]>0?tp/px[2]:0];SC.kKey=kKey;SC.sKey='';}
+    const tp=Math.max(0,throughput)*(1-SC.fout);SC.ks=[px[0]>0?tp/px[0]:0,px[1]>0?tp/px[1]:0,px[2]>0?tp/px[2]:0];SC.kKey=kKey;SC.sKey='';}
   /* scene spectrum: once per view */
   const cm=camMat(),sKey=[SC.srcVer,state.sceneYaw,state.scenePitch,fov.toFixed(6),NS,glare].join('|');
-  if(sKey!==SC.sKey){const P=SC.pSCN;gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
-    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,SC.eqTex);gl.uniform1i(P.u('eq'),0);
-    gl.uniformMatrix3fv(P.u('M'),false,cm.M);gl.uniform1f(P.u('t'),t);gl.uniform1i(P.u('NS'),NS);gl.uniform1f(P.u('pxa'),fov/NS);
-    const m=src.moon;gl.uniform1i(P.u('moonOn'),m?1:0);
-    if(m){gl.uniform3f(P.u('md'),m.dir[0],m.dir[1],m.dir[2]);gl.uniform1f(P.u('mr'),m.rad);gl.uniform3f(P.u('mL'),m.L*m.rgb[0],m.L*m.rgb[1],m.L*m.rgb[2]);}
-    gsQuad();
-    if(SC.blend&&SC.ptN){const Q=SC.pPTS;gl.useProgram(Q);gl.bindVertexArray(SC.pvao);
-      gl.uniformMatrix3fv(Q.u('Mi'),false,cm.Mi);gl.uniform1f(Q.u('t'),t);gl.uniform1i(Q.u('NS'),NS);gl.uniform1f(Q.u('om'),Math.pow(2*t/NS,2));
-      gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.drawArrays(gl.POINTS,0,SC.ptN);gl.disable(gl.BLEND);gl.bindVertexArray(gs.vao);}
+  if(sKey!==SC.sKey){scRender(S,t,fov,cm);
     if(glare){const inA=scFFT(S,true,-1);gl.useProgram(gs.pCPY);gl.uniform1i(gs.pCPY.u('mode'),2);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fS);
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);gsQuad();}
     SC.sKey=sKey;SC.rKey='';}
+  const lsKey=sKey+'|L';
+  if(glare&&lsKey!==SC.lsKey){scRender(L,tL,fovL,cm);scSpectrum(L);SC.lsKey=lsKey;SC.lrKey='';}
+  if(glare&&SC.lrKey!==SC.lkKey+'#'+SC.lsKey){SC.lout=scProduct(L,[1,1,1]);SC.lrKey=SC.lkKey+'#'+SC.lsKey;}
   /* product + inverse, once per (kernel, scene) */
   let outT=S.A,scale=1;
   if(glare){const rKey=SC.kKey+'#'+SC.sKey;
-    if(rKey!==SC.rKey){const P=SC.pMUL;gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
-      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,S.Ssp);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,S.K);
-      gl.uniform1i(P.u('sc'),0);gl.uniform1i(P.u('kr'),1);gl.uniform1i(P.u('NS'),NS);gl.uniform3f(P.u('ks'),SC.ks[0],SC.ks[1],SC.ks[2]);gsQuad();
-      SC.outA=scFFT(S,true,1);SC.rKey=rKey;}
-    outT=SC.outA?S.A:S.B;scale=1/(NS*NS);}
+    if(rKey!==SC.rKey){SC.outT=scProduct(S,SC.ks,S.K2);SC.rKey=rKey;}
+    outT=SC.outT;scale=1/(NS*NS);}
   /* tone the visible part and draw it */
+  if(!dispW||!dispH)return;
   const W=dispW,H=dispH,Wl=Math.max(W,H),vis=NS/SC.PAD,sc=Wl/vis,vw=W/sc,vh=H/sc,
         x0=Math.max(0,Math.floor(NS/2-vw/2)),y0=Math.max(0,Math.floor(NS/2-vh/2)),cw=Math.min(NS-x0,Math.ceil(vw)+1),ch=Math.min(NS-y0,Math.ceil(vh)+1),
         k=Math.max(1,Math.ceil(Math.max(cw,ch)/GS_MAXTONE)),Mw=Math.ceil(cw/k),Mh=Math.ceil(ch/k);
   if(gs.cv.width!==Mw||gs.cv.height!==Mh){gs.cv.width=Mw;gs.cv.height=Mh;}
   const T=SC.pTON;gl.useProgram(T);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,Mw,Mh);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,outT);gl.uniform1i(T.u('src'),0);gl.uniform2i(T.u('c0'),x0,y0);gl.uniform1i(T.u('k'),k);
-  gl.uniform1i(T.u('NS'),NS);gl.uniform1f(T.u('E'),scale*src.base*Math.pow(2,state.sceneExp));gsQuad();
+  const Ev=src.base*Math.pow(2,state.sceneExp);
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,SC.lout||L.A);gl.uniform1i(T.u('lo'),1);gl.uniform1i(T.u('slOn'),glare&&SC.lout?1:0);
+  gl.uniform1f(T.u('EL'),Ev/(NL*NL));gl.uniform1f(T.u('lsc'),ps/psL);gl.uniform1i(T.u('NL'),NL);
+  gl.uniform1i(T.u('NS'),NS);gl.uniform1f(T.u('E'),scale*Ev);gsQuad();
   pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000";pctx.fillRect(0,0,W,H);
   /* canvas rows run top-down, the texture bottom-up: the GL canvas is already upright */
   pctx.drawImage(gs.cv,0,0,Mw,Mh,W/2+(x0-NS/2)*sc,H/2-(y0+ch-NS/2)*sc,cw*sc,ch*sc);
@@ -1810,7 +1878,7 @@ document.querySelectorAll('#srcSeg button').forEach(b=>b.addEventListener('click
   const src=b.dataset.src;if(src==='night')loadProcedural();else if(src==='fetch')loadFromURL(POLY_URL);else document.getElementById("hdriFile").click();}));
 document.getElementById("hdriFile").addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
 (function(){const bind=(id,k)=>{const el=document.getElementById(id);el.addEventListener('input',()=>{state[k]=parseFloat(el.value);if(state.sceneOn)draw();});};
-  bind("sceneFov","sceneFov");bind("sceneYaw","sceneYaw");bind("scenePitch","scenePitch");bind("sceneExp","sceneExp");
+  bind("sceneFov","sceneFov");bind("sceneAge","sceneAge");bind("sceneYaw","sceneYaw");bind("scenePitch","scenePitch");bind("sceneExp","sceneExp");
   /* drag the view to look around */
   let d=null;psfCanvas.addEventListener('pointerdown',e=>{if(!state.sceneOn)return;d={x:e.clientX,y:e.clientY,yaw:state.sceneYaw,pit:state.scenePitch};psfCanvas.setPointerCapture(e.pointerId);});
   psfCanvas.addEventListener('pointermove',e=>{if(!d)return;const k=sceneFovEff()/Math.max(innerWidth,innerHeight);
@@ -1980,6 +2048,7 @@ function paintPerf(){
     camThresh:  v=>v.toFixed(2),
     camRes:     v=>v.toFixed(0)+' px',
     camSoft:    v=>v.toFixed(3),
+    sceneAge:   v=>v.toFixed(0)+' y',
     sceneExp:   v=>(v>=0?'+':'')+v.toFixed(2)+' EV'
   };
   const upds=[];
@@ -2048,7 +2117,7 @@ function syncSlidersFromState(){
 /* Like parhelion, a preset is completed from the defaults before it is
    applied, so a load lands in the same place whatever was on screen. Older
    presets (no zref) carry coefficients over their own pupil. */
-var SNAP_DEFAULTS=null;
+var SNAP_DEFAULTS;   /* assigned (hoisted) just before the library; no initialiser here or it resets */
 function completeSnap(o){const d=SNAP_DEFAULTS||{},r=Object.assign({},d,o);
   r.coeff=Object.assign({},d.coeff||{},(o.zref||!o.coeff)?(o.coeff||{}):rescaleCoeff(o.coeff,o.D||4,DREF));
   r.zref=DREF;if(r.zoom<1)r.zoom=1;return r;}
@@ -2069,7 +2138,7 @@ function applySnapshot(o,part){if(!o)return;o=completeSnap(o);
   const b=(id,name,snap)=>({id:'b:'+id,name,builtin:true,snap:completeSnap(Object.assign({zref:DREF},snap))});
   const BUILTIN=Object.keys(PRESETS).map(nm=>b(nm,nm,{coeff:Object.assign(zero(),PRESETS[nm]),D:nm==='Typical eye'?6:4}));
   BUILTIN.push(
-    b('speck','Speck on glasses',{coeff:zero(),near:true,nearLog:1.176,D:4,lashOn:true,zoom:1.6}),
+    b('speck','Speck on glasses',{coeff:zero(),near:true,nearLog:1.176,D:4,lashOn:true,lidOn:true,blink:0.3,zoom:1.6}),
     b('squint','Squint',{coeff:at4({defocus:0.25}),D:4,lashOn:true,lidOn:true,squint:0.78}),
     b('blink','Half blink',{coeff:zero(),D:5,lashOn:true,lidOn:true,blink:0.45}),
     b('myope','−2 D at night',{coeff:Object.assign(zero(),rxToCoeff(-2,0,180)),D:7,lashOn:true,lidOn:true}));
@@ -2094,7 +2163,7 @@ function applySnapshot(o,part){if(!o)return;o=completeSnap(o);
       if(o.coeff)ZMODES.forEach(m=>state.coeff[m.id]=o.coeff[m.id]||0);
       SNAP_KEYS.forEach(k=>{if(k in o)state[k]=o[k];});
       /* the preset's own look, else a plain one — not whatever the view has */
-      state.zoom=o.zoom||1;state.exposure=o.exposure||1;state.gamma=o.gamma||1;state.absExp=!!o.absExp;
+      state.zoom=o.zoom||1;state.exposure=o.exposure||1;state.gamma=o.gamma||1;state.absExp=false;   /* a tile shows shape */
       /* far field: frame the classic 256-grid field (~30′) so the PSF reads;
          near source: the whole shadowgram */
       draft=false;const n=state.near?Math.min(fullN(),1024):512,frame=state.near?n:256;
