@@ -19,8 +19,7 @@
        -webkit-font-smoothing:antialiased}
   canvas{display:block}
 
-  #psf{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-       width:min(100vh,100vw);height:min(100vh,100vw)}
+  #psf{position:fixed;inset:0;width:100vw;height:100vh}
 
   #info{position:absolute;top:10px;left:10px;color:rgba(255,255,255,.35);pointer-events:none;
         font:400 11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}
@@ -171,6 +170,12 @@
   .perflbl{font:400 8px/1.4 sans-serif;letter-spacing:.09em;color:rgba(255,255,255,.22);
            text-transform:uppercase;margin-top:4px}
   #pNameRow{margin-top:6px}
+  .rx{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px}
+  .rx label{display:flex;flex-direction:column;gap:4px;font:400 8px/1 sans-serif;letter-spacing:.09em;color:rgba(255,255,255,.22);text-transform:uppercase}
+  .rx input{width:100%;height:20px;border:none;border-radius:4px;background-color:rgba(255,255,255,.1);color:rgba(255,255,255,.6);
+    outline:none;font:400 10px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;padding:0 6px;-moz-appearance:textfield}
+  .rx input::-webkit-outer-spin-button,.rx input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .rx input:focus{background-color:rgba(255,255,255,.2)}
   #pName{width:100%;box-sizing:border-box;height:20px;border:none;border-radius:4px;
          background-color:rgba(255,255,255,.1);color:rgba(255,255,255,.6);outline:none;
          font:400 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;padding:0 8px}
@@ -195,7 +200,7 @@
   <span class="slot" style="top:-24px;left:0"><input type="range" class="xy-pad-row-slider" id="D" min="1.5" max="8" step="0.01" value="4" title="pupil diameter"></span>
   <span class="slot" style="top:-54px;left:0"><input type="range" class="xy-pad-row-slider" id="exp" min="-3" max="14" step="0.02" value="0" title="exposure (stops)"></span>
 
-  <span class="slot v" style="bottom:0;left:124px"><input type="range" class="xy-pad-row-slider" id="zoom" min="0.2" max="8" step="0.01" value="1" title="zoom"></span>
+  <span class="slot v" style="bottom:0;left:124px"><input type="range" class="xy-pad-row-slider" id="zoom" min="1" max="16" step="0.01" value="1" title="zoom"></span>
   <span class="slot v" style="bottom:0;left:154px"><input type="range" class="xy-pad-row-slider" id="gamma" min="1" max="5" step="0.01" value="1" title="tone lift"></span>
   <span class="slot v" id="sampCtrl" style="bottom:0;left:184px"><input type="range" class="xy-pad-row-slider" id="specSamples" min="3" max="25" step="1" value="14" title="spectral samples"></span>
   <span class="slot v" id="lamCtrl" style="bottom:0;left:214px"><input type="range" class="xy-pad-row-slider" id="lambda" min="400" max="700" step="1" value="550" title="wavelength"></span>
@@ -232,14 +237,20 @@
 
     <div class="card" data-card="lashes">
       <h2><span class="chev">▾</span><span class="ttl">lashes</span><span class="hint" id="lashHint"></span></h2>
-      <div class="body"><div id="lashBody" class="body dim"><div class="zgrid" id="lashpads"></div><div class="ctrl"><div class="row"><label>thickness</label></div><input type="range" id="lashThick" min="0.02" max="1.2" step="0.005" value="0.46" title="lash thickness"></div></div></div>
+      <div class="body"><div id="lashBody" class="body dim"><div class="zgrid" id="lashpads"></div><div class="ctrl"><div class="row"><label>thickness</label></div><input type="range" id="lashThick" min="0.02" max="0.3" step="0.002" value="0.10" title="lash shaft diameter at the root"></div></div></div>
     </div>
 
     <div class="card" data-card="lids">
       <h2><span class="chev">▾</span><span class="ttl">lids</span><span class="hint" id="lidHint"></span></h2>
-      <div class="body"><div id="lidBody" class="body dim">
-        <div class="ctrl"><div class="row"><label>blink</label></div><input type="range" id="lidClose" min="0" max="1" step="0.001" value="0" title="lid closure — both lids toward centre"></div>
-      </div></div>
+      <div class="body"><div id="lidBody" class="body"><div class="zgrid" id="lidpads"></div></div></div>
+    </div>
+
+    <div class="card" data-card="rx">
+      <h2><span class="chev">▾</span><span class="ttl">prescription</span><span class="hint" id="rxHint"></span></h2>
+      <div class="body">
+        <div class="rx"><label>sph<input id="rxS" type="number" step="0.25" title="sphere (D)"></label><label>cyl<input id="rxC" type="number" step="0.25" title="cylinder (D), either sign"></label><label>axis<input id="rxA" type="number" step="1" min="0" max="180" title="axis (°)"></label></div>
+        <div class="seg" id="eyeSeg"><button data-eye="R" aria-pressed="true" title="right eye">od</button><button data-eye="L" aria-pressed="false" title="left eye">os</button></div>
+      </div>
     </div>
 
     <div class="card" data-card="spectral">
@@ -270,17 +281,17 @@
       <div class="body">
         <div id="sceneBody" class="body dim">
           <div class="seg" id="srcSeg" style="margin-bottom:9px">
-            <button data-src="night" aria-pressed="true">night</button>
+            <button data-src="night" aria-pressed="true" title="procedural night: stars, planets, moon, a town">night</button>
             <button data-src="fetch">exr</button>
             <button data-src="upload">file</button>
           </div>
           <div class="roadmap" id="sceneStatus" style="margin-bottom:9px">night</div>
           <input type="file" id="hdriFile" accept=".hdr,.exr,.jpg,.jpeg,.png" style="display:none">
           <div class="toggle-row"><span>psf glare</span><div class="sw" id="swGlare" role="button" aria-pressed="true" tabindex="0"></div></div>
-          <div class="ctrl"><div class="row"><label>fov</label><span class="num" id="n_sceneFov"></span></div><input type="range" id="sceneFov" min="2" max="60" step="0.5" value="12" title="field of view"></div>
+          <div class="ctrl"><div class="row"><label>fov</label><span class="num" id="n_sceneFov"></span></div><input type="range" id="sceneFov" min="1" max="40" step="0.1" value="12" title="field of view (long side)"></div>
           <div class="ctrl"><div class="row"><label>yaw</label><span class="num" id="n_sceneYaw"></span></div><input type="range" id="sceneYaw" min="-180" max="180" step="0.5" value="0" title="yaw"></div>
-          <div class="ctrl"><div class="row"><label>pitch</label><span class="num" id="n_scenePitch"></span></div><input type="range" id="scenePitch" min="-85" max="85" step="0.5" value="0" title="pitch"></div>
-          <div class="ctrl"><div class="row"><label>exposure</label><span class="num" id="n_sceneExp"></span></div><input type="range" id="sceneExp" min="-4" max="10" step="0.05" value="0" title="scene exposure"></div>
+          <div class="ctrl"><div class="row"><label>pitch</label><span class="num" id="n_scenePitch"></span></div><input type="range" id="scenePitch" min="-85" max="85" step="0.1" value="1.5" title="pitch"></div>
+          <div class="ctrl"><div class="row"><label>exposure</label><span class="num" id="n_sceneExp"></span></div><input type="range" id="sceneExp" min="-8" max="12" step="0.05" value="0" title="scene exposure (EV from auto)"></div>
         </div>
       </div>
     </div>
@@ -316,7 +327,7 @@
   <span id="rAiry"></span><span id="rDiopt"></span><span id="cFov"></span><span id="cZoom"></span>
   <span id="lamval"></span><span id="lamSub"></span><span id="gval"></span><span id="eval"></span><span id="zval"></span>
   <span id="n_specSamples"></span><span id="gpuSub"></span><span id="tintRow"></span>
-  <div class="sw" id="swAbs" role="button" aria-pressed="false" tabindex="0"></div>
+  <div class="sw" id="swAbs" role="button" aria-pressed="true" tabindex="0"></div>
 </div>
 
 <script>
@@ -328,15 +339,32 @@ const ZMODES=[{id:"defocus",label:"Defocus",nm:"Z₂⁰"},{id:"sph",label:"Spher
   {id:"astig0",label:"Astig 0°",nm:"Z₂²"},{id:"astig45",label:"Astig 45°",nm:"Z₂⁻²"},
   {id:"comaX",label:"Coma horiz.",nm:"Z₃¹"},{id:"comaY",label:"Coma vert.",nm:"Z₃⁻¹"},
   {id:"trefX",label:"Trefoil 0°",nm:"Z₃³"},{id:"trefY",label:"Trefoil 30°",nm:"Z₃⁻³"}];
-const PRESETS={"Diffraction-limited":{},"Defocus":{defocus:0.60},"Astigmatism":{astig0:0.60},"Coma":{comaY:0.50},
-  "Trefoil":{trefX:0.50},"Spherical":{sph:0.50},"Keratoconus":{comaY:0.42,trefX:0.30,astig0:0.28,defocus:0.18},"Typical eye":{sph:0.10,astig0:0.08,comaY:0.05}};
+/* Zernike coefficients (µm) are defined over a fixed 6 mm reference pupil --
+   the eye's wavefront, not the pupil's. Narrowing the pupil clips the same
+   wavefront, so blur falls with pupil size the way it does in an eye.
+   Sign: W is the phase the INCOMING light picks up (positive defocus =
+   hyperopic, c = M·R²/(4√3)) -- the negative of the OSA/aberrometer W. */
+const DREF=6.0,RREF=DREF/2;
+/* Re-express Zernike coefficients set over a pupil of diameter `from` over
+   one of diameter `to` (same wavefront, ε = to/from): order-n modes scale
+   εⁿ and spherical feeds defocus √15(ε⁴−ε²). Tilt from coma is dropped (it
+   only shifts the image). Used to bring presets made before the fixed 6 mm
+   reference -- whose coefficients were over their own pupil -- forward. */
+function rescaleCoeff(c,from,to){const e=to/from,e2=e*e,e3=e2*e,e4=e2*e2,g=k=>+(c[k]||0);
+  return {defocus:e2*g('defocus')+Math.sqrt(15)*(e4-e2)*g('sph'),sph:e4*g('sph'),astig0:e2*g('astig0'),astig45:e2*g('astig45'),
+    comaX:e3*g('comaX'),comaY:e3*g('comaY'),trefX:e3*g('trefX'),trefY:e3*g('trefY')};}
+/* the original mode demos were tuned at a 4 mm pupil */
+const at4=c=>rescaleCoeff(c,4,DREF);
+const PRESETS={"Diffraction-limited":{},"Defocus":at4({defocus:0.60}),"Astigmatism":at4({astig0:0.60}),"Coma":at4({comaY:0.50}),
+  "Trefoil":at4({trefX:0.50}),"Spherical":at4({sph:0.50}),"Keratoconus":at4({comaY:0.42,trefX:0.30,astig0:0.28,defocus:0.18}),
+  "Typical eye":{sph:-0.12,astig0:0.08,comaY:0.05}};
 
-const state={ N:256,Nreq:2048,D:3.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camColor:true,camRes:512,lambda:550,coeff:{},rot:0,
+const state={ N:256,Nreq:2048,D:4.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camColor:true,camRes:512,lambda:550,coeff:{},rot:0,
   spectral:true,specSamples:14,lca:false,lcaStrength:1.0,
-  lashOn:false,lashPos:2,lashCount:30,lashSpacing:0.86,lashThick:0.46,lashAngle:90,lashAngleJit:6,lashSpaceJit:0.3,lashIncursion:2.7,depth:0,
-  lidOn:false,lidAngle:0,lidUpper:0,lidLower:0,
-  gamma:1,exposure:1,zoom:1,absExp:false,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
-  sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:0,sceneExp:0,sceneGlare:true,gpu:true,
+  eye:'R',blink:0,squint:0,lidOn:false,
+  lashOn:false,lashUp:1.8,lashLo:0.7,lashFan:24,lashJit:7,lashDens:1,lashClump:0.35,lashCurl:0.45,lashDepth:7,lashThick:0.10,
+  gamma:1,exposure:1,zoom:1,absExp:true,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
+  sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:1.5,sceneExp:0,sceneGlare:true,gpu:true,
   near:false,nearLog:1.176 };   /* nearLog = log10(source distance, mm) — 15 mm ≈ a speck on glasses */
 ZMODES.forEach(m=>state.coeff[m.id]=0);
 
@@ -349,11 +377,7 @@ function rotc(c,s,ang){const m=Math.hypot(c,s),t=Math.atan2(s,c)+ang;return [m*M
 function computeEC(){const a=state.rot*Math.PI/180,c=state.coeff;EC={defocus:c.defocus,sph:c.sph,comaX:c.comaX,comaY:c.comaY,trefX:c.trefX,trefY:c.trefY};
   const p2=rotc(c.astig0,c.astig45,2*a);EC.astig0=p2[0];EC.astig45=p2[1];}
 
-/* scene/HDRI state */
-const NC=512;                       // scene + convolution grid
-let hdri=null, hdriStatus='built-in night', hdriDirty=true, kernDirty=true, viewDirty=true;
-let sceneR=null,sceneG=null,sceneB=null, blurR=null,blurG=null,blurB=null;
-let KreR=null,KimR=null,KreG=null,KimG=null,KreB=null,KimB=null, sRe=null,sIm=null;
+let kernDirty=true;
 
 /* ---- FFT (verified) ---------------------------------------------------- */
 function fft1d(reA,imA){const n=reA.length;
@@ -448,56 +472,115 @@ function ensureCpu(){const N=state.N;if(cpuN===N)return;const len=N*N;ensureOut(
     gr.r[i]=r;gr.r2[i]=r*r;gr.r3[i]=r*r*r;gr.r4[i]=r*r*r*r;gr.c1[i]=Math.cos(th);gr.s1[i]=Math.sin(th);
     gr.c2[i]=Math.cos(2*th);gr.s2[i]=Math.sin(2*th);gr.c3[i]=Math.cos(3*th);gr.s3[i]=Math.sin(3*th);}
   cpuN=N;buildBasis();
-  if(state.occ&&state.depth>0)antDirty=true;}   /* antSpec is new */
+  lashCpuKey='';}   /* antSpec is new */
 /* same inside-pupil test as the CPU basis (float32 radius <= R) */
 function pupilCount(){const N=state.N,c=N/2,R=state.D/2;let cnt=0;
   for(let iy=0;iy<N;iy++){const y=(iy-c)*dx;for(let ix=0;ix<N;ix++){const x=(ix-c)*dx;if(Math.fround(Math.sqrt(x*x+y*y))<=R)cnt++;}}
   return cnt;}
 function buildBasis(){if(cpuN!==state.N){sumA=pupilCount();return;}
-  const len=state.N*state.N,R=state.D/2,a=2/state.D,a2=a*a,a3=a2*a,a4=a3*a;let cnt=0;
+  const len=state.N*state.N,R=state.D/2,a=1/RREF,a2=a*a,a3=a2*a,a4=a3*a;let cnt=0;
   for(let i=0;i<len;i++){if(gr.r[i]<=R){const rho=a*gr.r[i],rho2=a2*gr.r2[i],rho3=a3*gr.r3[i],rho4=a4*gr.r4[i];
     zb[0][i]=S3*(2*rho2-1);zb[1][i]=S5*(6*rho4-6*rho2+1);zb[2][i]=S6*rho2*gr.c2[i];zb[3][i]=S6*rho2*gr.s2[i];
     const cc=(3*rho3-2*rho);zb[4][i]=S8*cc*gr.c1[i];zb[5][i]=S8*cc*gr.s1[i];zb[6][i]=S8*rho3*gr.c3[i];zb[7][i]=S8*rho3*gr.s3[i];cnt++;}
     else{for(let k=0;k<zb.length;k++)zb[k][i]=0;}}
   sumA=cnt;}
 
-/* ---- anterior occluder mask (lashes + lids) ---------------------------- */
+/* ---- eye: lids and lashes ------------------------------------------------
+   Everything is in the pupil frame, mm, from the patient's side looking out:
+   x to their right, y up, origin at the pupil centre. The nose is at -x for
+   the right eye. */
 function ss(x){return x<=0?0:x>=1?1:x*x*(3-2*x);}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
-function applyLids(){const N=state.N,c=N/2,R=state.D/2,b=state.lidAngle*Math.PI/180,sb=Math.sin(b),cb=Math.cos(b);
-  const tU=R-state.lidUpper*R, tL=-R+state.lidLower*R, soft=2*dx;
-  for(let iy=0;iy<N;iy++)for(let ix=0;ix<N;ix++){const x=(ix-c)*dx,y=(iy-c)*dx,t=-x*sb+y*cb;
-    const m=ss((tU-t)/soft)*ss((t-tL)/soft); antMask[iy*N+ix]*=m;}}
-function lashSegments(){const cnt=state.lashCount,sp=state.lashSpacing,len=state.lashIncursion,y0=state.lashPos,th0=state.lashAngle*Math.PI/180;
-  const rng=mulberry32(1337),seg=[];
-  for(let i=0;i<cnt;i++){const ja=(rng()*2-1)*state.lashAngleJit*Math.PI/180,js=(rng()*2-1)*state.lashSpaceJit*sp,jl=0.8+rng()*0.4;
-    const rx=(i-(cnt-1)/2)*sp+js,th=th0+ja,L=len*jl;
-    seg.push({ax:rx,ay:y0,bx:rx+L*Math.cos(th),by:y0-L*Math.sin(th)});}
-  return seg;}
-function applyLashes(){const N=state.N,c=N/2,r=state.lashThick/2,soft=1.2*dx;
-  /* the mask is a product over segments, so each capsule can be stamped into
-     its own bounding box instead of testing every lash at every pixel —
-     cost becomes proportional to covered area, not count x N^2. */
-  const seg=lashSegments(),pad=r+3*soft;
-  for(let k=0;k<seg.length;k++){const s=seg[k];
-    const ex=s.bx-s.ax,ey=s.by-s.ay,L2=ex*ex+ey*ey;
-    const ix0=Math.max(0,Math.floor(c+(Math.min(s.ax,s.bx)-pad)/dx));
-    const ix1=Math.min(N-1,Math.ceil(c+(Math.max(s.ax,s.bx)+pad)/dx));
-    const iy0=Math.max(0,Math.floor(c+(Math.min(s.ay,s.by)-pad)/dx));
-    const iy1=Math.min(N-1,Math.ceil(c+(Math.max(s.ay,s.by)+pad)/dx));
-    if(ix1<ix0||iy1<iy0)continue;
-    for(let iy=iy0;iy<=iy1;iy++){const row=iy*N,y=(iy-c)*dx;
-      for(let ix=ix0;ix<=ix1;ix++){const x=(ix-c)*dx;
-        let t=L2>0?((x-s.ax)*ex+(y-s.ay)*ey)/L2:0;t=t<0?0:t>1?1:t;
-        const qx=x-(s.ax+t*ex),qy=y-(s.ay+t*ey);
-        const m=ss(((Math.sqrt(qx*qx+qy*qy)-r)/soft)+0.5);
-        if(m<1)antMask[row+ix]*=m;}}}}
-function buildAnterior(){state.occ=state.lashOn||state.lidOn||CAM.on;if(!state.occ)return;
-  const len=state.N*state.N;if(!antMask||antMask.length!==len)antMask=new Float32Array(len);
-  if(state.depth>0)ensureCpu();
-  antMask.fill(1);maskVer++;
-  if(state.lidOn)applyLids(); if(state.lashOn)applyLashes(); if(CAM.on)applyCam();
-  if(state.depth>0){ for(let i=0;i<len;i++){antSpecRe[i]=antMask[i];antSpecIm[i]=0;} fft2d(antSpecRe,antSpecIm,state.N); }}
+function nasal(){return state.eye==='L'?1:-1;}
+/* Lid margins are parabolas. At rest the upper margin sits MRD1 above the
+   pupil centre with its peak a little nasal, the lower one MRD2 below and
+   flatter. A blink is almost all upper lid: it travels the whole fissure while
+   the lower lid rises ~1 mm and slides nasally, and the upper margin closes
+   temporal-first (a "zipper" tilt that peaks mid-blink and is gone when shut).
+   A squint is mostly the lower lid rising. */
+const LID={MRD1:4.0,MRD2:5.2,uK:0.034,lK:0.02,peak:0.6,lowRise:0.9,lowSlide:1.4,zip:0.14};
+function lidGeom(){const b=Math.max(0,Math.min(1,state.blink)),q=Math.max(0,Math.min(1,state.squint)),ns=nasal();
+  const uS=LID.MRD1-q*(LID.MRD1-0.9),lY=-LID.MRD2+q*(LID.MRD2-1.15)+b*LID.lowRise;
+  return {uY:uS-b*(uS-lY),uP:ns*LID.peak,uK:LID.uK/(1+1.5*b),uT:ns*LID.zip*4*b*(1-b),
+          lY,lP:ns*(0.5+b*LID.lowSlide),lK:LID.lK};}
+function lidUpY(G,x){const u=x-G.uP;return G.uY-G.uK*u*u+G.uT*x;}
+function lidLoY(G,x){const u=x-G.lP;return G.lY+G.lK*u*u;}
+function lidT(G,x,y,soft){return ss((lidUpY(G,x)-y)/soft+0.5)*ss((y-lidLoY(G,x))/soft+0.5);}
+
+/* Lashes grow from the anterior lid margin in 2-3 irregular rows, ~4/mm on
+   the upper lid and ~2/mm on the lower, clumped. Seen along the line of
+   sight each one is a curved, tapering shadow: it leaves the margin heading
+   down (upper) or up (lower) and curls back -- drawn as a quadratic Bézier
+   whose deepest point is the lash's projected incursion. They fan outward
+   from the middle of the lid, are shortest nasally, and ride on the lid, so a
+   blink carries them down. Every lash has fixed random traits, so changing a
+   parameter moves lashes rather than reshuffling them. */
+const LASHPOOL=(function(){const rng=mulberry32(1337);
+  const mk=(n,x0,x1,cl)=>{const a=[],cs=[];
+    for(let c=x0;c<x1;c+=cl)cs.push(c+cl*(0.5+0.6*(rng()-0.5)));
+    for(let j=0;j<n;j++){const x=x0+(j+0.5)/n*(x1-x0)+(rng()-0.5)*(x1-x0)/n*1.6;
+      let ci=0,bd=1e9;for(let k=0;k<cs.length;k++){const d=Math.abs(cs[k]-x);if(d<bd){bd=d;ci=k;}}
+      a.push({x,cx:cs[ci]+(rng()-0.5)*0.22,keep:rng(),row:(rng()*3)|0,len:rng(),ang:rng()-0.5,fan:rng()-0.5,th:rng(),curl:rng()});}
+    return a;};
+  return {up:mk(180,-10,10,0.9),lo:mk(90,-9,9,1.1)};})();
+const LSEG=8;   /* polyline segments per lash */
+let LASH={list:[],M:1,z:0,key:''},lashVer=0;
+/* radius along the lash: full for the first ~40%, then tapering to the tip */
+function lashR(L,t){return L.r0+(L.r1-L.r0)*ss((t-0.4)/0.6);}
+function lashGeom(){const G=lidGeom(),ns=nasal(),out=[],dens=state.lashDens,cl=state.lashClump,
+    fan=state.lashFan*Math.PI/180,jit=state.lashJit*Math.PI/180;
+  let M=1,z=state.lashDepth;
+  /* a near source lights the lashes with a diverging beam: their shadow on the
+     pupil is magnified s/(s-d) and diffracts like a plane wave over d·s/(s-d)
+     (Fresnel scaling). Lashes beyond the source are not in its light at all. */
+  if(state.near){const s=Math.pow(10,state.nearLog);if(s<=z+0.5)return {list:[],M:1,z:0};M=s/(s-z);z*=M;}
+  const half=L_WIN/2/M+5;
+  const add=(P,up)=>{const inc0=up?state.lashUp:state.lashLo;if(inc0<=0.01)return;
+    for(const q of P){if(q.keep>=dens/2)continue;
+      const x=q.x+(q.cx-q.x)*cl*0.85;if(Math.abs(x)>half)continue;
+      const t=-ns*x;   /* + temporal */
+      const prof=up?0.6+0.4*ss((t+6)/5)*(1-0.25*ss((t-3)/5)):0.55+0.45*ss((t+4)/6);
+      const inc=inc0*prof*(0.75+0.5*q.len);
+      const phi=fan*Math.max(-1,Math.min(1,x/7))*(1+0.6*q.fan)+jit*2*q.ang;
+      const dX=Math.sin(phi),dY=up?-Math.cos(phi):Math.cos(phi);
+      let pX=-dY,pY=dX;if(pX*(x>=0?1:-1)<0){pX=-pX;pY=-pY;}   /* perpendicular, outward */
+      const c=Math.min(1,state.lashCurl*(0.7+0.6*q.curl)),h1=inc*(1+Math.sqrt(c)),h2=inc*(1-c),w=0.22*c*inc;
+      const ry=up?lidUpY(G,x)+0.07*q.row:lidLoY(G,x)-0.07*q.row;
+      const r0=state.lashThick/2*(up?1:0.8)*(0.8+0.4*q.th);
+      const L={p0x:x*M,p0y:ry*M,p1x:(x+dX*h1)*M,p1y:(ry+dY*h1)*M,p2x:(x+dX*h2+pX*w)*M,p2y:(ry+dY*h2+pY*w)*M,r0:r0*M,r1:r0*0.3*M};
+      const pts=new Float32Array((LSEG+1)*3);let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+      for(let k=0;k<=LSEG;k++){const u=k/LSEG,a0=(1-u)*(1-u),a1=2*u*(1-u),a2=u*u;
+        const X=a0*L.p0x+a1*L.p1x+a2*L.p2x,Y=a0*L.p0y+a1*L.p1y+a2*L.p2y;
+        pts[k*3]=X;pts[k*3+1]=Y;pts[k*3+2]=lashR(L,u);
+        if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y;}
+      L.pts=pts;L.bb=[x0-L.r0,x1+L.r0,y0-L.r0,y1+L.r0];out.push(L);}};
+  if(state.lashOn){add(LASHPOOL.up,true);add(LASHPOOL.lo,false);}
+  return {list:out,M,z};}
+/* signed distance from (x,y) to the lash surface (negative inside) */
+function lashSD(L,x,y){const P=L.pts;let best=1e9;
+  for(let k=0;k<LSEG;k++){const ax=P[k*3],ay=P[k*3+1],bx=P[k*3+3],by=P[k*3+4],ex=bx-ax,ey=by-ay,l2=ex*ex+ey*ey;
+    let t=l2>0?((x-ax)*ex+(y-ay)*ey)/l2:0;t=t<0?0:t>1?1:t;
+    const qx=x-ax-t*ex,qy=y-ay-t*ey,d=Math.sqrt(qx*qx+qy*qy)-(P[k*3+2]+(P[k*3+5]-P[k*3+2])*t);
+    if(d<best)best=d;}
+  return best;}
+function lashDepthOn(){return LASH.list.length>0&&LASH.z>0.05;}
+/* CPU raster of the lash transmission (lazy: the GPU path rasterises its own) */
+let lashM=null,lashCpuKey='';
+function ensureLashCpu(){const N=state.N,key=lashVer+'|'+N+'|'+L_WIN;if(lashCpuKey===key)return;
+  const len=N*N;if(!lashM||lashM.length!==len)lashM=new Float32Array(len);lashM.fill(1);
+  const c=N/2,soft=1.2*dx;
+  for(const L of LASH.list){const pad=3*soft,B=L.bb;
+    const ix0=Math.max(0,Math.floor(c+(B[0]-pad)/dx)),ix1=Math.min(N-1,Math.ceil(c+(B[1]+pad)/dx));
+    const iy0=Math.max(0,Math.floor(c+(B[2]-pad)/dx)),iy1=Math.min(N-1,Math.ceil(c+(B[3]+pad)/dx));
+    for(let iy=iy0;iy<=iy1;iy++){const y=(iy-c)*dx,row=iy*N;
+      for(let ix=ix0;ix<=ix1;ix++){const m=ss(lashSD(L,(ix-c)*dx,y)/soft+0.5);if(m<1)lashM[row+ix]*=m;}}}
+  if(lashDepthOn()){ensureCpu();for(let i=0;i<len;i++){antSpecRe[i]=lashM[i];antSpecIm[i]=0;}fft2d(antSpecRe,antSpecIm,N);}
+  lashCpuKey=key;}
+function buildAnterior(){state.occ=state.lashOn||state.lidOn||CAM.on;
+  const g=lashGeom(),key=JSON.stringify(g.list.map(L=>[L.p0x,L.p0y,L.p1x,L.p1y,L.p2x,L.p2y,L.r0]))+'|'+g.z.toFixed(4);
+  if(key!==LASH.key){LASH=g;LASH.key=key;lashVer++;}
+  if(CAM.on){const len=state.N*state.N;if(!antMask||antMask.length!==len)antMask=new Float32Array(len);
+    antMask.fill(1);maskVer++;applyCam();}}
 
 /* ---- field at pupil ---------------------------------------------------- */
 function applyFresnel(lambdaNm,d){const N=state.N,lam=lambdaNm*1e-6; // mm
@@ -505,14 +588,18 @@ function applyFresnel(lambdaNm,d){const N=state.N,lam=lambdaNm*1e-6; // mm
     const ph=-Math.PI*lam*d*(fx*fx+fy*fy),Hre=Math.cos(ph),Him=Math.sin(ph);
     const ar=antSpecRe[i],ai=antSpecIm[i];re[i]=ar*Hre-ai*Him;im[i]=ar*Him+ai*Hre;}}
   ifft2d(re,im,N);}
-function fieldAtPupil(lambdaNm,cDeff){const N=state.N,len=N*N,k0=2*Math.PI/(lambdaNm/1000),c=EC,R=state.D/2;
+function fieldAtPupil(lambdaNm,cDeff){const N=state.N,len=N*N,k0=2*Math.PI/(lambdaNm/1000),c=EC,R=state.D/2,c0=N/2;
   const openAll=state.camPupil&&CAM.on;   /* aperture = camera mask over the whole window */
   const cS=c.sph,cA0=c.astig0,cA45=c.astig45,cCx=c.comaX,cCy=c.comaY,cTx=c.trefX,cTy=c.trefY;
-  if(state.occ){ if(state.depth>0)applyFresnel(lambdaNm,state.depth); else {for(let i=0;i<len;i++){re[i]=antMask[i];im[i]=0;}} }
+  const lash=LASH.list.length>0,G=state.lidOn?lidGeom():null,soft=1.5*dx,camL=CAM.on&&!state.camColor&&antMask;
+  if(lash){ensureLashCpu();if(lashDepthOn())applyFresnel(lambdaNm,LASH.z);else{for(let i=0;i<len;i++){re[i]=lashM[i];im[i]=0;}}}
   for(let i=0;i<len;i++){
     if(gr.r[i]<=R||openAll){const W=cDeff*zb[0][i]+cS*zb[1][i]+cA0*zb[2][i]+cA45*zb[3][i]+cCx*zb[4][i]+cCy*zb[5][i]+cTx*zb[6][i]+cTy*zb[7][i];
-      const ph=k0*W,cph=Math.cos(ph),sph=Math.sin(ph);
-      if(state.occ){const ar=re[i],ai=im[i];re[i]=ar*cph-ai*sph;im[i]=ar*sph+ai*cph;}else{re[i]=cph;im[i]=sph;}}
+      const ph=k0*W;let m=1;
+      if(G){const iy=(i/N)|0;m*=lidT(G,(i-iy*N-c0)*dx,(iy-c0)*dx,soft);}
+      if(camL)m*=antMask[i];
+      const cph=m*Math.cos(ph),sph=m*Math.sin(ph);
+      if(lash){const ar=re[i],ai=im[i];re[i]=ar*cph-ai*sph;im[i]=ar*sph+ai*cph;}else{re[i]=cph;im[i]=sph;}}
     else{re[i]=0;im[i]=0;}}
   if(camColorOn()&&camM){const w=camW(lambdaNm);
     for(let i=0;i<len;i++){const o=i*4,f=camM[o]*w[0]+camM[o+1]*w[1]+camM[o+2]*w[2];re[i]*=f;im[i]*=f;}}}
@@ -530,7 +617,7 @@ function shiftIntensity(){const N=state.N,h=N>>1;let pk=0;
    The image is a shadowgram of the pupil plane: lashes and lids resolve as
    geometric shadows with Fresnel fringes, and the disc spans ~D/s rad. */
 function nearZ(l,withLca){const R=state.D/2;
-  let V=1000/Math.pow(10,state.nearLog)+4*S3*EC.defocus/(R*R);        /* dioptres */
+  let V=1000/Math.pow(10,state.nearLog)+4*S3*EC.defocus/(RREF*RREF);  /* dioptres */
   if(withLca)V+=state.lcaStrength*dLCA(l);
   if(Math.abs(V)<0.5)V=V<0?-0.5:0.5;
   return 1000/V;}                                                       /* mm, signed */
@@ -543,9 +630,17 @@ function nearField(l,z){fieldAtPupil(l,0);const N=state.N;fft2d(re,im,N);
   ifft2d(re,im,N);}
 function plainIntensity(){const len=state.N*state.N;let pk=0;
   for(let i=0;i<len;i++){const p=re[i]*re[i]+im[i]*im[i];psf[i]=p;if(p>pk)pk=p;}return pk;}
-/* angular size of one sim pixel on an n grid, arcsec */
+/* angular size of one sim pixel on an n grid, arcsec. Polychromatic frames
+   are laid out on the BLUEST wavelength's grid: every other wavelength is
+   then resampled from inside its own field (scale LMIN/λ <= 1), so the frame
+   edge keeps its blue instead of fading to orange. */
 function arcAt(n){if(state.near)return L_WIN/n/Math.abs(nearZref())*ARCSEC;
-  return (state.spectral?LREF:state.lambda)*1e-9/(L_WIN*1e-3)*ARCSEC;}
+  return (state.spectral?LMIN:state.lambda)*1e-9/(L_WIN*1e-3)*ARCSEC;}
+/* Radiometry of that resampling: a source pixel at λ spans (λ/L)² sr, an
+   output pixel (LMIN/L)², so each sample is weighted (LMIN/λ)². Without it
+   every wavelength kept the same peak and red carried (λ/LMIN)² too much
+   energy -- the white PSF was tinted. */
+function specW(l){const r=LMIN/l;return r*r;}
 function arcPerPx(){return arcAt(state.N);}
 
 function dLCA(l){return 1.68524-633.46/(l-214.102);}
@@ -572,39 +667,51 @@ function touchDraft(){draft=true;clearTimeout(draftT);
    draft frame keeps the same on-screen scale as the full one. */
 const DRAFT_MS=70;   /* ~15 fps floor while dragging */
 const COST=new Map();
-function costKey(n){return n+'|'+(state.near?1:0)+'|'+(state.spectral?state.specSamples:0)+'|'+(state.gpu&&!gs.dead?1:0)+'|'+(state.sceneOn?1:0);}
-function effSamples(){return state.specSamples;}
+function costKey(n,ns){return n+'|'+(state.near?1:0)+'|'+(state.spectral?ns:0)+'|'+(state.gpu&&!gs.dead?1:0)+'|'+(state.sceneOn?1:0)+'|'+(lashDepthOn()?1:0);}
 const CPU_MAXN=2048;   /* above this only the GPU path is practical */
-/* scene glare reads the PSF back for a 512² convolution — 2048 is plenty */
-function fullN(){return Math.min(state.Nreq,(!state.gpu||gs.dead||state.sceneOn)?CPU_MAXN:gs.maxN);}
-function effN(){const n=fullN();if(!draft)return n;
-  let d=n,t=COST.get(costKey(n));
-  if(t===undefined)t=n>2048?1e9:0;          /* unmeasured: only the huge grids pre-emptively draft */
-  while(d>256){const m=COST.get(costKey(d));if(m!==undefined)t=m;if(t<=DRAFT_MS)break;d>>=1;t/=4.4;}
-  return d;}
+function fullN(){return Math.min(state.Nreq,(!state.gpu||gs.dead)?CPU_MAXN:gs.maxN);}
+/* A draft halves the grid only while the smaller grid still covers the view
+   (a far-field grid's angle span is N·λ/L, so fewer pixels = less field, and
+   drawing it would leave a black frame round a small square). Past that it
+   thins the spectral samples instead, never below 6. Costs are measured per
+   (grid, samples, mode) and extrapolated ~N²logN, ~linear in samples. */
+function draftPlan(){const n=fullN(),ns=state.specSamples;if(!draft)return {n,ns};
+  const est=(d,k)=>{for(let m=d,f=1;m<=16384;m*=2,f*=4.4){let t=COST.get(costKey(m,k));if(t!==undefined)return t/f;
+      t=COST.get(costKey(m,ns));if(t!==undefined)return t/f*k/ns;}
+    return d>2048?1e9:0;};                                   /* unmeasured: only huge grids pre-emptively draft */
+  const minN=state.near?n:n/Math.max(1,state.zoom);          /* near field spans L/z on every grid */
+  let d=n;while(d>256&&d/2>=minN-1e-6&&est(d,ns)>DRAFT_MS)d>>=1;
+  let k=ns;if(state.spectral){const t=est(d,ns);
+    if(t>=1e9)k=Math.min(6,ns);else if(t>DRAFT_MS)k=Math.max(Math.min(6,ns),Math.round(ns*DRAFT_MS/t));}
+  return {n:d,ns:k};}
+let plan={n:256,ns:14};
+function effN(){return draftPlan().n;}
+function effSamples(){return plan.ns;}
 function recomputeSpectral(){ensureCpu();const N=state.N,len=N*N,R=state.D/2,ns=effSamples(),h=N>>1;
-  accX.fill(0);accY.fill(0);accZ.fill(0);let ybSum=0;
+  accX.fill(0);accY.fill(0);accZ.fill(0);let ybSum=0,ybPk=0;
   const near=state.near,zr=near?nearZref():0;
   for(let s=0;s<ns;s++){const l=LMIN+(s+0.5)*(LMAX-LMIN)/ns;
     let sc;
+    let w=1;
     if(near){const z=nearZ(l,state.lca);nearField(l,z);plainIntensity();sc=z/zr;}   /* geometric: only LCA rescales */
-    else{const cDeff=EC.defocus+(state.lca?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
-      fieldAtPupil(l,cDeff);fft2d(re,im,N);shiftIntensity();sc=LREF/l;}
-    const wx=xbar(l),wy=ybar(l),wz=zbar(l);ybSum+=wy;
+    else{const cDeff=EC.defocus+(state.lca?state.lcaStrength*dLCA(l)*RREF*RREF/(4*S3):0);
+      fieldAtPupil(l,cDeff);fft2d(re,im,N);shiftIntensity();sc=LMIN/l;w=specW(l);}
+    const wx=xbar(l)*w,wy=ybar(l)*w,wz=zbar(l)*w;ybSum+=ybar(l);ybPk+=wy;
     for(let iy=0;iy<N;iy++){const sy=h+(iy-h)*sc,y0=Math.floor(sy),fy=sy-y0,y1=y0+1,yIn=(y0>=0&&y1<N);
       for(let ix=0;ix<N;ix++){const sx=h+(ix-h)*sc,x0=Math.floor(sx),fx=sx-x0,x1=x0+1;let v=0;
         if(yIn&&x0>=0&&x1<N){const p00=psf[y0*N+x0],p10=psf[y0*N+x1],p01=psf[y1*N+x0],p11=psf[y1*N+x1];v=(p00*(1-fx)+p10*fx)*(1-fy)+(p01*(1-fx)+p11*fx)*fy;}
         const i=iy*N+ix;accX[i]+=wx*v;accY[i]+=wy*v;accZ[i]+=wz*v;}}}
-  finishSpectral(ybSum);}
-function finishSpectral(ybSum){const len=state.N*state.N;let pk=0,sY=0;
+  finishSpectral(ybSum,ybPk);}
+function finishSpectral(ybSum,ybPk){const len=state.N*state.N;let pk=0,sY=0;
   for(let i=0;i<len;i++){const v=accY[i];sY+=v;if(v>pk)pk=v;}
-  finishStats(pk,sY,ybSum);}
+  finishStats(pk,sY,ybSum,ybPk);}
 /* shared by CPU + GPU, mono (ybSum=1) + spectral. Near-mode intensity is
-   relative to an open unit pupil (GPU folds its 1/N⁴ into the weights). */
-function finishStats(pk,sY,ybSum){const len=state.N*state.N;peak=peakY=pk;
+   relative to an open unit pupil (GPU folds its 1/N⁴ into the weights).
+   ybSum = Σ ȳ (energy), ybPk = Σ ȳ·specW (diffraction-limited peak). */
+function finishStats(pk,sY,ybSum,ybPk){const len=state.N*state.N;peak=peakY=pk;if(ybPk===undefined)ybPk=ybSum;
   if(state.near){peakYdl=ybSum;           /* geometric irradiance of the open pupil */
     strehl=ybSum>0?pk/ybSum:0;throughput=(sumA>0&&ybSum>0)?sY/(sumA*ybSum):1;return;}
-  peakYdl=sumA*sumA*ybSum;                 /* diffraction-limited peak */
+  peakYdl=sumA*sumA*ybPk;                  /* diffraction-limited peak */
   strehl=sumA>0?Math.min(1,pk/peakYdl):0;
   throughput=(sumA>0&&ybSum>0)?sY/(len*sumA*ybSum):1;}
 
@@ -617,9 +724,11 @@ function wlRGB(wl){let R=0,G=0,B=0;
 /* ---- rendering --------------------------------------------------------- */
 const psfCanvas=document.getElementById("psf");var pctx=psfCanvas.getContext("2d");
 const wfCanvas=document.getElementById("wf"),wfctx=wfCanvas.getContext("2d");
-var off=document.createElement("canvas"),offctx=off.getContext("2d"),offImg=null,dispPx=520;
+var off=document.createElement("canvas"),offctx=off.getContext("2d"),offImg=null,dispW=520,dispH=520;
 function dpr_(){return Math.min(2,window.devicePixelRatio||1);}
-function sizeCanvases(){const w=psfCanvas.clientWidth||520;dispPx=Math.round(w*dpr_());psfCanvas.width=dispPx;psfCanvas.height=dispPx;}
+/* full bleed: the view covers the window, its long side spanning the field */
+function sizeCanvases(){const d=dpr_();dispW=Math.round((psfCanvas.clientWidth||innerWidth)*d);dispH=Math.round((psfCanvas.clientHeight||innerHeight)*d);
+  psfCanvas.width=dispW;psfCanvas.height=dispH;}
 function ensureOff(){const N=state.N;if(!off.width||off.width!==N){off.width=N;off.height=N;offImg=offctx.createImageData(N,N);}}
 function drawMono(){ensureOff();const N=state.N,data=offImg.data,invG=1/state.gamma,E=state.exposure;
   /* relative: normalize to this frame's own peak (shape only).
@@ -627,15 +736,16 @@ function drawMono(){ensureOff();const N=state.N,data=offImg.data,invG=1/state.ga
      spread AND occlusion throughput both show up as real dimming. */
   const ip=state.absExp?(peakYdl>0?1/peakYdl:1):(peak>0?1/peak:1);
   let tr=255,tg=255,tb=255;if(state.tint){const c=wlRGB(state.lambda);tr=c[0];tg=c[1];tb=c[2];}
-  for(let i=0;i<N*N;i++){let v=psf[i]*ip;v=Math.pow(v,invG)*E;if(v>1)v=1;if(v<0)v=0;const o=i<<2;data[o]=v*tr;data[o+1]=v*tg;data[o+2]=v*tb;data[o+3]=255;}
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=y*N+((N-x)%N);   /* mirrored: see VIEW */
+    let v=psf[i]*ip;v=Math.pow(v,invG)*E;if(v>1)v=1;if(v<0)v=0;const o=(y*N+x)<<2;data[o]=v*tr;data[o+1]=v*tg;data[o+2]=v*tb;data[o+3]=255;}
   offctx.putImageData(offImg,0,0);blit();}
 function drawColor(){ensureOff();const N=state.N,data=offImg.data,invG=1/state.gamma,E=state.exposure,ipY=state.absExp?(peakYdl>0?1/peakYdl:1):(peakY>0?1/peakY:1);
-  for(let i=0;i<N*N;i++){const X=accX[i],Y=accY[i],Z=accZ[i];
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=y*N+((N-x)%N),X=accX[i],Y=accY[i],Z=accZ[i];
     let r=3.2406*X-1.5372*Y-0.4986*Z,g2=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;
     if(r<0)r=0;if(g2<0)g2=0;if(b<0)b=0;const t=Math.pow(Math.min(1,Math.max(0,Y*ipY*E)),invG);const f=t/(Y>1e-12?Y:1e-12);
     r*=f;g2*=f;b*=f;if(r>1)r=1;if(g2>1)g2=1;if(b>1)b=1;
     r=r<=0.0031308?12.92*r:1.055*Math.pow(r,1/2.4)-0.055;g2=g2<=0.0031308?12.92*g2:1.055*Math.pow(g2,1/2.4)-0.055;b=b<=0.0031308?12.92*b:1.055*Math.pow(b,1/2.4)-0.055;
-    const o=i<<2;data[o]=r*255;data[o+1]=g2*255;data[o+2]=b*255;data[o+3]=255;}
+    const o=(y*N+x)<<2;data[o]=r*255;data[o+1]=g2*255;data[o+2]=b*255;data[o+3]=255;}
   offctx.putImageData(offImg,0,0);blit();}
 /* ---- draft -> full crossfade ---------------------------------------------
    When a settled recompute raises the spectral sample count, the new frame is
@@ -650,32 +760,41 @@ function fadeCapture(){if(state.sceneOn)return;
 function fadeOverlay(){const now=(performance||Date).now();
   let a=(now-FADE.t0)/FADE.dur; if(a>=1){FADE.on=false;return;}
   if(a<0)a=0; const e=a*a*(3-2*a);                    /* smoothstep ease in-out */
-  pctx.save();pctx.globalAlpha=1-e;pctx.drawImage(FADE.cv,0,0,dispPx,dispPx);pctx.restore();}
-/* ctx/size default to the main view; the library passes a thumbnail */
-function blit(skipAux,ctx,size,frameN){const N=state.N,z=state.zoom,main=!ctx;
-  const pctx=ctx||window.pctx,dispPx=size||window.dispPx;
-  pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);
-  /* laid out by ANGLE against the full (settled) grid, so a draft frame on a
-     smaller grid lands at the same on-screen scale instead of hopping */
-  const NF=frameN||fullN(),aC=arcAt(N),Th=NF*arcAt(NF);
-  const V=z>=1?Th/z:Th,dw=z>=1?dispPx:dispPx*z,scale=aC*dw/V;   /* dest px per sim px */
-  const vis=V/aC,s0=Math.max(0,(N-vis)/2),s1=Math.min(N,(N+vis)/2);
-  /* optical axis is the centre of pixel N/2 on every grid; pin it to where the
-     full grid puts it */
-  const scaleF=arcAt(NF)*dw/V,d0=dispPx/2+0.5*scaleF+(s0-N/2-0.5)*scale,dsz=(s1-s0)*scale;
-  let img=off,ix=s0,iw=s1-s0;
+  pctx.save();pctx.globalAlpha=1-e;pctx.drawImage(FADE.cv,0,0,dispW,dispH);pctx.restore();}
+/* VIEW. The screen shows what the eye perceives: the retinal image turned
+   180°. The pupil frame is the patient's own (x to their right, y up) and the
+   FFT keeps its axes, so the perceived image is the accumulator mirrored in x
+   (rows already run top-down from -y). That is why a near source, whose
+   retinal shadow is upright, shows the upper lid at the bottom (Scheiner's
+   inverted shadow), while a myope's far blur disc shows it at the top.
+   ctx/size default to the main view; the library passes a square thumbnail. */
+function blit(skipAux,ctx,size,frameN){const N=state.N,z=Math.max(1,state.zoom),main=!ctx;
+  const pctx=ctx||window.pctx,W=size||dispW,H=size||dispH,Wl=Math.max(W,H);
+  pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,W,H);
+  /* laid out by ANGLE against the full (settled) grid: the long side spans the
+     full field over zoom, so a draft frame lands at the same scale. Zoom never
+     goes below 1 -- the view is always covered by computed field. */
+  const NF=frameN||fullN(),aC=arcAt(N),V=NF*arcAt(NF)/z;
+  const scale=aC*Wl/V,scaleF=arcAt(NF)*Wl/V;                  /* dest px per sim px */
+  /* optical axis = centre of pixel N/2 on every grid, pinned where the full grid puts it */
+  const ax=W/2+0.5*scaleF,ay=H/2+0.5*scaleF,h=N/2+0.5;
+  const sx0=Math.max(0,h-ax/scale),sx1=Math.min(N,h+(W-ax)/scale);
+  const sy0=Math.max(0,h-ay/scale),sy1=Math.min(N,h+(H-ay)/scale);
+  let img=off,ix=sx0,iy=sy0,iw=sx1-sx0,ih=sy1-sy0;
   if(gs.frame){   /* GPU frame: tone only the visible crop, box-reduced to <= GS_MAXTONE */
-    const c0=Math.floor(s0),cs=Math.ceil(s1)-c0,k=Math.max(1,Math.ceil(cs/GS_MAXTONE));
-    if(gpuTone(c0,cs,k)){img=gs.cv;ix=(s0-c0)/k;iw=(s1-s0)/k;}
+    const cx=Math.floor(sx0),cy=Math.floor(sy0),cw=Math.ceil(sx1)-cx,ch=Math.ceil(sy1)-cy,
+          k=Math.max(1,Math.ceil(Math.max(cw,ch)/GS_MAXTONE));
+    if(gpuTone(cx,cy,cw,ch,k)){img=gs.cv;ix=(sx0-cx)/k;iy=(sy0-cy)/k;iw/=k;ih/=k;}
     else{if(!main)return;gpuReadback(gs.cur);gs.frame=false;draw();return;}}   /* canvas refused: CPU tone */
-  pctx.drawImage(img,ix,ix,iw,iw,d0,d0,dsz,dsz);
-  if(state.airyRing&&!state.near){const airySrcPx=1.22*L_WIN/state.D,rr=airySrcPx*scale;
-    if(rr>1&&rr<dispPx*0.72){const cx=dispPx/2;pctx.save();pctx.strokeStyle="rgba(255,255,255,.30)";pctx.lineWidth=Math.max(1,dpr_());
-      pctx.setLineDash([4*dpr_(),4*dpr_()]);pctx.beginPath();pctx.arc(cx,cx,rr,0,2*Math.PI);pctx.stroke();pctx.restore();}}
+  pctx.drawImage(img,ix,iy,iw,ih,ax+(sx0-h)*scale,ay+(sy0-h)*scale,(sx1-sx0)*scale,(sy1-sy0)*scale);
+  if(state.airyRing&&!state.near){const lam=state.spectral?LREF:state.lambda,
+      rr=1.22*lam*1e-9/(state.D*1e-3)*ARCSEC/aC*scale;
+    if(rr>1&&rr<Wl*0.72){pctx.save();pctx.strokeStyle="rgba(255,255,255,.30)";pctx.lineWidth=Math.max(1,dpr_());
+      pctx.setLineDash([4*dpr_(),4*dpr_()]);pctx.beginPath();pctx.arc(ax-0.5*scale,ay-0.5*scale,rr,0,2*Math.PI);pctx.stroke();pctx.restore();}}
   if(!main)return;
   if(FADE.on&&FADE.cv)fadeOverlay();
   if(!skipAux){if(state.showWf)renderWavefront();renderAperture();updateReadouts();}}
-function draw(){if(state.sceneOn){drawScene();return;}
+function draw(){if(state.sceneOn){sceneCompute();return;}
   if(gs.frame){blit();return;}
   if(state.spectral)drawColor();else drawMono();}
 function renderWavefront(){const dprW=Math.min(window.devicePixelRatio||1,3),M=Math.round(Math.min(112*dprW,336));
@@ -683,54 +802,62 @@ function renderWavefront(){const dprW=Math.min(window.devicePixelRatio||1,3),M=M
   const img=wfctx.createImageData(M,M),d=img.data,c=EC;
   const probe=(rho,th)=>{const r2=rho*rho,r3=r2*rho,r4=r3*rho;return c.defocus*S3*(2*r2-1)+c.sph*S5*(6*r4-6*r2+1)+c.astig0*S6*r2*Math.cos(2*th)+c.astig45*S6*r2*Math.sin(2*th)+c.comaX*S8*(3*r3-2*rho)*Math.cos(th)+c.comaY*S8*(3*r3-2*rho)*Math.sin(th)+c.trefX*S8*r3*Math.cos(3*th)+c.trefY*S8*r3*Math.sin(3*th);};
   const cc=(M-1)/2;let wmax=1e-6;const vals=new Float32Array(M*M),inside=new Uint8Array(M*M);
-  for(let y=0;y<M;y++)for(let x=0;x<M;x++){const nx=(x-cc)/cc,ny=(y-cc)/cc,rho=Math.hypot(nx,ny),i=y*M+x;if(rho<=1){const w=probe(rho,Math.atan2(ny,nx));vals[i]=w;inside[i]=1;const aw=Math.abs(w);if(aw>wmax)wmax=aw;}}
+  const kp=state.D/DREF;   /* the map spans the actual pupil of the reference-pupil wavefront */
+  for(let y=0;y<M;y++)for(let x=0;x<M;x++){const nx=(x-cc)/cc,ny=(cc-y)/cc,rho=Math.hypot(nx,ny),i=y*M+x;if(rho<=1){const w=probe(rho*kp,Math.atan2(ny,nx));vals[i]=w;inside[i]=1;const aw=Math.abs(w);if(aw>wmax)wmax=aw;}}
   for(let i=0;i<M*M;i++){const o=i<<2;if(inside[i]){const t=Math.max(-1,Math.min(1,vals[i]/wmax));let R,G,B;if(t>=0){R=40+t*200;G=46+t*120;B=58-t*10;}else{const a=-t;R=40+a*10;G=46+a*120;B=58+a*190;}d[o]=R;d[o+1]=G;d[o+2]=B;d[o+3]=255;}else{d[o]=10;d[o+1]=14;d[o+2]=18;d[o+3]=255;}}
   wfctx.putImageData(img,0,0);}
 const aptCanvas=document.getElementById("apt"),aptctx=aptCanvas.getContext("2d");
+/* the aperture as the light meets it, from the patient's side: pupil, lids
+   and lash shadows (magnified, in near mode, as the source casts them).
+   Lashes and lid margins outside the pupil are drawn faintly so you can see
+   them approach. */
+let aptLayer=null;
 function renderAperture(){const inset=document.getElementById("aptInset");
   if(!state.occ||!state.showApt){inset.classList.add("hidden");return;}
   inset.classList.remove("hidden");
-  /* rendered analytically at display resolution — independent of sim grid N */
   const cssPx=150,dpr=Math.min(window.devicePixelRatio||1,3),M=Math.round(Math.min(cssPx*dpr,450));
   if(aptCanvas.width!==M||aptCanvas.height!==M){aptCanvas.width=M;aptCanvas.height=M;}
-  const openAll=state.camPupil&&CAM.on;
-  const R=state.D/2,W=openAll?L_WIN/2:Math.max(R+1.5,Math.abs(state.lashPos)+1),cc=(M-1)/2,mmPerPx=W/cc;
-  const soft=1.2*mmPerPx,softL=2*mmPerPx;
-  const seg=state.lashOn?lashSegments():null,r=state.lashThick/2,cnt=state.lashCount;
-  const b=state.lidAngle*Math.PI/180,sb=Math.sin(b),cb=Math.cos(b);
-  const tU=R-state.lidUpper*R,tL=-R+state.lidLower*R;
-  /* per-segment bounds for early rejection */
-  let bb=null;
-  if(seg){bb=seg.map(s=>({x0:Math.min(s.ax,s.bx)-r-soft*3,x1:Math.max(s.ax,s.bx)+r+soft*3,
-                          y0:Math.min(s.ay,s.by)-r-soft*3,y1:Math.max(s.ay,s.by)+r+soft*3}));}
-  const img=aptctx.createImageData(M,M),d=img.data;
-  for(let y=0;y<M;y++)for(let x=0;x<M;x++){const mx=(x-cc)*mmPerPx,my=-(y-cc)*mmPerPx,o=(y*M+x)<<2;
-    const rr2=mx*mx+my*my,rlim=R+2*mmPerPx;
-    if(!openAll&&rr2>rlim*rlim){d[o+3]=0;continue;}
-    const edge=openAll?1:ss((R-Math.sqrt(rr2))/mmPerPx+0.5);   /* AA'd disc edge */
-    if(edge<=0){d[o+3]=0;continue;}
-    let m=1,cr=1,cg=1,cb2=1;
-    if(camColorOn()){const u=mx/L_WIN+0.5,v=-my/L_WIN+0.5,k=1/(2*Math.max(2e-3,state.camSoft));
-      const f=ch=>{let q=ss((camSampleC(u,v,ch)-state.camThresh)*k+0.5);return state.camInvert?1-q:q;};
-      cr=f(0);cg=f(1);cb2=f(2);const mm=Math.max(cr,cg,cb2);m*=mm;if(mm>0){cr/=mm;cg/=mm;cb2/=mm;}}
-    else if(CAM.on&&CAM.lum){
-      let cm=ss((camSampleN(mx/L_WIN+0.5,-my/L_WIN+0.5)-state.camThresh)
-                /(2*Math.max(2e-3,state.camSoft))+0.5);
-      if(state.camInvert)cm=1-cm;m*=cm;}
-    if(state.lidOn){const t=-mx*sb+my*cb;m*=ss((tU-t)/softL)*ss((t-tL)/softL);}
-    if(seg&&m>0.002)for(let k=0;k<cnt;k++){const B=bb[k];
-      if(mx<B.x0||mx>B.x1||my<B.y0||my>B.y1)continue;
-      const s=seg[k],ex=s.bx-s.ax,ey=s.by-s.ay,L2=ex*ex+ey*ey;
-      let t=L2>0?((mx-s.ax)*ex+(my-s.ay)*ey)/L2:0;t=t<0?0:t>1?1:t;
-      const qx=mx-(s.ax+t*ex),qy=my-(s.ay+t*ey),dist=Math.sqrt(qx*qx+qy*qy);
-      m*=ss(((dist-r)/soft)+0.5);if(m<=0.002)break;}
-    d[o]=255*cr;d[o+1]=255*cg;d[o+2]=255*cb2;d[o+3]=m*edge*72;}
-  aptctx.clearRect(0,0,M,M);aptctx.putImageData(img,0,0);
-  aptctx.strokeStyle="rgba(255,255,255,.08)";aptctx.lineWidth=Math.max(1,dpr*0.75);
-  aptctx.beginPath();aptctx.arc(cc,cc,R/W*cc,0,2*Math.PI);aptctx.stroke();}
+  if(!aptLayer)aptLayer=document.createElement('canvas');
+  if(aptLayer.width!==M||aptLayer.height!==M){aptLayer.width=M;aptLayer.height=M;}
+  const openAll=state.camPupil&&CAM.on,R=state.D/2,W=openAll?L_WIN/2:R+2.4,cc=M/2,sc=cc/W;
+  const X=x=>cc+x*sc,Y=y=>cc-y*sc,G=lidGeom();
+  const lid=(g,up)=>{g.beginPath();for(let i=0;i<=48;i++){const x=-W+2*W*i/48;g.lineTo(X(x),Y(up?lidUpY(G,x):lidLoY(G,x)));}};
+  const lashes=g=>{for(const L of LASH.list){const P=L.pts;
+    for(let k=0;k<LSEG;k++){g.lineWidth=Math.max(0.6,(P[k*3+2]+P[k*3+5])*sc);g.beginPath();
+      g.moveTo(X(P[k*3]),Y(P[k*3+1]));g.lineTo(X(P[k*3+3]),Y(P[k*3+4]));g.stroke();}}};
+  const g=aptctx;g.clearRect(0,0,M,M);g.lineCap='round';
+  /* faint context: lashes and lid margins wherever they are */
+  g.strokeStyle='rgba(255,255,255,.10)';lashes(g);
+  if(state.lidOn){g.lineWidth=Math.max(1,dpr*0.75);lid(g,true);g.stroke();lid(g,false);g.stroke();}
+  /* the open pupil, with everything in front of it cut away */
+  const h=aptLayer.getContext('2d');h.clearRect(0,0,M,M);h.globalCompositeOperation='source-over';
+  if(CAM.on&&CAM.lum){const img=h.createImageData(M,M),d=img.data,mmPerPx=1/sc,k=1/(2*Math.max(2e-3,state.camSoft));
+    for(let y=0;y<M;y++)for(let x=0;x<M;x++){const mx=(x-cc)*mmPerPx,my=-(y-cc)*mmPerPx,o=(y*M+x)<<2;
+      if(!openAll&&mx*mx+my*my>R*R)continue;
+      const u=mx/L_WIN+0.5,v=-my/L_WIN+0.5;let m=1,cr=1,cg=1,cb=1;
+      if(camColorOn()){const f=ch=>{const q=ss((camSampleC(u,v,ch)-state.camThresh)*k+0.5);return state.camInvert?1-q:q;};
+        cr=f(0);cg=f(1);cb=f(2);m=Math.max(cr,cg,cb);if(m>0){cr/=m;cg/=m;cb/=m;}}
+      else{m=ss((camSampleN(u,v)-state.camThresh)*k+0.5);if(state.camInvert)m=1-m;}
+      d[o]=255*cr;d[o+1]=255*cg;d[o+2]=255*cb;d[o+3]=m*72;}
+    h.putImageData(img,0,0);}
+  else{h.fillStyle='rgba(255,255,255,.28)';h.beginPath();h.arc(cc,cc,R*sc,0,2*Math.PI);h.fill();}
+  h.globalCompositeOperation='destination-out';h.fillStyle='#fff';h.strokeStyle='#fff';h.lineCap='round';
+  if(state.lidOn){lid(h,true);h.lineTo(X(W),0);h.lineTo(X(-W),0);h.fill();lid(h,false);h.lineTo(X(W),M);h.lineTo(X(-W),M);h.fill();}
+  lashes(h);
+  g.drawImage(aptLayer,0,0);
+  g.strokeStyle="rgba(255,255,255,.08)";g.lineWidth=Math.max(1,dpr*0.75);
+  g.beginPath();g.arc(cc,cc,R*sc,0,2*Math.PI);g.stroke();}
+/* RMS wavefront error over the ACTUAL pupil (piston removed), sampled */
+function wfRms(){const c=EC,k=state.D/DREF,n=24;let s=0,s2=0,m=0;
+  for(let j=0;j<n;j++)for(let i=0;i<n;i++){const x=(i+0.5)/n*2-1,y=(j+0.5)/n*2-1,r=Math.hypot(x,y);if(r>1)continue;
+    const p=r*k,t=Math.atan2(y,x),p2=p*p,p3=p2*p,p4=p3*p;
+    const w=c.defocus*S3*(2*p2-1)+c.sph*S5*(6*p4-6*p2+1)+c.astig0*S6*p2*Math.cos(2*t)+c.astig45*S6*p2*Math.sin(2*t)+
+      c.comaX*S8*(3*p3-2*p)*Math.cos(t)+c.comaY*S8*(3*p3-2*p)*Math.sin(t)+c.trefX*S8*p3*Math.cos(3*t)+c.trefY*S8*p3*Math.sin(3*t);
+    s+=w;s2+=w*w;m++;}
+  return m?Math.sqrt(Math.max(0,s2/m-(s/m)*(s/m))):0;}
 function updateReadouts(){const lam=state.spectral?LREF:state.lambda;
   const arcsecPerPx=arcPerPx(),fovArcmin=state.N*arcsecPerPx/60,airyArcmin=1.22*(lam*1e-9)/(state.D*1e-3)*ARCSEC/60;
-  const rmsW=Math.sqrt(ZMODES.reduce((s,m)=>s+state.coeff[m.id]**2,0)),Rmm=state.D/2,diopt=4*S3*state.coeff.defocus/(Rmm*Rmm);
+  const rmsW=wfRms(),diopt=4*S3*state.coeff.defocus/(RREF*RREF);
   document.getElementById("rStrehl").textContent=strehl.toFixed(3);
   document.getElementById("rRms").innerHTML=rmsW.toFixed(3)+' <small>µm · '+(rmsW/(lam/1000)).toFixed(2)+'λ</small>';
   document.getElementById("rAiry").innerHTML=airyArcmin.toFixed(2)+' <small>′'+(state.spectral?' @550':'')+'</small>';
@@ -772,18 +899,37 @@ function gsCtx(){
     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
     const H='#version 300 es\nprecision highp float;precision highp int;\n';
     // decimation FFT stage (same math as scene FFT shader)
-    const FFT=H+'uniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec2 x=texelFetch(src,c0,0).rg;vec2 y=texelFetch(src,c1,0).rg;float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec2 t=vec2(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x);o=vec4(x+bs*t,0.0,0.0);}';
+    const FFT=H+'uniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec4 x=texelFetch(src,c0,0);vec4 y=texelFetch(src,c1,0);float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec4 t=vec4(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x,y.z*w.x-y.w*w.y,y.z*w.y+y.w*w.x);o=x+bs*t;}';
     // pupil A*exp(i*k0*W): buildBasis + fieldAtPupil, evaluated per texel
-    const PUP=H+'uniform sampler2D mk;uniform sampler2D cm;uniform int useCam;uniform vec3 cw;uniform int useMask;uniform int openAll;uniform int N;uniform float dx;uniform float R;uniform float a;uniform float k0;\n'+
+    // lids are evaluated analytically; lashes come in as a rasterised mask
+    // (lashMode 1) or as the complex field they leave after propagating from
+    // their own plane to the pupil (lashMode 2)
+    const PUP=H+'uniform sampler2D mk;uniform sampler2D cm;uniform sampler2D lm;uniform int useCam;uniform vec3 cw;uniform int useMask;uniform int openAll;uniform int N;uniform float dx;uniform float R;uniform float a;uniform float k0;\n'+
+      'uniform int lashMode;uniform float lmScale;uniform int lidOn;uniform vec4 lu;uniform vec3 ll;uniform float lsoft;\n'+
       'uniform float cD,cS,cA0,cA45,cCx,cCy,cTx,cTy;out vec4 o;\n'+
       'const float S3=1.7320508075688772,S5=2.23606797749979,S6=2.449489742783178,S8=2.8284271247461903,TAU=6.283185307179586;\n'+
       'void main(){ivec2 fc=ivec2(gl_FragCoord.xy);float c=float(N/2);float x=(float(fc.x)-c)*dx,y=(float(fc.y)-c)*dx;float r=sqrt(x*x+y*y);\n'+
       ' float m=(useMask==1)?texelFetch(mk,fc,0).r:1.0;if(useCam==1)m*=dot(texelFetch(cm,fc,0).rgb,cw);\n'+
+      ' if(lidOn==1){float u=x-lu.y,v=x-ll.y;m*=smoothstep(0.0,1.0,(lu.x-lu.z*u*u+lu.w*x-y)/lsoft+0.5)*smoothstep(0.0,1.0,(y-ll.x-ll.z*v*v)/lsoft+0.5);}\n'+
+      ' vec2 t=vec2(m,0.0);if(lashMode==1)t*=texelFetch(lm,fc,0).r;else if(lashMode==2)t=texelFetch(lm,fc,0).rg*(lmScale*m);\n'+
       ' if(r<=R){float rho=a*r,rho2=rho*rho,rho3=rho2*rho,rho4=rho3*rho;float c1=r>0.0?x/r:1.0,s1=r>0.0?y/r:0.0;\n'+
       '  float c2=c1*c1-s1*s1,s2=2.0*c1*s1,c3=c1*(4.0*c1*c1-3.0),s3=s1*(3.0-4.0*s1*s1),cc=3.0*rho3-2.0*rho;\n'+
       '  float W=cD*S3*(2.0*rho2-1.0)+cS*S5*(6.0*rho4-6.0*rho2+1.0)+cA0*S6*rho2*c2+cA45*S6*rho2*s2+cCx*S8*cc*c1+cCy*S8*cc*s1+cTx*S8*rho3*c3+cTy*S8*rho3*s3;\n'+
-      '  float ph=k0*W;ph-=TAU*floor(ph/TAU);o=vec4(m*cos(ph),m*sin(ph),0.0,0.0);}\n'+
-      ' else if(openAll==1){o=vec4(m,0.0,0.0,0.0);} else {o=vec4(0.0);}}';
+      '  float ph=k0*W;ph-=TAU*floor(ph/TAU);float cp=cos(ph),sp=sin(ph);o=vec4(t.x*cp-t.y*sp,t.x*sp+t.y*cp,0.0,0.0);}\n'+
+      ' else if(openAll==1){o=vec4(t,0.0,0.0);} else {o=vec4(0.0);}}';
+    // one lash per instance: a quad over its hull, coverage from the distance
+    // to its tapered 8-segment Bézier, multiplied into the mask by blending
+    const LVS='#version 300 es\nprecision highp float;in vec2 corner;in vec4 iA;in vec4 iB;uniform float dx;uniform int N;uniform float pad;flat out vec4 vA;flat out vec4 vB;\n'+
+      'void main(){vec2 lo=min(min(iA.xy,iA.zw),iB.xy)-vec2(iB.z+pad),hi=max(max(iA.xy,iA.zw),iB.xy)+vec2(iB.z+pad);\n'+
+      ' vec2 w=mix(lo,hi,corner)/dx+float(N/2)+0.5;gl_Position=vec4(w/float(N)*2.0-1.0,0.0,1.0);vA=iA;vB=iB;}';
+    const LFS=H+'flat in vec4 vA;flat in vec4 vB;uniform float dx;uniform int N;uniform float soft;out vec4 o;\n'+
+      'float lr(float t){return vB.z+(vB.w-vB.z)*smoothstep(0.0,1.0,(t-0.4)/0.6);}\n'+
+      'vec2 bz(float u){return (1.0-u)*(1.0-u)*vA.xy+2.0*u*(1.0-u)*vA.zw+u*u*vB.xy;}\n'+
+      'void main(){vec2 p=(floor(gl_FragCoord.xy)-float(N/2))*dx;float best=1e9;vec2 a=bz(0.0);float ra=lr(0.0);\n'+
+      ' for(int k=1;k<=8;k++){float u=float(k)/8.0;vec2 b=bz(u);float rb=lr(u);vec2 e=b-a;float l2=dot(e,e);\n'+
+      '  float t=l2>0.0?clamp(dot(p-a,e)/l2,0.0,1.0):0.0;best=min(best,length(p-a-t*e)-mix(ra,rb,t));a=b;ra=rb;}\n'+
+      ' float m=smoothstep(0.0,1.0,best/soft+0.5);o=vec4(m,m,m,1.0);}';
+    const CPY=H+'uniform sampler2D src;uniform int mode;out vec4 o;\nvoid main(){vec4 t=texelFetch(src,ivec2(gl_FragCoord.xy),0);o=mode==0?vec4(t.r,0.0,0.0,0.0):mode==1?vec4(t.rg,0.0,0.0):t;}';
     // near source: Fresnel transfer function exp(i*c*(kx^2+ky^2)), c=-pi*lambda*z/L^2
     const CHP=H+'uniform sampler2D src;uniform int N;uniform float c;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int kx=fc.x<N/2?fc.x:fc.x-N;int ky=fc.y<N/2?fc.y:fc.y-N;float ph=c*float(kx*kx+ky*ky);ph-=6.283185307179586*floor(ph/6.283185307179586);vec2 a=texelFetch(src,fc,0).rg;float cs=cos(ph),sn=sin(ph);o=vec4(a.x*cs-a.y*sn,a.x*sn+a.y*cs,0.0,0.0);}';
     // |.|^2 (fftshift by shf), resample by scl about centre, add weighted into acc
@@ -793,21 +939,33 @@ function gsCtx(){
     // tone map: drawMono (mode 0) / drawColor (mode 1), rows flipped to image order
     // (image row = acc row; canvas y is flipped). k>1 box-averages k×k toned
     // pixels in encoded space, as a canvas downscale would.
-    const TON=H+'uniform sampler2D accT;uniform int N;uniform int M;uniform int c0;uniform int k;uniform int mode;uniform float ip;uniform float E;uniform float invG;uniform vec3 tint;out vec4 o;\n'+
+    const TON=H+'uniform sampler2D accT;uniform int N;uniform int Mh;uniform ivec2 c0;uniform int k;uniform int mode;uniform float ip;uniform float E;uniform float invG;uniform vec3 tint;out vec4 o;\n'+
       'float s2s(float c){return c<=0.0031308?12.92*c:1.055*pow(c,1.0/2.4)-0.055;}\n'+
       'vec3 tone(vec3 A){\n'+
       ' if(mode==0){float v=pow(max(A.g*ip,0.0),invG)*E;v=clamp(v,0.0,1.0);return v*tint;}\n'+
       ' float X=A.r,Y=A.g,Z=A.b;float r=3.2406*X-1.5372*Y-0.4986*Z,g=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;\n'+
       ' r=max(r,0.0);g=max(g,0.0);b=max(b,0.0);float t=pow(clamp(Y*ip*E,0.0,1.0),invG);float f=t/(Y>1e-12?Y:1e-12);\n'+
       ' r=min(r*f,1.0);g=min(g*f,1.0);b=min(b*f,1.0);return vec3(s2s(r),s2s(g),s2s(b));}\n'+
-      'void main(){ivec2 fc=ivec2(gl_FragCoord.xy);int col=c0+fc.x*k,row=c0+((M-1)-fc.y)*k;vec3 s=vec3(0.0);float n=0.0;\n'+
-      ' for(int j=0;j<k;j++)for(int i=0;i<k;i++){int x=col+i,y=row+j;if(x<N&&y<N){s+=tone(texelFetch(accT,ivec2(x,y),0).rgb);n+=1.0;}}\n'+
+      'void main(){ivec2 fc=ivec2(gl_FragCoord.xy);int col=c0.x+fc.x*k,row=c0.y+((Mh-1)-fc.y)*k;vec3 s=vec3(0.0);float n=0.0;\n'+
+      ' for(int j=0;j<k;j++)for(int i=0;i<k;i++){int x=col+i,y=row+j;if(x<N&&y<N){s+=tone(texelFetch(accT,ivec2((N-x)%N,y),0).rgb);n+=1.0;}}\n'+
       ' o=vec4(s/max(n,1.0),1.0);}';
     const mk=(fsSrc)=>{const c=(t,src)=>{const sh=gl.createShader(t);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
       const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,GS_VS));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fsSrc));gl.bindAttribLocation(pr,0,'p');gl.linkProgram(pr);
       if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));
       const U={};pr.u=n=>(n in U)?U[n]:(U[n]=gl.getUniformLocation(pr,n));return pr;};
-    gs.pFFT=mk(FFT);gs.pPUP=mk(PUP);gs.pCHP=mk(CHP);gs.pACC=mk(ACC);gs.pRED=mk(RED);gs.pTON=mk(TON);
+    gs.pFFT=mk(FFT);gs.pPUP=mk(PUP);gs.pCHP=mk(CHP);gs.pACC=mk(ACC);gs.pRED=mk(RED);gs.pTON=mk(TON);gs.pCPY=mk(CPY);
+    {const c=(t,src)=>{const sh=gl.createShader(t);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
+     const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,LVS));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,LFS));
+     gl.bindAttribLocation(pr,0,'corner');gl.bindAttribLocation(pr,1,'iA');gl.bindAttribLocation(pr,2,'iB');gl.linkProgram(pr);
+     if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));
+     const U={};pr.u=n=>(n in U)?U[n]:(U[n]=gl.getUniformLocation(pr,n));gs.pLASH=pr;
+     gs.lvao=gl.createVertexArray();gl.bindVertexArray(gs.lvao);
+     const cb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0,1,0,0,1,1,1]),gl.STATIC_DRAW);
+     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+     gs.lbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,gs.lbuf);
+     gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,4,gl.FLOAT,false,32,0);gl.vertexAttribDivisor(1,1);
+     gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,4,gl.FLOAT,false,32,16);gl.vertexAttribDivisor(2,1);
+     gl.bindVertexArray(vao);gs.vao=vao;}
     gs.gl=gl;gs.cv=cv;gs.px=new Float32Array(4);
     return true;
   }catch(e){console.warn('GPU PSF init failed:',e.message);gs.dead=true;return false;}}
@@ -827,6 +985,7 @@ function gsSet(N){let S=gs.sets.get(N);
   S.A=tex(N,gl.RG32F);S.B=tex(N,gl.RG32F);S.fA=fbo(S.A);S.fB=fbo(S.B);          /* complex field: rg only */
   S.acc=[tex(N,gl.RGBA32F),tex(N,gl.RGBA32F)];S.fAcc=S.acc.map(fbo);S.cur=0;    /* XYZ, ping-pong */
   S.mask=tex(N,gl.R32F);S.cam=null;S.camVer=-1;   /* colour camera: allocated on first use */
+  S.lash=tex(N,gl.R16F);S.fLash=fbo(S.lash);S.lashVer=-1;S.lspec=null;S.lspecVer=-1;   /* half float: blendable */
   S.pyr=[];for(let n=N>>1;n>=1;n>>=1){const t=tex(n,gl.RG32F);S.pyr.push({n,t,f:fbo(t)});}
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   const err=gl.getError();if(err!==gl.NO_ERROR){gsFree(S);gs.maxN=N>>1;throw new Error('allocation failed at '+N+' (gl error '+err+')');}
@@ -840,12 +999,32 @@ function gsFFT(S,fromA,sign){const gl=gs.gl,n=S.N,P=gs.pFFT;gl.useProgram(P);gl.
       gl.bindFramebuffer(gl.FRAMEBUFFER,srcA?S.fB:S.fA);gl.bindTexture(gl.TEXTURE_2D,srcA?S.A:S.B);
       gsQuad();srcA=!srcA;}}
   return srcA;}   // true => result in A
+/* lash transmission at grid S.N: cleared to 1, each lash multiplied in */
+function gpuLashRaster(S){const gl=gs.gl,N=S.N,list=LASH.list,P=gs.pLASH;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,S.fLash);gl.viewport(0,0,N,N);gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT);
+  if(list.length){const d=new Float32Array(list.length*8);
+    list.forEach((L,i)=>d.set([L.p0x,L.p0y,L.p1x,L.p1y,L.p2x,L.p2y,L.r0,L.r1],i*8));
+    gl.useProgram(P);gl.bindVertexArray(gs.lvao);gl.bindBuffer(gl.ARRAY_BUFFER,gs.lbuf);gl.bufferData(gl.ARRAY_BUFFER,d,gl.DYNAMIC_DRAW);
+    gl.uniform1f(P.u('dx'),dx);gl.uniform1i(P.u('N'),N);gl.uniform1f(P.u('soft'),1.2*dx);gl.uniform1f(P.u('pad'),4*dx);
+    gl.enable(gl.BLEND);gl.blendFunc(gl.DST_COLOR,gl.ZERO);gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,list.length);
+    gl.disable(gl.BLEND);gl.bindVertexArray(gs.vao);}}
+/* spectrum of the lash mask, kept for the per-wavelength propagation */
+function gpuLashSpectrum(S){const gl=gs.gl,N=S.N,Cp=gs.pCPY;
+  if(!S.lspec){const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texStorage2D(gl.TEXTURE_2D,1,gl.RG32F,N,N);S.tex.push(t);S.lspec=t;
+    const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);S.fbo.push(f);S.fLspec=f;}
+  gl.useProgram(Cp);gl.uniform1i(Cp.u('src'),0);gl.activeTexture(gl.TEXTURE0);gl.viewport(0,0,N,N);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.bindTexture(gl.TEXTURE_2D,S.lash);gl.uniform1i(Cp.u('mode'),0);gsQuad();
+  const inA=gsFFT(S,true,-1.0);
+  gl.useProgram(Cp);gl.uniform1i(Cp.u('mode'),1);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fLspec);gl.viewport(0,0,N,N);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);gsQuad();}
 function gpuCompute(){const N=state.N;
   if((N&(N-1))!==0||!gsCtx())return false;
   try{
     const gl=gs.gl,S=gsSet(N),len=N*N,R=state.D/2,h=N>>1,c=EC;
     const spectral=state.spectral,ns=spectral?effSamples():1,near=state.near,zr=near?nearZref():0;
-    const useMask=state.occ&&!!antMask;
+    const useMask=CAM.on&&!state.camColor&&!!antMask;
     if(useMask&&S.maskVer!==maskVer){gl.bindTexture(gl.TEXTURE_2D,S.mask);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RED,gl.FLOAT,antMask);S.maskVer=maskVer;}
     const useCam=camColorOn()&&!!camM;
@@ -854,31 +1033,46 @@ function gpuCompute(){const N=state.N;
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
         gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,N,N);S.tex.push(S.cam);}
       gl.bindTexture(gl.TEXTURE_2D,S.cam);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RGBA,gl.FLOAT,camM);S.camVer=camVer;}
+    const lash=LASH.list.length>0,deep=lash&&lashDepthOn(),lkey=lashVer+'|'+L_WIN;
+    if(lash&&S.lashVer!==lkey){gpuLashRaster(S);S.lashVer=lkey;}
+    if(deep&&S.lspecVer!==lkey){gpuLashSpectrum(S);S.lspecVer=lkey;}
     const P=gs.pPUP,A=gs.pACC,C=gs.pCHP;
-    gl.useProgram(P);gl.uniform1i(P.u('mk'),1);gl.uniform1i(P.u('cm'),2);gl.uniform1i(P.u('useCam'),useCam?1:0);
+    gl.useProgram(P);gl.uniform1i(P.u('mk'),1);gl.uniform1i(P.u('cm'),2);gl.uniform1i(P.u('lm'),3);gl.uniform1i(P.u('useCam'),useCam?1:0);
     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,useCam?S.cam:S.mask);gl.uniform1i(P.u('useMask'),useMask?1:0);
     gl.uniform1i(P.u('openAll'),(state.camPupil&&CAM.on)?1:0);gl.uniform1i(P.u('N'),N);
-    gl.uniform1f(P.u('dx'),dx);gl.uniform1f(P.u('R'),R);gl.uniform1f(P.u('a'),2/state.D);
+    gl.uniform1f(P.u('dx'),dx);gl.uniform1f(P.u('R'),R);gl.uniform1f(P.u('a'),1/RREF);
     gl.uniform1f(P.u('cS'),c.sph);gl.uniform1f(P.u('cA0'),c.astig0);gl.uniform1f(P.u('cA45'),c.astig45);
     gl.uniform1f(P.u('cCx'),c.comaX);gl.uniform1f(P.u('cCy'),c.comaY);gl.uniform1f(P.u('cTx'),c.trefX);gl.uniform1f(P.u('cTy'),c.trefY);
-    let ybSum=0,cur=S.cur;
+    gl.uniform1i(P.u('lashMode'),deep?2:lash?1:0);gl.uniform1f(P.u('lmScale'),1/len);
+    gl.uniform1i(P.u('lidOn'),state.lidOn?1:0);
+    if(state.lidOn){const G=lidGeom();gl.uniform4f(P.u('lu'),G.uY,G.uP,G.uK,G.uT);gl.uniform3f(P.u('ll'),G.lY,G.lP,G.lK);gl.uniform1f(P.u('lsoft'),1.5*dx);}
+    let ybSum=0,ybPk=0,cur=S.cur;
     for(let s=0;s<ns;s++){const l=spectral?LMIN+(s+0.5)*(LMAX-LMIN)/ns:state.lambda;
       const lcaOn=spectral&&state.lca,zl=near?nearZ(l,lcaOn):0;
-      const cDeff=near?0:c.defocus+(lcaOn?state.lcaStrength*dLCA(l)*R*R/(4*S3):0);
-      // pupil field -> A
-      gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,N,N);
+      const cDeff=near?0:c.defocus+(lcaOn?state.lcaStrength*dLCA(l)*RREF*RREF/(4*S3):0);
+      let toA=true;
+      if(deep){   // lash plane -> pupil: chirp its spectrum, inverse FFT; lands in A
+        gl.useProgram(C);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,N,N);
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,S.lspec);
+        gl.uniform1i(C.u('src'),0);gl.uniform1i(C.u('N'),N);
+        gl.uniform1f(C.u('c'),-Math.PI*(l*1e-6)*LASH.z/(L_WIN*L_WIN));gsQuad();
+        if(!gsFFT(S,true,1.0))throw new Error('fft parity');toA=false;}
+      // pupil field -> A (or B when A holds the lash field)
+      gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,toA?S.fA:S.fB);gl.viewport(0,0,N,N);
       gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,S.mask);
+      gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,deep?S.A:S.lash);
       if(useCam){const w=camW(l);gl.uniform3f(P.u('cw'),w[0],w[1],w[2]);}
       gl.uniform1f(P.u('k0'),2*Math.PI/(l/1000));gl.uniform1f(P.u('cD'),cDeff);gsQuad();
-      let inA=gsFFT(S,true,-1.0);
+      let inA=gsFFT(S,toA,-1.0);
       if(near){   // Fresnel step: chirp into the free buffer, then inverse FFT back to space
         gl.useProgram(C);gl.bindFramebuffer(gl.FRAMEBUFFER,inA?S.fB:S.fA);
         gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);
         gl.uniform1i(C.u('src'),0);gl.uniform1i(C.u('N'),N);
         gl.uniform1f(C.u('c'),-Math.PI*(l*1e-6)*zl/(L_WIN*L_WIN));gsQuad();
         inA=gsFFT(S,!inA,1.0);}
-      const wx=spectral?xbar(l):1,wy=spectral?ybar(l):1,wz=spectral?zbar(l):1;ybSum+=wy;
-      const scl=near?zl/zr:(spectral?LREF/l:1);
+      const w=(spectral&&!near)?specW(l):1;
+      const wx=spectral?xbar(l)*w:1,wy=spectral?ybar(l)*w:1,wz=spectral?zbar(l)*w:1;ybSum+=spectral?ybar(l):1;ybPk+=wy;
+      const scl=near?zl/zr:(spectral?LMIN/l:1);
       const g=near?1/(len*len):1;   /* unnormalised fwd+inv FFT: field ×N², intensity ×N⁴ */
       gl.useProgram(A);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fAcc[1-cur]);
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);
@@ -894,23 +1088,23 @@ function gpuCompute(){const N=state.N;
     for(let i=0;i<S.pyr.length;i++){const L=S.pyr[i];gl.bindFramebuffer(gl.FRAMEBUFFER,L.f);gl.viewport(0,0,L.n,L.n);
       gl.bindTexture(gl.TEXTURE_2D,src);gl.uniform1i(Rd.u('first'),i===0?1:0);gsQuad();src=L.t;}
     gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,gs.px);
-    finishStats(gs.px[0],gs.px[1],ybSum);
+    finishStats(gs.px[0],gs.px[1],ybSum,ybPk);
     gs.cur=S;gs.frame=true;
-    if(state.sceneOn)gpuReadback(S);   /* scene kernels are built on the CPU */
+    SC.psfVer++;
     return true;
   }catch(e){console.warn('GPU PSF failed, CPU fallback:',e.message);gs.frame=false;return false;}}
 function gpuReadback(S){const gl=gs.gl,N=S.N,len=N*N;ensureOut();
   const buf=new Float32Array(len*4);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fAcc[S.cur]);
   gl.readPixels(0,0,N,N,gl.RGBA,gl.FLOAT,buf);
   for(let i=0;i<len;i++){accX[i]=buf[i*4];accY[i]=psf[i]=buf[i*4+1];accZ[i]=buf[i*4+2];}}
-/* tone map the visible crop of the resident frame into gs.cv — at k=1 the
-   same pixels drawMono/drawColor would put in `off`; blit() then scales it. */
+/* tone map the visible crop (in view coordinates) of the resident frame into
+   gs.cv — at k=1 the same pixels drawMono/drawColor would put in `off`. */
 const GS_MAXTONE=4096;
-function gpuTone(c0,cs,k){const S=gs.cur,gl=gs.gl;if(!S)return false;const N=S.N,M=Math.ceil(cs/k);
-  if(gs.cv.width!==M){gs.cv.width=M;gs.cv.height=M;}
-  if(gl.drawingBufferWidth!==M)return false;    /* canvas refused this size */
-  const T=gs.pTON;gl.useProgram(T);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,M,M);
-  gl.uniform1i(T.u('M'),M);gl.uniform1i(T.u('c0'),c0);gl.uniform1i(T.u('k'),k);
+function gpuTone(cx,cy,cw,ch,k){const S=gs.cur,gl=gs.gl;if(!S)return false;const N=S.N,Mw=Math.ceil(cw/k),Mh=Math.ceil(ch/k);
+  if(gs.cv.width!==Mw||gs.cv.height!==Mh){gs.cv.width=Mw;gs.cv.height=Mh;}
+  if(gl.drawingBufferWidth!==Mw||gl.drawingBufferHeight!==Mh)return false;    /* canvas refused this size */
+  const T=gs.pTON;gl.useProgram(T);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,Mw,Mh);
+  gl.uniform1i(T.u('Mh'),Mh);gl.uniform2i(T.u('c0'),cx,cy);gl.uniform1i(T.u('k'),k);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,S.acc[S.cur]);
   const mono=!state.spectral,ip=state.absExp?(peakYdl>0?1/peakYdl:1):(peakY>0?1/peakY:1);
   let t=[1,1,1];if(mono&&state.tint){const w=wlRGB(state.lambda);t=[w[0]/255,w[1]/255,w[2]/255];}
@@ -920,11 +1114,11 @@ function gpuTone(c0,cs,k){const S=gs.cur,gl=gs.gl;if(!S)return false;const N=S.N
 
 /* ---- scheduler --------------------------------------------------------- */
 let rafC=0,pend=0;
-function isHeavy(){const N=effN(),t=COST.get(costKey(N));if(t!==undefined)return t>DRAFT_MS*1.5;
-  return N>=4096 || (state.near&&(state.spectral||N>=512)) || state.sceneOn || (state.spectral&&(N>=512||state.specSamples>=15)) || (state.occ&&state.depth>0&&(state.spectral||N>=512));}
+function isHeavy(){const p=draftPlan(),N=p.n,t=COST.get(costKey(N,p.ns));if(t!==undefined)return t>DRAFT_MS*1.5;
+  return N>=4096 || (state.near&&(state.spectral||N>=512)) || (state.spectral&&(N>=512||state.specSamples>=15)) || (lashDepthOn()&&(state.spectral||N>=512));}
 function setBusy(on){document.getElementById("busy").classList.toggle("on",on);}
 function runCompute(){
-  const wantN=effN();
+  plan=draftPlan();const wantN=plan.n;
   if(state.N!==wantN){setupGrid(wantN);basisDirty=true;antDirty=true;kernDirty=true;}
   if(basisDirty){buildBasis();basisDirty=false;} if(antDirty){buildAnterior();antDirty=false;}
   computeEC();
@@ -932,7 +1126,7 @@ function runCompute(){
     if(state.N>CPU_MAXN){gs.maxN=Math.min(gs.maxN,state.N>>1);requestCompute();return;}   /* GPU refused this size: step down */
     if(state.spectral)recomputeSpectral();else recomputeMono();}
   kernDirty=true;
-  if(state.sceneOn)sceneCompute();else draw();}
+  draw();}
 function requestCompute(){
   /* The debounce exists so a dragged slider does not fire an expensive compute
      per tick. A live camera produces frames forever, so the timer would be
@@ -1001,7 +1195,7 @@ function buildPad(container,spec){
   place(org, nX((X.min<=0&&X.max>=0)?0:midX), nY((Y.min<=0&&Y.max>=0)?0:midY));
   spec.paint=function(){let ax=nX(getX()),ay=nY(getY());
     if(spec.round){const r=Math.hypot(ax,ay);
-      if(r>1e-9){const g=padUnwarp(Math.min(r,1))/r;ax*=g;ay*=g;}}
+      if(r>1e-9){const q=Math.min(r,1),g=(spec.gamma?Math.pow(q,1/spec.gamma):padUnwarp(q))/r;ax*=g;ay*=g;}}
     else{ax=Math.max(-1,Math.min(1,ax));ay=Math.max(-1,Math.min(1,ay));}
     place(dot,ax,ay);};
   spec.paint();let active=false;
@@ -1014,7 +1208,7 @@ function buildPad(container,spec){
     let ax=(e.clientX-r.left)/r.width*2-1, ay=1-(e.clientY-r.top)/r.height*2;
     if(spec.round){let rad=Math.hypot(ax,ay);
       if(rad>1){ax/=rad;ay/=rad;rad=1;}                 /* dot stays inside the disc */
-      const g=rad>1e-9?padWarp(rad)/rad:0;ax*=g;ay*=g;}
+      const g=rad>1e-9?(spec.gamma?Math.pow(rad,spec.gamma):padWarp(rad))/rad:0;ax*=g;ay*=g;}
     else{ax=Math.max(-1,Math.min(1,ax));ay=Math.max(-1,Math.min(1,ay));}
     commit(ax,ay);}
   field.addEventListener('pointerdown',e=>{if(e.detail>1)return;
@@ -1027,25 +1221,60 @@ function buildPad(container,spec){
     if(sy)sy.tgt=defY;else S[Y.k]=defY;
     spec.paint();if(spec.ant)antDirty=true;if(spec.after)spec.after();requestCompute();});
   return spec;}
-const Zf=v=>(v>=0?'+':'')+v.toFixed(2),I0=v=>v.toFixed(0),F2=v=>v.toFixed(2),F1=v=>v.toFixed(1),za={min:-1,max:1,step:0.01,fmt:Zf};
+const Zf=v=>(v>=0?'+':'')+v.toFixed(2),I0=v=>v.toFixed(0),F2=v=>v.toFixed(2),F1=v=>v.toFixed(1);
+/* Aberration pads: µm over the 6 mm reference pupil, sized for real eyes
+   (defocus ±8 ≈ ±6 D, astigmatism ±4 ≈ 4.4 D cyl). The radius is warped
+   r^2.6, so the inner half of the pad holds the clinically common range
+   (<1 D, coma under 0.3 µm) with fine control and the rim reaches the rest. */
+const zrange=v=>({min:-v,max:v,step:0.001,fmt:Zf});
+const PADG=2.6,rxAfter=()=>refreshRx();
 const ALLPADS=[
-  buildPad(zgrid,{title:"Defocus · Spherical",round:true,store:state.coeff,x:{k:"defocus",...za,lbl:"def"},y:{k:"sph",...za,lbl:"sph"}}),
-  buildPad(zgrid,{title:"Astigmatism",round:true,store:state.coeff,x:{k:"astig0",...za,lbl:"0°"},y:{k:"astig45",...za,lbl:"45°",flip:true}}),
-  buildPad(zgrid,{title:"Coma",round:true,store:state.coeff,x:{k:"comaX",...za,lbl:"h",flip:true},y:{k:"comaY",...za,lbl:"v"}}),
-  buildPad(zgrid,{title:"Trefoil",round:true,store:state.coeff,x:{k:"trefX",...za,lbl:"0°"},y:{k:"trefY",...za,lbl:"30°",flip:true}})];
+  buildPad(zgrid,{title:"Defocus · Spherical",round:true,gamma:PADG,store:state.coeff,after:rxAfter,x:{k:"defocus",...zrange(8),lbl:"def"},y:{k:"sph",...zrange(3),lbl:"sph"}}),
+  buildPad(zgrid,{title:"Astigmatism",round:true,gamma:PADG,store:state.coeff,after:rxAfter,x:{k:"astig0",...zrange(4),lbl:"0°"},y:{k:"astig45",...zrange(4),lbl:"45°",flip:true}}),
+  buildPad(zgrid,{title:"Coma",round:true,gamma:PADG,store:state.coeff,x:{k:"comaX",...zrange(3),lbl:"h",flip:true},y:{k:"comaY",...zrange(3),lbl:"v"}}),
+  buildPad(zgrid,{title:"Trefoil",round:true,gamma:PADG,store:state.coeff,x:{k:"trefX",...zrange(2),lbl:"0°"},y:{k:"trefY",...zrange(2),lbl:"30°",flip:true}})];
 const lashpads=document.getElementById("lashpads");
-if(lashpads)ALLPADS.push(
-  buildPad(lashpads,{title:"Angle · Jitter",store:state,ant:true,x:{k:"lashAngle",min:60,max:120,step:0.5,lbl:"∠",fmt:v=>(v-90>=0?'+':'')+I0(v-90)+'°'},y:{k:"lashAngleJit",min:0,max:40,step:1,lbl:"jit",fmt:v=>I0(v)+'°'}}),
-  buildPad(lashpads,{title:"Spacing · Jitter",store:state,ant:true,x:{k:"lashSpacing",min:0.1,max:2,step:0.02,lbl:"sp",fmt:F2},y:{k:"lashSpaceJit",min:0,max:1,step:0.02,lbl:"jit",fmt:F2}}),
-  buildPad(lashpads,{title:"Incursion · Root",store:state,ant:true,x:{k:"lashIncursion",min:0.2,max:8,step:0.1,lbl:"len",fmt:F1},y:{k:"lashPos",min:-4,max:6,step:0.05,lbl:"root",fmt:F1}}));
-slider("lashThick","lashThick",v=>v.toFixed(2),{ant:true,spring:true});
+ALLPADS.push(
+  buildPad(lashpads,{title:"Upper · Lower",store:state,ant:true,x:{k:"lashUp",min:0,max:4,step:0.01},y:{k:"lashLo",min:0,max:3,step:0.01}}),
+  buildPad(lashpads,{title:"Fan · Jitter",store:state,ant:true,x:{k:"lashFan",min:0,max:50,step:0.1},y:{k:"lashJit",min:0,max:30,step:0.1}}),
+  buildPad(lashpads,{title:"Density · Clump",store:state,ant:true,x:{k:"lashDens",min:0.2,max:2,step:0.01},y:{k:"lashClump",min:0,max:1,step:0.01}}),
+  buildPad(lashpads,{title:"Curl · Depth",store:state,ant:true,x:{k:"lashCurl",min:0,max:1,step:0.01},y:{k:"lashDepth",min:0,max:15,step:0.05}}),
+  /* lids: blink runs down the pad (top open, bottom shut), squint across */
+  buildPad(document.getElementById("lidpads"),{title:"Squint · Blink",store:state,ant:true,x:{k:"squint",min:0,max:1,step:0.001},y:{k:"blink",min:0,max:1,step:0.001,flip:true}}));
+slider("lashThick","lashThick",v=>v.toFixed(3),{ant:true,spring:true});
+function syncZernikeUI(){ALLPADS.forEach(P=>P.paint());if(window.paintMainPad)window.paintMainPad();refreshRx();}
 
-/* lids: one axis drives both lids symmetrically toward the centre */
-const _sLidU=springReg(state,"lidUpper","ant"), _sLidL=springReg(state,"lidLower","ant");
-(function(){const el=document.getElementById("lidClose");if(!el)return;
-  el.addEventListener('input',()=>{const v=parseFloat(el.value);
-    _sLidU.tgt=v;_sLidL.tgt=v;antDirty=true;touchDraft();requestCompute();});})();
-function syncZernikeUI(){ALLPADS.forEach(P=>P.paint());if(window.paintMainPad)window.paintMainPad();}
+/* ---- prescription -------------------------------------------------------
+   A spectacle Rx (sphere, cylinder, axis) is the eye's refractive error at
+   the spectacle plane. Each principal meridian is carried to the cornea
+   (F/(1-dF), 12 mm vertex), then into Thibos power vectors
+     M = S + C/2,  J0 = -(C/2)cos2a,  J45 = -(C/2)sin2a
+   and Zernike over the reference pupil (in this file's incoming-light sign):
+     c20 = M·R²/(4√3),  c22 = J0·R²/(2√6),  c2-2 = J45·R²/(2√6).
+   The axis is written in the examiner's view (TABO, facing the patient);
+   from the patient's own side it is mirrored, a = 180° - axis. The fields
+   also read back whatever the pads are set to. */
+const RX_VERTEX=0.012;
+function rxToCoeff(S,C,ax){const eff=F=>F/(1-RX_VERTEX*F),P1=eff(S),P2=eff(S+C);S=P1;C=P2-P1;
+  const a=(180-ax)*Math.PI/180,M=S+C/2,J0=-(C/2)*Math.cos(2*a),J45=-(C/2)*Math.sin(2*a),r2=RREF*RREF;
+  return {defocus:M*r2/(4*S3),astig0:J0*r2/(2*S6),astig45:J45*r2/(2*S6)};}
+function coeffToRx(d,a0,a45){const r2=RREF*RREF,M=d*4*S3/r2,J0=a0*2*S6/r2,J45=a45*2*S6/r2;
+  let C=-2*Math.hypot(J0,J45),S=M-C/2;const a=0.5*Math.atan2(J45,J0)*180/Math.PI;
+  const sp=F=>F/(1+RX_VERTEX*F),P1=sp(S),P2=sp(S+C);S=P1;C=P2-P1;
+  let ax=Math.round(((180-a)%180+180)%180);if(ax===0)ax=180;
+  return {S,C,ax,M};}
+function refreshRx(){const f=[document.getElementById("rxS"),document.getElementById("rxC"),document.getElementById("rxA")];
+  if(!f[0]||f.includes(document.activeElement))return;
+  const t=k=>tgtOf(state.coeff,k),r=coeffToRx(t('defocus'),t('astig0'),t('astig45')),q=v=>(Math.abs(v)<0.005?0:v);
+  f[0].value=(q(r.S)>0?'+':'')+q(r.S).toFixed(2);f[1].value=q(r.C).toFixed(2);f[2].value=Math.abs(r.C)<0.005?'':r.ax;
+  const h=document.getElementById("rxHint");if(h)h.textContent='se '+(r.M>0.005?'+':'')+q(r.M).toFixed(2);}
+(function(){const f=["rxS","rxC","rxA"].map(id=>document.getElementById(id));
+  const go=()=>{const v=f.map(e=>parseFloat(e.value)),c=rxToCoeff(v[0]||0,v[1]||0,isFinite(v[2])?v[2]:180);
+    Object.keys(c).forEach(k=>springTarget(state.coeff,k,c[k]));ALLPADS.forEach(P=>P.paint());touchDraft();requestCompute();};
+  f.forEach(e=>{e.addEventListener('input',go);e.addEventListener('blur',()=>refreshRx());
+    e.addEventListener('keydown',ev=>{if(ev.key==='Enter')e.blur();});});
+  document.querySelectorAll('#eyeSeg button').forEach(b=>b.addEventListener('click',()=>{state.eye=b.dataset.eye;refreshEyeUI();antDirty=true;requestCompute();}));})();
+function refreshEyeUI(){document.querySelectorAll('#eyeSeg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.eye===state.eye)));}
 
 slider("D","D",v=>v.toFixed(1),{basis:true,ant:true,spring:true});
 /* near source: distance (log) × pupil, sharing the pupil slider's spring */
@@ -1057,8 +1286,6 @@ document.getElementById("D").addEventListener('input',()=>nearPad.paint());
 slider("lambda","lambda",v=>v.toFixed(0),{before:()=>{document.getElementById("lamval").textContent=state.lambda;applyAccent();}});
 document.getElementById("lambda").addEventListener('input',()=>{ if(state.spectral){/*ignored*/} });
 
-/* lid angle slider (ant dirty); lash + lid amounts are now XY pads */
-/* lid angle removed — lids close symmetrically (state.lidAngle stays 0) */
 
 /* gamma / exposure / zoom are wired once, below, as draw-only springs.
    (They used to be registered twice, so two springs fought over each value.) */
@@ -1093,8 +1320,9 @@ function refreshNearUI(){document.getElementById("nearBody").classList.toggle("d
 bindToggle("swNear",el=>{state.near=!state.near;el.setAttribute('aria-pressed',state.near);refreshNearUI();kernDirty=true;touchDraft();requestCompute();});
 
 
-function refreshOccUI(){document.getElementById("lashBody").classList.toggle("dim",!state.lashOn);document.getElementById("lashHint").textContent=state.lashOn?state.lashCount+' lashes':'off';
-  document.getElementById("lidBody").classList.toggle("dim",!state.lidOn);document.getElementById("lidHint").textContent=state.lidOn?'slit mask':'off';}
+function refreshOccUI(){document.getElementById("lashBody").classList.toggle("dim",!state.lashOn);document.getElementById("lashHint").textContent=state.lashOn?'on':'off';
+  /* the lid pad also carries the lashes, so it stays live while either is on */
+  document.getElementById("lidBody").classList.toggle("dim",!state.lidOn&&!state.lashOn);document.getElementById("lidHint").textContent=state.lidOn?'on':'off';}
 bindToggle("swLash",el=>{state.lashOn=!state.lashOn;el.setAttribute('aria-pressed',state.lashOn);antDirty=true;refreshOccUI();requestCompute();});
 bindToggle("swLid",el=>{state.lidOn=!state.lidOn;el.setAttribute('aria-pressed',state.lidOn);antDirty=true;refreshOccUI();requestCompute();});
 
@@ -1188,181 +1416,222 @@ document.querySelectorAll('.card').forEach(card=>{const h=card.querySelector('h2
   h.addEventListener('dragend',()=>{card.classList.remove('dragging');dragCard=null;});});
 ctrlCol.addEventListener('dragover',e=>{if(!dragCard)return;e.preventDefault();const after=dragAfter(e.clientY);if(after==null)ctrlCol.appendChild(dragCard);else if(after!==dragCard)ctrlCol.insertBefore(dragCard,after);});
 
-/* ======================= SCENE / HDRI GLARE ============================ */
+/* ======================= SCENE ============================================
+   A scene seen through this eye. The scene is rendered on the GPU straight
+   into a 2048² grid whose pixels are a known angle, and convolved (FFT) with
+   the perceived PSF -- the resident accumulator, mirrored into view
+   orientation and integrated over each scene pixel's footprint, then
+   normalised to the PSF's throughput (so lids and lashes dim the scene).
+   Point lights stay points: stars, street lamps and the bright pixels of an
+   HDRI are a list of directions + fluxes splatted at sub-pixel positions, so
+   every one of them is spread by the PSF itself rather than smeared into
+   the blocks of an equirect map. Extended light (sky, moon disc) is drawn
+   analytically or sampled with filtering, and is convolved too.
+   Units: radiance per sr, flux in units of a magnitude-0 star. */
 const POLY_URL="https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/moonless_golf_4k.exr";
-let sceneOff=null,sceneOffctx=null,sceneImg=null;
-function setupScene(){const n=NC,len=n*n;
-  sceneR=new Float32Array(len);sceneG=new Float32Array(len);sceneB=new Float32Array(len);
-  blurR=new Float32Array(len);blurG=new Float32Array(len);blurB=new Float32Array(len);
-  KreR=new Float64Array(len);KimR=new Float64Array(len);KreG=new Float64Array(len);KimG=new Float64Array(len);KreB=new Float64Array(len);KimB=new Float64Array(len);
-  sRe=new Float64Array(len);sIm=new Float64Array(len);
-  sceneOff=document.createElement("canvas");sceneOff.width=n;sceneOff.height=n;sceneOffctx=sceneOff.getContext("2d");sceneImg=sceneOffctx.createImageData(n,n);}
+const SC={NS:2048,PAD:1.15,src:null,srcVer:0,set:null,kKey:'',sKey:'',ks:[1,1,1],psfVer:0,eqVer:-1,ptVer:-1,ptN:0};
+let hdriStatus='night';
+function setSceneStatus(s){if(s!==undefined)hdriStatus=s;const e=document.getElementById("sceneStatus");if(e)e.textContent=hdriStatus;}
+function sceneFovEff(){return state.sceneFov/Math.max(1,state.zoom);}
 
-/* --- procedural night HDRI (always available) --- */
-function loadProcedural(){const w=1024,h=512,d=new Float32Array(w*h*3);
-  const rng=mulberry32(7);
-  for(let y=0;y<h;y++){const lat=(0.5-y/h)*Math.PI; // +pi/2 top
-    const horizon=Math.exp(-Math.pow((lat)/0.35,2))*0.012; // faint sky glow band near horizon
-    for(let x=0;x<w;x++){const i=(y*w+x)*3; let r=0.0016+horizon*0.6,g=0.0020+horizon*0.7,b=0.0034+horizon; d[i]=r;d[i+1]=g;d[i+2]=b;}}
-  const stamp=(cx,cy,I,tr,tg,tb,sig)=>{const rad=Math.ceil(sig*2.5);
-    for(let dyi=-rad;dyi<=rad;dyi++)for(let dxi=-rad;dxi<=rad;dxi++){const wt=Math.exp(-(dxi*dxi+dyi*dyi)/(2*sig*sig));
-      const xx=(((cx+dxi)%w)+w)%w,yy=cy+dyi;if(yy<0||yy>=h)continue;const i=(yy*w+xx)*3;d[i]+=I*tr*wt;d[i+1]+=I*tg*wt;d[i+2]+=I*tb*wt;}};
-  // stars (upper hemisphere) — round points
-  for(let s=0;s<520;s++){const u=rng(),v=rng()*0.55;const x=(u*w)|0,y=(v*h)|0;const mag=Math.pow(rng(),6);const I=2+mag*400;
-    const t=0.7+rng()*0.5;stamp(x,y,I,0.8+0.2*t,0.92,1.0+0.1*t,0.85);}
-  // a handful of very bright distant lights near the horizon (golf-course vibe)
-  const lights=[[0.20,0.52],[0.34,0.55],[0.62,0.5],[0.78,0.54],[0.5,0.5]];
-  for(const[lx,ly]of lights){const x=(lx*w)|0,y=(ly*h)|0;const I=2000+rng()*6000;stamp(x,y,I,1.0,0.82,0.55,1.3);}
-  hdri={w,h,data:d};hdriStatus='built-in night';hdriDirty=true;viewDirty=true;setSceneStatus();}
+/* --- sources --------------------------------------------------------------- */
+function rngDir(rng,latMin,latMax){const lon=(rng()*2-1)*Math.PI,s=Math.sin(latMin)+rng()*(Math.sin(latMax)-Math.sin(latMin)),lat=Math.asin(s);return [lon,lat];}
+function dirOf(lon,lat){return [Math.cos(lat)*Math.sin(lon),Math.sin(lat),-Math.cos(lat)*Math.cos(lon)];}
+/* blackbody-ish colour from B−V (Ballesteros' temperature), unit luminance */
+function bvRGB(bv){const T=4600*(1/(0.92*bv+1.7)+1/(0.92*bv+0.62)),t=T/100;
+  let r=t<=66?1:Math.min(1,1.293*Math.pow(t-60,-0.1332)),g=t<=66?Math.max(0,0.3901*Math.log(t)-0.6318):Math.min(1,1.1299*Math.pow(t-60,-0.0755)),
+      b=t>=66?1:t<=19?0:Math.max(0,0.5432*Math.log(t-10)-1.1963);
+  r=Math.pow(r,2.2);g=Math.pow(g,2.2);b=Math.pow(b,2.2);const Y=0.2126*r+0.7152*g+0.0722*b;return [r/Y,g/Y,b/Y];}
+function airmass(lat){const a=Math.max(0.5,lat*180/Math.PI);return 1/Math.sin((a+244/(165+47*Math.pow(a,1.1)))*Math.PI/180);}
+/* procedural night: a dark rural-ish sky over a distant town. ~30k stars to
+   mag 8 (counts rising ~10^0.45m), two planets, a moon off to the left,
+   and ~1500 town lights from mag -10 to -1: sodium, LED, warm white,
+   a few signals. Stars near the horizon are extincted and reddened. */
+function loadProcedural(){const w=2048,h=1024,d=new Float32Array(w*h*3),rng=mulberry32(7);
+  for(let y=0;y<h;y++){const lat=(0.5-(y+0.5)/h)*Math.PI;
+    for(let x=0;x<w;x++){const lon=((x+0.5)/w-0.5)*2*Math.PI,i=(y*w+x)*3;let r,g,b;
+      if(lat>=0){const glow=Math.exp(-lat/0.10),town=2600*Math.exp(-lat/0.05)*Math.exp(-(lon*lon)/(2*0.5*0.5));
+        /* a faint galactic band */
+        const gc=Math.sin(lat)*0.8-Math.cos(lat)*Math.sin(lon+0.9)*0.6,mw=120*Math.exp(-gc*gc/(2*0.12*0.12));
+        const base=90*(1+6*glow)+mw;r=base*0.80+town*1.0;g=base*0.90+town*0.62;b=base*1.15+town*0.32;}
+      else{const t=Math.exp(lat/0.03)*700*Math.exp(-(lon*lon)/(2*0.6*0.6));r=14+t;g=13+t*0.62;b=12+t*0.35;}
+      d[i]=r;d[i+1]=g;d[i+2]=b;}}
+  const P=[],push=(dir,f,c)=>P.push(dir[0],dir[1],dir[2],f*c[0],f*c[1],f*c[2]);
+  const mlo=-1.5,mhi=8,A=Math.pow(10,0.45*mlo),B=Math.pow(10,0.45*mhi);
+  for(let s=0;s<30000;s++){const [lon,lat]=rngDir(rng,0.002,Math.PI/2),m=Math.log10(A+rng()*(B-A))/0.45;
+    const X=airmass(lat),bv=-0.2+1.8*Math.pow(rng(),1.4),c=bvRGB(bv),ext=[0.10*X,0.17*X,0.30*X];
+    const f=Math.pow(10,-0.4*m);push(dirOf(lon,lat),f,c.map((v,k)=>v*Math.pow(10,-0.4*ext[k])));}
+  push(dirOf(-0.35,0.14),Math.pow(10,1.76),bvRGB(0.8));       /* Venus-like, mag -4.4 */
+  push(dirOf(0.42,0.52),Math.pow(10,1.0),bvRGB(0.9));         /* Jupiter-like, mag -2.5 */
+  const COL=[[1,0.55,0.16],[1,0.9,0.78],[1,0.74,0.48],[1,0.12,0.06],[0.25,1,0.45],[0.6,0.75,1]];
+  for(let s=0;s<1500;s++){const street=rng()<0.6;let lon,lat;
+    if(street){const k=(rng()*14)|0,a=-0.55+k*0.08,t=rng();lon=a+t*0.06;lat=-0.004+t*0.007*(k%2?1:-0.4);}
+    else{lon=(rng()*2-1)*0.62;lat=-0.012+rng()*0.016;}
+    const u=rng(),ci=u<0.45?0:u<0.8?1:u<0.95?2:3+((rng()*3)|0),m=rng()<0.02?-7-2*rng():-0.5-5.5*Math.pow(rng(),2.5);
+    const c=COL[ci],Y=0.2126*c[0]+0.7152*c[1]+0.0722*c[2];push(dirOf(lon,lat),Math.pow(10,-0.4*m)/Y,c);}
+  push(dirOf(0.03,0.055),Math.pow(10,1.2),[1,0.12,0.05]);    /* a mast beacon */
+  setSource({name:'night',eq:{w,h,data:d},pts:new Float32Array(P),
+    moon:{dir:dirOf(-0.9,0.33),rad:0.26*Math.PI/180,L:Math.pow(10,0.4*12.7)/(Math.PI*Math.pow(0.26*Math.PI/180,2)),rgb:bvRGB(0.9)}});}
+/* Pull point lights out of an equirect: a pixel that is a local maximum and
+   stands well above its surroundings is replaced by a point (its 5×5 excess
+   flux, at the flux-weighted centroid) and the background patched. Energy
+   is conserved, only its position becomes exact. */
+function extractPoints(eq){const {w,h,data}=eq,Y=new Float32Array(w*h),P=[];
+  for(let i=0;i<w*h;i++)Y[i]=0.2126*data[i*3]+0.7152*data[i*3+1]+0.0722*data[i*3+2];
+  const at=(x,y)=>Y[Math.max(0,Math.min(h-1,y))*w+((x%w)+w)%w];
+  const cand=[];
+  for(let y=3;y<h-3;y++)for(let x=0;x<w;x++){const v=Y[y*w+x];if(v<=0)continue;
+    let ring=0;for(const [dx,dy] of [[3,0],[-3,0],[0,3],[0,-3],[2,2],[-2,2],[2,-2],[-2,-2]])ring+=at(x+dx,y+dy);ring/=8;
+    if(v<3*ring+1e-6)continue;let mx=true;
+    for(let j=-1;j<=1&&mx;j++)for(let i=-1;i<=1;i++)if((i||j)&&at(x+i,y+j)>v){mx=false;break;}
+    if(mx)cand.push([v-ring,x,y]);}
+  cand.sort((a,b)=>b[0]-a[0]);
+  for(const [,x,y] of cand.slice(0,60000)){let fx=0,fy=0,fs=0;const ring=[0,0,0],f=[0,0,0];
+    for(const [dx,dy] of [[3,0],[-3,0],[0,3],[0,-3],[2,2],[-2,2],[2,-2],[-2,-2]]){const j=(Math.max(0,Math.min(h-1,y+dy))*w+(((x+dx)%w)+w)%w)*3;for(let c=0;c<3;c++)ring[c]+=data[j+c]/8;}
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const yy=y+dy,xx=((x+dx)%w+w)%w,j=(yy*w+xx)*3,
+        lat=(0.5-(yy+0.5)/h)*Math.PI,om=(2*Math.PI/w)*(Math.PI/h)*Math.cos(lat);
+      let e=0;for(let c=0;c<3;c++){const q=Math.max(0,data[j+c]-ring[c]);f[c]+=q*om;e+=q;data[j+c]-=q;}
+      fx+=e*dx;fy+=e*dy;fs+=e;}
+    if(fs<=0)continue;const px=x+fx/fs+0.5,py=y+fy/fs+0.5,lon=(px/w-0.5)*2*Math.PI,lat=(0.5-py/h)*Math.PI,d=dirOf(lon,lat);
+    P.push(d[0],d[1],d[2],f[0],f[1],f[2]);}
+  return new Float32Array(P);}
+function setSource(src){const eq=src.eq,Ys=[];   /* median of the sky (upper half) */
+  for(let i=0;i<eq.w*(eq.h>>1);i+=97)Ys.push(0.2126*eq.data[i*3]+0.7152*eq.data[i*3+1]+0.0722*eq.data[i*3+2]);
+  Ys.sort((a,b)=>a-b);const med=Ys[Ys.length>>1]||1;
+  src.base=0.012/Math.max(1e-12,med);  /* auto exposure: the sky just above black */
+  SC.src=src;SC.srcVer++;setSceneStatus(src.name+' · '+eq.w+'×'+eq.h+' · '+(src.pts.length/6|0)+' points');
+  if(state.sceneOn)requestCompute();}
+function setHDRI(name,parsed){setSceneStatus('finding point lights…');
+  setTimeout(()=>{const pts=extractPoints(parsed);setSource({name,eq:parsed,pts,moon:null});},0);}
 
-/* --- equirect sampling + perspective view --- */
-function sampleEq(dx,dy,dz){const w=hdri.w,h=hdri.h,data=hdri.data;
-  const lon=Math.atan2(dx,-dz),lat=Math.asin(Math.max(-1,Math.min(1,dy)));
-  let u=lon/(2*Math.PI)+0.5, v=0.5-lat/Math.PI;
-  let fx=u*w-0.5, fy=v*h-0.5; let x0=Math.floor(fx),y0=Math.floor(fy);const tx=fx-x0,ty=fy-y0;
-  const xa=((x0%w)+w)%w, xb=((x0+1)%w+w)%w, ya=Math.max(0,Math.min(h-1,y0)), yb=Math.max(0,Math.min(h-1,y0+1));
-  const o00=(ya*w+xa)*3,o10=(ya*w+xb)*3,o01=(yb*w+xa)*3,o11=(yb*w+xb)*3;const out=[0,0,0];
-  for(let c=0;c<3;c++){const a=data[o00+c]*(1-tx)+data[o10+c]*tx,b=data[o01+c]*(1-tx)+data[o11+c]*tx;out[c]=a*(1-ty)+b*ty;}
-  return out;}
-function camRay(sx,sy){const t=Math.tan(state.sceneFov*Math.PI/360);let x=sx*t,y=-sy*t,z=-1;const l=Math.hypot(x,y,z);x/=l;y/=l;z/=l;
-  const pit=state.scenePitch*Math.PI/180,cp=Math.cos(pit),sp=Math.sin(pit);let y2=y*cp-z*sp,z2=y*sp+z*cp;y=y2;z=z2;
-  const yaw=state.sceneYaw*Math.PI/180,cy=Math.cos(yaw),sy2=Math.sin(yaw);let x2=x*cy+z*sy2,z3=-x*sy2+z*cy;return [x2,y,z3];}
-function renderScene(){if(!hdri)return;const n=NC;
-  for(let py=0;py<n;py++){const sy=(py/(n-1))*2-1;for(let px=0;px<n;px++){const sx=(px/(n-1))*2-1;
-    const d=camRay(sx,sy);const c=sampleEq(d[0],d[1],d[2]);const i=py*n+px;sceneR[i]=c[0];sceneG[i]=c[1];sceneB[i]=c[2];}}}
-
-/* --- build the 3 chromatic PSF convolution kernels at scene scale --- */
-function psfChannels(){ // returns {R,G,B,N} arrays at PSF grid
-  const N=state.N,len=N*N;
-  if(!state.spectral){return {R:psf,G:psf,B:psf,N:N};}
-  const R=new Float32Array(len),G=new Float32Array(len),B=new Float32Array(len);
-  for(let i=0;i<len;i++){const X=accX[i],Y=accY[i],Z=accZ[i];
-    let r=3.2406*X-1.5372*Y-0.4986*Z,g=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;
-    R[i]=r<0?0:r;G[i]=g<0?0:g;B[i]=b<0?0:b;}
-  return {R,G,B,N};}
-function resampleKernel(srcArr,Nsrc,ratio,Kre,Kim,gain){const n=NC,h=n>>1,hs=Nsrc/2;
-  for(let i=0;i<n*n;i++){Kre[i]=0;Kim[i]=0;}
-  let sum=0;const tmp=new Float64Array(n*n);
-  for(let ky=0;ky<n;ky++){const sy=hs+(ky-h)*ratio,y0=Math.floor(sy),fy=sy-y0,y1=y0+1,yIn=(y0>=0&&y1<Nsrc);
-    for(let kx=0;kx<n;kx++){const sx=hs+(kx-h)*ratio,x0=Math.floor(sx),fx=sx-x0,x1=x0+1;let v=0;
-      if(yIn&&x0>=0&&x1<Nsrc){const p00=srcArr[y0*Nsrc+x0],p10=srcArr[y0*Nsrc+x1],p01=srcArr[y1*Nsrc+x0],p11=srcArr[y1*Nsrc+x1];v=(p00*(1-fx)+p10*fx)*(1-fy)+(p01*(1-fx)+p11*fx)*fy;}
-      tmp[ky*n+kx]=v;sum+=v;}}
-  if(sum<=0)sum=1;const inv=gain/sum;
-  for(let ky=0;ky<n;ky++)for(let kx=0;kx<n;kx++){Kre[((ky+h)%n)*n+((kx+h)%n)]=tmp[ky*n+kx]*inv;}
-  fft2d(Kre,Kim,n);}
-function buildKernels(){const arcPsf=arcPerPx();
-  const arcScene=state.sceneFov*3600/NC,ratio=arcScene/arcPsf;const ch=psfChannels();const g=throughput;
-  resampleKernel(ch.R,ch.N,ratio,KreR,KimR,g);resampleKernel(ch.G,ch.N,ratio,KreG,KimG,g);resampleKernel(ch.B,ch.N,ratio,KreB,KimB,g);}
-
-/* --- convolve scene with kernels (per channel) --- */
-function convOne(src,Kre,Kim,dst){const n=NC,len=n*n;
-  for(let i=0;i<len;i++){sRe[i]=src[i];sIm[i]=0;} fft2d(sRe,sIm,n);
-  for(let i=0;i<len;i++){const a=sRe[i],b=sIm[i],c=Kre[i],dd=Kim[i];sRe[i]=a*c-b*dd;sIm[i]=a*dd+b*c;}
-  ifft2d(sRe,sIm,n);for(let i=0;i<len;i++){dst[i]=sRe[i]<0?0:sRe[i];}}
-function convolveScene(){if(state.sceneGlare){convOne(sceneR,KreR,KimR,blurR);convOne(sceneG,KreG,KimG,blurG);convOne(sceneB,KreB,KimB,blurB);}
-  else{blurR.set(sceneR);blurG.set(sceneG);blurB.set(sceneB);}}
-
-function sceneCompute(){ if(!hdri)return;
-  if(kernDirty){buildKernels();kernDirty=false;kernVersion++;}
-  if(viewDirty){renderScene();viewDirty=false;}
-  if(state.gpu && gpuTryInit()){ try{ gpuRender(); return; }catch(e){ console.warn('GPU path failed, falling back to CPU',e); gpu.ready=false; state.gpu=false; document.getElementById('swGpu').setAttribute('aria-pressed','false'); refreshGpuUI(); } }
-  convolveScene();drawScene();}
-
-/* ===== GPU FFT convolution (WebGL2, ping-pong Stockham) ===== */
-let kernVersion=0;
-const gpu={gl:null,ready:false,tried:false,kernV:-1};
-const GLSL_VS='#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
-function gpuCompile(gl,vs,fs){
-  const c=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error('shader: '+gl.getShaderInfoLog(sh));return sh;};
-  const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,vs));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fs));gl.bindAttribLocation(pr,0,'p');gl.linkProgram(pr);
-  if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error('link: '+gl.getProgramInfoLog(pr));return pr;}
-function gpuTryInit(){ if(gpu.tried)return gpu.ready; gpu.tried=true;
-  try{
-    const n=NC,cv=document.createElement('canvas');cv.width=n;cv.height=n;
-    const gl=cv.getContext('webgl2',{antialias:false,preserveDrawingBuffer:true});
-    if(!gl)throw new Error('no webgl2');
-    if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('no float render');
-    gl.getExtension('OES_texture_float_linear');
-    gpu.gl=gl;gpu.canvas=cv;
-    // quad (full-screen triangle)
-    const vao=gl.createVertexArray();gl.bindVertexArray(vao);
-    const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);
-    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
-    const tex=(filter)=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);
-      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,null);return t;};
-    const fbo=(t)=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return f;};
-    gpu.A=tex(gl.NEAREST);gpu.B=tex(gl.NEAREST);gpu.res=[tex(gl.NEAREST),tex(gl.NEAREST),tex(gl.NEAREST)];gpu.kern=[tex(gl.NEAREST),tex(gl.NEAREST),tex(gl.NEAREST)];
-    gpu.fA=fbo(gpu.A);gpu.fB=fbo(gpu.B);gpu.fRes=gpu.res.map(fbo);
-    const FFT='#version 300 es\nprecision highp float;precision highp int;\nuniform sampler2D src;uniform int N;uniform int L;uniform float sgn;uniform int axis;out vec4 o;const float PI=3.141592653589793;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);int m=(axis==0)?fc.x:fc.y;int ot=(axis==0)?fc.y:fc.x;int Lp=L*2;int g=m/Lp;int r=m-g*Lp;int k;float bs;if(r<L){k=r;bs=1.0;}else{k=r-L;bs=-1.0;}int i0=g*L+k;int i1=i0+N/2;ivec2 c0=(axis==0)?ivec2(i0,ot):ivec2(ot,i0);ivec2 c1=(axis==0)?ivec2(i1,ot):ivec2(ot,i1);vec2 x=texelFetch(src,c0,0).rg;vec2 y=texelFetch(src,c1,0).rg;float th=sgn*2.0*PI*float(k)/float(Lp);vec2 w=vec2(cos(th),sin(th));vec2 t=vec2(y.x*w.x-y.y*w.y,y.x*w.y+y.y*w.x);o=vec4(x+bs*t,0.0,0.0);}';
-    const MUL='#version 300 es\nprecision highp float;uniform sampler2D src;uniform sampler2D kern;out vec4 o;\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);vec2 a=texelFetch(src,fc,0).rg;vec2 b=texelFetch(kern,fc,0).rg;o=vec4(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x,0.0,0.0);}';
-    const STO='#version 300 es\nprecision highp float;uniform sampler2D src;uniform float invN2;out vec4 o;\nvoid main(){float v=texelFetch(src,ivec2(gl_FragCoord.xy),0).r*invN2;o=vec4(max(v,0.0),0.0,0.0,1.0);}';
-    const TON='#version 300 es\nprecision highp float;precision highp int;uniform sampler2D rT;uniform sampler2D gT;uniform sampler2D bT;uniform float expo;uniform int N;out vec4 o;\nvec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}\nvec3 s2s(vec3 c){vec3 lo=12.92*c;vec3 hi=1.055*pow(max(c,0.0),vec3(1.0/2.4))-0.055;return mix(lo,hi,step(0.0031308,c));}\nvoid main(){ivec2 fc=ivec2(gl_FragCoord.xy);ivec2 q=ivec2(fc.x,(N-1)-fc.y);vec3 c=vec3(texelFetch(rT,q,0).r,texelFetch(gT,q,0).r,texelFetch(bT,q,0).r);c=aces(c*expo);o=vec4(s2s(c),1.0);}';
-    gpu.pFFT=gpuCompile(gl,GLSL_VS,FFT);gpu.pMUL=gpuCompile(gl,GLSL_VS,MUL);gpu.pSTO=gpuCompile(gl,GLSL_VS,STO);gpu.pTON=gpuCompile(gl,GLSL_VS,TON);
-    gpu.scratch=new Float32Array(n*n*4);
-    gpu.LOG2N=Math.round(Math.log2(n));
-    gpu.ready=true;
-  }catch(e){console.warn('GPU init failed:',e.message);gpu.ready=false;}
-  return gpu.ready;}
-function gpuUploadKern(){const gl=gpu.gl,n=NC;const K=[[KreR,KimR],[KreG,KimG],[KreB,KimB]];
-  for(let c=0;c<3;c++){const re=K[c][0],im=K[c][1],s=gpu.scratch;for(let i=0;i<n*n;i++){s[i*4]=re[i];s[i*4+1]=im[i];s[i*4+2]=0;s[i*4+3]=0;}
-    gl.bindTexture(gl.TEXTURE_2D,gpu.kern[c]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,s);}}
-function gpuFFT(startA,sign){const gl=gpu.gl,n=NC;gl.useProgram(gpu.pFFT);
-  gl.uniform1i(gl.getUniformLocation(gpu.pFFT,'N'),n);gl.uniform1i(gl.getUniformLocation(gpu.pFFT,'src'),0);
-  const uL=gl.getUniformLocation(gpu.pFFT,'L'),uAx=gl.getUniformLocation(gpu.pFFT,'axis');
-  gl.uniform1f(gl.getUniformLocation(gpu.pFFT,'sgn'),sign);
-  let srcA=startA;
-  for(let dim=0;dim<2;dim++){gl.uniform1i(uAx,dim);
-    for(let s=0;s<gpu.LOG2N;s++){const srcT=srcA?gpu.A:gpu.B,dstF=srcA?gpu.fB:gpu.fA;
-      gl.bindFramebuffer(gl.FRAMEBUFFER,dstF);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,srcT);
-      gl.uniform1i(uL,1<<s);gl.drawArrays(gl.TRIANGLES,0,3);srcA=!srcA;}}
-  return srcA;}
-function gpuRender(){const gl=gpu.gl,n=NC;
-  if(gpu.kernV!==kernVersion){gpuUploadKern();gpu.kernV=kernVersion;}
-  gl.viewport(0,0,n,n);gl.disable(gl.BLEND);
-  const chans=[sceneR,sceneG,sceneB];const s=gpu.scratch;
-  for(let c=0;c<3;c++){
-    const sc=chans[c];
-    if(!state.sceneGlare){ for(let i=0;i<n*n;i++){s[i*4]=sc[i];s[i*4+1]=0;s[i*4+2]=0;s[i*4+3]=1;}
-      gl.bindTexture(gl.TEXTURE_2D,gpu.res[c]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,s);continue; }
-    for(let i=0;i<n*n;i++){s[i*4]=sc[i];s[i*4+1]=0;s[i*4+2]=0;s[i*4+3]=0;}
-    gl.bindTexture(gl.TEXTURE_2D,gpu.A);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,n,n,0,gl.RGBA,gl.FLOAT,s);
-    gpuFFT(true,-1.0);                                  // forward -> A
-    gl.useProgram(gpu.pMUL);gl.bindFramebuffer(gl.FRAMEBUFFER,gpu.fB);
-    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gpu.A);gl.uniform1i(gl.getUniformLocation(gpu.pMUL,'src'),0);
-    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,gpu.kern[c]);gl.uniform1i(gl.getUniformLocation(gpu.pMUL,'kern'),1);
-    gl.drawArrays(gl.TRIANGLES,0,3);                    // mult -> B
-    gpuFFT(false,1.0);                                  // inverse -> B
-    gl.useProgram(gpu.pSTO);gl.bindFramebuffer(gl.FRAMEBUFFER,gpu.fRes[c]);
-    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gpu.B);gl.uniform1i(gl.getUniformLocation(gpu.pSTO,'src'),0);
-    gl.uniform1f(gl.getUniformLocation(gpu.pSTO,'invN2'),1/(n*n));gl.drawArrays(gl.TRIANGLES,0,3);
-  }
-  gl.useProgram(gpu.pTON);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,n,n);
-  for(let c=0;c<3;c++){gl.activeTexture(gl.TEXTURE0+c);gl.bindTexture(gl.TEXTURE_2D,gpu.res[c]);}
-  gl.uniform1i(gl.getUniformLocation(gpu.pTON,'rT'),0);gl.uniform1i(gl.getUniformLocation(gpu.pTON,'gT'),1);gl.uniform1i(gl.getUniformLocation(gpu.pTON,'bT'),2);
-  gl.uniform1f(gl.getUniformLocation(gpu.pTON,'expo'),Math.pow(2,state.sceneExp));gl.uniform1i(gl.getUniformLocation(gpu.pTON,'N'),n);
-  gl.drawArrays(gl.TRIANGLES,0,3);
-  pctx.imageSmoothingEnabled=true;pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);pctx.drawImage(gpu.canvas,0,0,n,n,0,0,dispPx,dispPx);
-  const arcScene=state.sceneFov*3600/NC;
-  document.getElementById("cScale").textContent=arcScene.toFixed(0)+' ″/px';
-  document.getElementById("cFov").textContent='FOV '+state.sceneFov+'°';
-  document.getElementById("cZoom").textContent=(state.sceneGlare?'glare·gpu':'in-focus');renderAperture();}
-
-/* --- tonemap + display --- */
-function aces(x){const a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;const y=(x*(a*x+b))/(x*(c*x+d)+e);return y<0?0:y>1?1:y;}
-function s2srgb(c){return c<=0.0031308?12.92*c:1.055*Math.pow(c,1/2.4)-0.055;}
-function drawScene(){const n=NC,data=sceneImg.data,E=Math.pow(2,state.sceneExp);
-  for(let i=0;i<n*n;i++){let r=aces(blurR[i]*E),g=aces(blurG[i]*E),b=aces(blurB[i]*E);
-    const o=i<<2;data[o]=s2srgb(r)*255;data[o+1]=s2srgb(g)*255;data[o+2]=s2srgb(b)*255;data[o+3]=255;}
-  sceneOffctx.putImageData(sceneImg,0,0);
-  pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000000";pctx.fillRect(0,0,dispPx,dispPx);
-  pctx.drawImage(sceneOff,0,0,n,n,0,0,dispPx,dispPx);
-  const arcScene=state.sceneFov*3600/NC;
-  document.getElementById("cScale").textContent=arcScene.toFixed(0)+' ″/px';
-  document.getElementById("cFov").textContent='FOV '+state.sceneFov+'°';
-  document.getElementById("cZoom").textContent=(state.sceneGlare?'glare':'in-focus');renderAperture();}
+/* --- GPU --------------------------------------------------------------- */
+function scCtx(){if(SC.ready)return true;if(SC.failed||!gsCtx())return false;const gl=gs.gl;
+  try{SC.blend=!!gl.getExtension('EXT_float_blend');gl.getExtension('OES_texture_float_linear');
+    const H='#version 300 es\nprecision highp float;precision highp int;\n';
+    const mk=(vs,fs,attrs)=>{const c=(t,src)=>{const sh=gl.createShader(t);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
+      const pr=gl.createProgram();gl.attachShader(pr,c(gl.VERTEX_SHADER,vs));gl.attachShader(pr,c(gl.FRAGMENT_SHADER,fs));
+      (attrs||['p']).forEach((a,i)=>gl.bindAttribLocation(pr,i,a));gl.linkProgram(pr);
+      if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));
+      const U={};pr.u=n=>(n in U)?U[n]:(U[n]=gl.getUniformLocation(pr,n));return pr;};
+    /* background: equirect radiance + analytic moon disc (limb-darkened) */
+    SC.pSCN=mk(GS_VS,H+'uniform sampler2D eq;uniform mat3 M;uniform float t;uniform int NS;uniform int moonOn;uniform vec3 md;uniform float mr;uniform vec3 mL;uniform float pxa;out vec4 o;\n'+
+      'void main(){vec2 s=(gl_FragCoord.xy/float(NS))*2.0-1.0;vec3 d=normalize(M*vec3(s*t,-1.0));\n'+
+      ' float lon=atan(d.x,-d.z),lat=asin(clamp(d.y,-1.0,1.0));vec3 c=texture(eq,vec2(lon/6.283185307+0.5,0.5-lat/3.14159265)).rgb;\n'+
+      ' if(moonOn==1){float a=acos(clamp(dot(d,md),-1.0,1.0));float e=clamp((mr-a)/pxa+0.5,0.0,1.0);if(e>0.0){float q=clamp(a/mr,0.0,1.0);c+=e*mL*(0.4+0.6*sqrt(1.0-q*q));}}\n'+
+      ' o=vec4(c,0.0);}');
+    /* points: tent-splatted at sub-pixel positions, additive */
+    SC.pPTS=mk('#version 300 es\nprecision highp float;in vec3 dir;in vec3 flux;uniform mat3 Mi;uniform float t;uniform int NS;uniform float om;out vec3 vf;out vec2 vp;\n'+
+      'void main(){vec3 c=Mi*dir;vf=flux/om;if(c.z>=-1e-4){gl_Position=vec4(2.0,2.0,0.0,1.0);gl_PointSize=1.0;vp=vec2(-9.0);return;}\n'+
+      ' vec2 s=c.xy/(-c.z)/t;vp=(s+1.0)*0.5*float(NS);gl_Position=vec4((floor(vp)+0.5)/float(NS)*2.0-1.0,0.0,1.0);gl_PointSize=3.0;}',
+      H+'in vec3 vf;in vec2 vp;out vec4 o;void main(){vec2 w=max(vec2(0.0),1.0-abs(gl_FragCoord.xy-vp));o=vec4(vf*w.x*w.y,0.0);}',['dir','flux']);
+    /* kernel: perceived PSF (accumulator turned 180°) integrated over each
+       scene pixel, XYZ -> linear sRGB, origin at texel 0 */
+    SC.pKER=mk(GS_VS,H+'uniform sampler2D acc;uniform int N;uniform int NS;uniform float ratio;uniform int n;out vec4 o;\n'+
+      'vec3 at(vec2 p){vec2 f=floor(p);vec2 a=p-f;ivec2 i=ivec2(f);if(i.x<0||i.y<0||i.x+1>=N||i.y+1>=N)return vec3(0.0);\n'+
+      ' vec3 s=mix(mix(texelFetch(acc,i,0).rgb,texelFetch(acc,i+ivec2(1,0),0).rgb,a.x),mix(texelFetch(acc,i+ivec2(0,1),0).rgb,texelFetch(acc,i+ivec2(1,1),0).rgb,a.x),a.y);return s;}\n'+
+      'void main(){ivec2 k=ivec2(gl_FragCoord.xy);vec2 d=vec2(k.x<NS/2?k.x:k.x-NS,k.y<NS/2?k.y:k.y-NS);float h=float(N/2);\n'+
+      ' float e=max(abs(d.x),abs(d.y))*ratio/h;if(e>1.0){o=vec4(0.0);return;}vec3 X=vec3(0.0);\n'+
+      ' for(int j=0;j<16;j++){if(j>=n)break;for(int i=0;i<16;i++){if(i>=n)break;vec2 u=(d+(vec2(i,j)+0.5)/float(n)-0.5)*ratio;X+=at(vec2(h)-u);}}\n'+
+      ' vec3 c=vec3(3.2406*X.x-1.5372*X.y-0.4986*X.z,-0.9689*X.x+1.8758*X.y+0.0415*X.z,0.0557*X.x-0.2040*X.y+1.0570*X.z);\n'+
+      /* the computed field ends in a square; ease it out over its outer quarter so
+         the brightest lights don't print that square */
+      ' float tp=0.5+0.5*cos(3.14159265*clamp((e-0.75)/0.25,0.0,1.0));o=vec4(max(c,0.0)*tp,0.0);}');
+    /* spectrum product, unpacking (R+iG, B) on both sides */
+    SC.pMUL=mk(GS_VS,H+'uniform sampler2D sc;uniform sampler2D kr;uniform int NS;uniform vec3 ks;out vec4 o;\n'+
+      'vec2 cm(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}\n'+
+      'void main(){ivec2 k=ivec2(gl_FragCoord.xy),q=ivec2((NS-k.x)%NS,(NS-k.y)%NS);vec4 s=texelFetch(sc,k,0),sn=texelFetch(sc,q,0),c=texelFetch(kr,k,0),cn=texelFetch(kr,q,0);\n'+
+      ' vec2 Zs=s.xy,Zsn=vec2(sn.x,-sn.y),Zk=c.xy,Zkn=vec2(cn.x,-cn.y);\n'+
+      ' vec2 R=(Zs+Zsn)*0.5,G=cm(Zs-Zsn,vec2(0.0,-0.5)),KR=(Zk+Zkn)*0.5*ks.x,KG=cm(Zk-Zkn,vec2(0.0,-0.5))*ks.y;\n'+
+      ' o=vec4(cm(R,KR)+cm(vec2(0.0,1.0),cm(G,KG)),cm(s.zw,c.zw*ks.z));}');
+    /* tone: ACES on exposure, visible crop, k×k box */
+    SC.pTON=mk(GS_VS,H+'uniform sampler2D src;uniform ivec2 c0;uniform int k;uniform float E;uniform int NS;out vec4 o;\n'+
+      'vec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}\n'+
+      'vec3 s2s(vec3 c){vec3 lo=12.92*c;vec3 hi=1.055*pow(max(c,0.0),vec3(1.0/2.4))-0.055;return mix(lo,hi,step(0.0031308,c));}\n'+
+      'void main(){ivec2 p=c0+ivec2(gl_FragCoord.xy)*k;vec3 s=vec3(0.0);float n=0.0;\n'+
+      ' for(int j=0;j<k;j++)for(int i=0;i<k;i++){ivec2 q=p+ivec2(i,j);if(q.x<NS&&q.y<NS){s+=s2s(aces(max(texelFetch(src,q,0).rgb,0.0)*E));n+=1.0;}}o=vec4(s/max(n,1.0),1.0);}');
+    SC.pvao=gl.createVertexArray();gl.bindVertexArray(SC.pvao);SC.pbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,SC.pbuf);
+    gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12);
+    gl.bindVertexArray(gs.vao);
+    SC.ready=true;return true;
+  }catch(e){console.warn('scene GPU init failed:',e.message);SC.failed=true;return false;}}
+function scSet(){const gl=gs.gl,NS=SC.NS;if(SC.set&&SC.set.NS===NS)return SC.set;
+  const S={NS,tex:[],fbo:[]};
+  const tex=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,NS,NS);S.tex.push(t);return t;};
+  const fbo=t=>{const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);S.fbo.push(f);return f;};
+  S.A=tex();S.B=tex();S.K=tex();S.Ssp=tex();S.fA=fbo(S.A);S.fB=fbo(S.B);S.fK=fbo(S.K);S.fS=fbo(S.Ssp);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);SC.set=S;return S;}
+/* the PSF FFT program on RGBA: two complex signals per texel */
+function scFFT(S,fromA,sign){const gl=gs.gl,n=S.NS,P=gs.pFFT;gl.useProgram(P);gl.viewport(0,0,n,n);
+  gl.uniform1i(P.u('N'),n);gl.uniform1i(P.u('src'),0);gl.uniform1f(P.u('sgn'),sign);gl.activeTexture(gl.TEXTURE0);
+  let a=fromA;for(let axis=0;axis<2;axis++){gl.uniform1i(P.u('axis'),axis);
+    for(let L=1;L<n;L<<=1){gl.uniform1i(P.u('L'),L);gl.bindFramebuffer(gl.FRAMEBUFFER,a?S.fB:S.fA);gl.bindTexture(gl.TEXTURE_2D,a?S.A:S.B);gsQuad();a=!a;}}
+  return a;}
+function camMat(){const p=state.scenePitch*Math.PI/180,y=state.sceneYaw*Math.PI/180,cp=Math.cos(p),sp=Math.sin(p),cy=Math.cos(y),sy=Math.sin(y);
+  /* camera -> world = Ryaw·Rpitch (column-major for GLSL) */
+  const R=[[cy,sy*sp,sy*cp],[0,cp,-sp],[-sy,cy*sp,cy*cp]];   /* rows */
+  return {M:[R[0][0],R[1][0],R[2][0],R[0][1],R[1][1],R[2][1],R[0][2],R[1][2],R[2][2]],
+          Mi:[R[0][0],R[0][1],R[0][2],R[1][0],R[1][1],R[1][2],R[2][0],R[2][1],R[2][2]]};}
+function sceneCompute(){
+  if(!gs.frame||!scCtx()||!SC.src){const msg=!SC.src?'loading…':'scene needs the GPU path';setSceneStatus(msg);draw0();return;}
+  const gl=gs.gl,S=scSet(),NS=S.NS,src=SC.src,fov=sceneFovEff()*SC.PAD*Math.PI/180,t=Math.tan(fov/2),ps=fov/NS*ARCSEC;
+  /* equirect + points to the GPU once per source */
+  if(SC.eqVer!==SC.srcVer){const eq=src.eq,rgba=new Float32Array(eq.w*eq.h*4);
+    for(let i=0;i<eq.w*eq.h;i++){rgba[i*4]=eq.data[i*3];rgba[i*4+1]=eq.data[i*3+1];rgba[i*4+2]=eq.data[i*3+2];}
+    if(SC.eqTex)gl.deleteTexture(SC.eqTex);SC.eqTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,SC.eqTex);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,eq.w,eq.h,0,gl.RGBA,gl.FLOAT,rgba);
+    gl.bindBuffer(gl.ARRAY_BUFFER,SC.pbuf);gl.bufferData(gl.ARRAY_BUFFER,src.pts,gl.STATIC_DRAW);SC.ptN=src.pts.length/6;SC.eqVer=SC.srcVer;}
+  const glare=state.sceneGlare;
+  /* kernel spectrum: once per PSF frame and scene scale */
+  const kKey=SC.psfVer+'|'+ps.toFixed(5)+'|'+NS;
+  if(glare&&kKey!==SC.kKey){const P=SC.pKER,N=gs.cur.N,ratio=ps/arcAt(N);
+    gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gs.cur.acc[gs.cur.cur]);gl.uniform1i(P.u('acc'),0);
+    gl.uniform1i(P.u('N'),N);gl.uniform1i(P.u('NS'),NS);gl.uniform1f(P.u('ratio'),ratio);gl.uniform1i(P.u('n'),Math.max(1,Math.min(16,Math.ceil(ratio))));gsQuad();
+    const inA=scFFT(S,true,-1);
+    /* copy to K (the FFT buffers are reused for the scene) and read the DC: Σ R + iΣ G, Σ B */
+    gl.useProgram(gs.pCPY);gl.uniform1i(gs.pCPY.u('src'),0);gl.uniform1i(gs.pCPY.u('mode'),2);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fK);
+    gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);gsQuad();
+    const px=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);
+    const tp=Math.max(0,throughput);SC.ks=[px[0]>0?tp/px[0]:0,px[1]>0?tp/px[1]:0,px[2]>0?tp/px[2]:0];SC.kKey=kKey;SC.sKey='';}
+  /* scene spectrum: once per view */
+  const cm=camMat(),sKey=[SC.srcVer,state.sceneYaw,state.scenePitch,fov.toFixed(6),NS,glare].join('|');
+  if(sKey!==SC.sKey){const P=SC.pSCN;gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,SC.eqTex);gl.uniform1i(P.u('eq'),0);
+    gl.uniformMatrix3fv(P.u('M'),false,cm.M);gl.uniform1f(P.u('t'),t);gl.uniform1i(P.u('NS'),NS);gl.uniform1f(P.u('pxa'),fov/NS);
+    const m=src.moon;gl.uniform1i(P.u('moonOn'),m?1:0);
+    if(m){gl.uniform3f(P.u('md'),m.dir[0],m.dir[1],m.dir[2]);gl.uniform1f(P.u('mr'),m.rad);gl.uniform3f(P.u('mL'),m.L*m.rgb[0],m.L*m.rgb[1],m.L*m.rgb[2]);}
+    gsQuad();
+    if(SC.blend&&SC.ptN){const Q=SC.pPTS;gl.useProgram(Q);gl.bindVertexArray(SC.pvao);
+      gl.uniformMatrix3fv(Q.u('Mi'),false,cm.Mi);gl.uniform1f(Q.u('t'),t);gl.uniform1i(Q.u('NS'),NS);gl.uniform1f(Q.u('om'),Math.pow(2*t/NS,2));
+      gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.drawArrays(gl.POINTS,0,SC.ptN);gl.disable(gl.BLEND);gl.bindVertexArray(gs.vao);}
+    if(glare){const inA=scFFT(S,true,-1);gl.useProgram(gs.pCPY);gl.uniform1i(gs.pCPY.u('mode'),2);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fS);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,inA?S.A:S.B);gsQuad();}
+    SC.sKey=sKey;SC.rKey='';}
+  /* product + inverse, once per (kernel, scene) */
+  let outT=S.A,scale=1;
+  if(glare){const rKey=SC.kKey+'#'+SC.sKey;
+    if(rKey!==SC.rKey){const P=SC.pMUL;gl.useProgram(P);gl.bindFramebuffer(gl.FRAMEBUFFER,S.fA);gl.viewport(0,0,NS,NS);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,S.Ssp);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,S.K);
+      gl.uniform1i(P.u('sc'),0);gl.uniform1i(P.u('kr'),1);gl.uniform1i(P.u('NS'),NS);gl.uniform3f(P.u('ks'),SC.ks[0],SC.ks[1],SC.ks[2]);gsQuad();
+      SC.outA=scFFT(S,true,1);SC.rKey=rKey;}
+    outT=SC.outA?S.A:S.B;scale=1/(NS*NS);}
+  /* tone the visible part and draw it */
+  const W=dispW,H=dispH,Wl=Math.max(W,H),vis=NS/SC.PAD,sc=Wl/vis,vw=W/sc,vh=H/sc,
+        x0=Math.max(0,Math.floor(NS/2-vw/2)),y0=Math.max(0,Math.floor(NS/2-vh/2)),cw=Math.min(NS-x0,Math.ceil(vw)+1),ch=Math.min(NS-y0,Math.ceil(vh)+1),
+        k=Math.max(1,Math.ceil(Math.max(cw,ch)/GS_MAXTONE)),Mw=Math.ceil(cw/k),Mh=Math.ceil(ch/k);
+  if(gs.cv.width!==Mw||gs.cv.height!==Mh){gs.cv.width=Mw;gs.cv.height=Mh;}
+  const T=SC.pTON;gl.useProgram(T);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,Mw,Mh);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,outT);gl.uniform1i(T.u('src'),0);gl.uniform2i(T.u('c0'),x0,y0);gl.uniform1i(T.u('k'),k);
+  gl.uniform1i(T.u('NS'),NS);gl.uniform1f(T.u('E'),scale*src.base*Math.pow(2,state.sceneExp));gsQuad();
+  pctx.imageSmoothingEnabled=true;pctx.imageSmoothingQuality="high";pctx.fillStyle="#000";pctx.fillRect(0,0,W,H);
+  /* canvas rows run top-down, the texture bottom-up: the GL canvas is already upright */
+  pctx.drawImage(gs.cv,0,0,Mw,Mh,W/2+(x0-NS/2)*sc,H/2-(y0+ch-NS/2)*sc,cw*sc,ch*sc);
+  document.getElementById("cScale").textContent=ps.toFixed(1)+' ″/px';renderAperture();}
+function draw0(){pctx.fillStyle="#000";pctx.fillRect(0,0,dispW,dispH);}
 
 /* --- loaders: RGBE .hdr, EXR (zip/none), LDR image --- */
 function halfToFloat(hf){const s=(hf&0x8000)>>15,e=(hf&0x7C00)>>10,f=hf&0x03FF;
@@ -1508,38 +1777,35 @@ async function decodeEXR(ab){const dv=new DataView(ab);if(dv.getUint32(0,true)!=
 
 async function loadFromURL(url){setSceneStatus('fetching EXR…');
   try{const resp=await fetch(url,{mode:'cors'});if(!resp.ok)throw new Error('HTTP '+resp.status);const ab=await resp.arrayBuffer();
-    const hd=new Uint8Array(ab,0,4);let parsed;
-    if(hd[0]===0x76&&hd[1]===0x2f){parsed=await decodeEXR(ab);}else{parsed=decodeHDR(ab);}
-    hdri=parsed;hdriStatus='moonless_golf · '+parsed.w+'×'+parsed.h;hdriDirty=true;viewDirty=true;kernDirty=true;setSceneStatus();if(state.sceneOn)requestScene();}
-  catch(e){setSceneStatus('fetch failed ('+e.message+') — try Upload, or use Night');console.warn(e);}}
+    const hd=new Uint8Array(ab,0,4);setHDRI('moonless golf',(hd[0]===0x76&&hd[1]===0x2f)?await decodeEXR(ab):decodeHDR(ab));}
+  catch(e){setSceneStatus('fetch failed ('+e.message+')');console.warn(e);}}
 async function loadFile(file){setSceneStatus('decoding '+file.name+'…');
-  try{const nm=file.name.toLowerCase();
+  try{const nm=file.name.toLowerCase();let eq;
     if(nm.endsWith('.hdr')||nm.endsWith('.exr')){const ab=await file.arrayBuffer();const hd=new Uint8Array(ab,0,4);
-      hdri=(hd[0]===0x76&&hd[1]===0x2f)?await decodeEXR(ab):decodeHDR(ab);}
+      eq=(hd[0]===0x76&&hd[1]===0x2f)?await decodeEXR(ab):decodeHDR(ab);}
     else{const bmp=await createImageBitmap(file);const cv=document.createElement('canvas');cv.width=bmp.width;cv.height=bmp.height;const cx=cv.getContext('2d');cx.drawImage(bmp,0,0);const id=cx.getImageData(0,0,bmp.width,bmp.height).data;
       const d=new Float32Array(bmp.width*bmp.height*3);for(let i=0,j=0;i<id.length;i+=4,j+=3){const lin=v=>{v/=255;v=v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);return v+Math.pow(v,8)*200;};d[j]=lin(id[i]);d[j+1]=lin(id[i+1]);d[j+2]=lin(id[i+2]);}
-      hdri={w:bmp.width,h:bmp.height,data:d};}
-    hdriStatus=file.name+' · '+hdri.w+'×'+hdri.h;hdriDirty=true;viewDirty=true;kernDirty=true;setSceneStatus();if(state.sceneOn)requestScene();}
-  catch(e){setSceneStatus('decode failed ('+e.message+') — try the .hdr version of this HDRI');console.warn(e);}}
-function setSceneStatus(s){if(s!==undefined)hdriStatus=s;document.getElementById("sceneStatus").textContent=hdriStatus;}
+      eq={w:bmp.width,h:bmp.height,data:d};}
+    setHDRI(file.name,eq);}
+  catch(e){setSceneStatus('decode failed ('+e.message+')');console.warn(e);}}
 
 /* --- scene UI --- */
-let scenePend=0;
-function requestScene(){setBusy(true);clearTimeout(scenePend);scenePend=setTimeout(()=>{sceneCompute();setBusy(false);},120);}
-function refreshSceneUI(){document.getElementById("sceneBody").classList.toggle("dim",!state.sceneOn);document.getElementById("sceneHint").textContent=state.sceneOn?(state.sceneGlare?'glare on':'in-focus'):'off';}
-bindToggle("swScene",el=>{state.sceneOn=!state.sceneOn;el.setAttribute('aria-pressed',state.sceneOn);refreshSceneUI();
-  if(state.sceneOn){kernDirty=true;viewDirty=true;requestCompute();}
-  else if(effN()!==state.N)requestCompute(); else draw();});   /* leaving the scene grid cap */
-bindToggle("swGlare",el=>{state.sceneGlare=!state.sceneGlare;el.setAttribute('aria-pressed',state.sceneGlare);refreshSceneUI();if(state.sceneOn)requestScene();});
-function refreshGpuUI(){const sub=document.getElementById("gpuSub");sub.textContent=state.gpu?(gpu.tried&&!gpu.ready?'unavailable — CPU':'WebGL2 FFT'):'CPU';}
-bindToggle("swGpu",el=>{state.gpu=!state.gpu;if(state.gpu&&!gpuTryInit()){state.gpu=false;}el.setAttribute('aria-pressed',state.gpu);refreshGpuUI();if(state.sceneOn)requestScene();});
+function refreshSceneUI(){document.getElementById("sceneBody").classList.toggle("dim",!state.sceneOn);document.getElementById("sceneHint").textContent=state.sceneOn?(state.sceneGlare?'glare':'no glare'):'off';}
+bindToggle("swScene",el=>{state.sceneOn=!state.sceneOn;el.setAttribute('aria-pressed',state.sceneOn);refreshSceneUI();SC.kKey='';requestCompute();});
+bindToggle("swGlare",el=>{state.sceneGlare=!state.sceneGlare;el.setAttribute('aria-pressed',state.sceneGlare);refreshSceneUI();SC.kKey='';SC.sKey='';if(state.sceneOn)draw();});
+function refreshGpuUI(){}
+bindToggle("swGpu",el=>{state.gpu=!state.gpu;el.setAttribute('aria-pressed',state.gpu);requestCompute();});
 document.querySelectorAll('#srcSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#srcSeg button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');
-  const src=b.dataset.src; if(src==='night'){loadProcedural();if(state.sceneOn)requestScene();}else if(src==='fetch'){loadFromURL(POLY_URL);}else{document.getElementById("hdriFile").click();}}));
+  const src=b.dataset.src;if(src==='night')loadProcedural();else if(src==='fetch')loadFromURL(POLY_URL);else document.getElementById("hdriFile").click();}));
 document.getElementById("hdriFile").addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
-(function(){const f=document.getElementById("sceneFov");f.addEventListener('input',()=>{state.sceneFov=parseFloat(f.value);document.getElementById("n_sceneFov").textContent=state.sceneFov+'°';kernDirty=true;viewDirty=true;if(state.sceneOn)requestScene();});
- const y=document.getElementById("sceneYaw");y.addEventListener('input',()=>{state.sceneYaw=parseFloat(y.value);document.getElementById("n_sceneYaw").textContent=state.sceneYaw+'°';viewDirty=true;if(state.sceneOn)requestScene();});
- const pi=document.getElementById("scenePitch");pi.addEventListener('input',()=>{state.scenePitch=parseFloat(pi.value);document.getElementById("n_scenePitch").textContent=state.scenePitch+'°';viewDirty=true;if(state.sceneOn)requestScene();});
- const ex=document.getElementById("sceneExp");ex.addEventListener('input',()=>{state.sceneExp=parseFloat(ex.value);document.getElementById("n_sceneExp").textContent=state.sceneExp.toFixed(1)+' EV';if(state.sceneOn){if(state.gpu&&gpu.ready)gpuRender();else drawScene();}});})();
+(function(){const bind=(id,k)=>{const el=document.getElementById(id);el.addEventListener('input',()=>{state[k]=parseFloat(el.value);if(state.sceneOn)draw();});};
+  bind("sceneFov","sceneFov");bind("sceneYaw","sceneYaw");bind("scenePitch","scenePitch");bind("sceneExp","sceneExp");
+  /* drag the view to look around */
+  let d=null;psfCanvas.addEventListener('pointerdown',e=>{if(!state.sceneOn)return;d={x:e.clientX,y:e.clientY,yaw:state.sceneYaw,pit:state.scenePitch};psfCanvas.setPointerCapture(e.pointerId);});
+  psfCanvas.addEventListener('pointermove',e=>{if(!d)return;const k=sceneFovEff()/Math.max(innerWidth,innerHeight);
+    state.sceneYaw=((d.yaw-(e.clientX-d.x)*k+540)%360)-180;state.scenePitch=Math.max(-85,Math.min(85,d.pit+(e.clientY-d.y)*k));
+    document.getElementById("sceneYaw").value=state.sceneYaw;document.getElementById("scenePitch").value=state.scenePitch;refreshNums();draw();});
+  const up=()=>{d=null;};psfCanvas.addEventListener('pointerup',up);psfCanvas.addEventListener('pointercancel',up);})();
 
 let rz=0;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{sizeCanvases();draw();},120);});
 
@@ -1611,8 +1877,7 @@ let rz=0;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()
   togToTitle('swLid','lids');
   togToTitle('swSpec','spectral');
   togToTitle('swScene','scene');
-  const sceneBody=document.getElementById('sceneBody');
-  if(sceneBody)togToBody('swGpu','gpu fft',sceneBody);
+  togToBody('swGpu','gpu',bodyOf('display'));
 
   /* perf strip */
   const perf=makeCard('perf','perf',cardOf('presets'));
@@ -1639,16 +1904,16 @@ let rz=0;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()
 let refreshNums=()=>{};
 const PERF={hist:new Float32Array(100),n:0,fps:60,compute:0,fullMs:0,last:0};
 (function(){const orig=runCompute;
-  runCompute=function(){const wasDraft=draft&&effN()!==fullN();
-    const prevN=state.N;
+  runCompute=function(){const p0=draftPlan(),wasDraft=draft&&(p0.n!==fullN()||p0.ns!==state.specSamples);
+    const prevN=state.N,prevNs=plan.ns;
     fadeCapture();                    /* the frame currently on screen */
     const t0=(performance||Date).now();orig.apply(this,arguments);
     const dt=(performance||Date).now()-t0;PERF.compute=dt;
     if(!wasDraft)PERF.fullMs=dt;
     /* min(new, smoothed): a one-off slow pass (allocation, shader compile)
        decays, a genuinely faster measurement is believed at once */
-    {const k=costKey(state.N),p=COST.get(k);COST.set(k,p===undefined?dt:Math.min(dt,0.5*(p+dt)));}
-    if(prevN&&state.N>prevN&&FADE.cv&&!state.sceneOn){
+    {const k=costKey(state.N,plan.ns),p=COST.get(k);COST.set(k,p===undefined?dt:Math.min(dt,0.5*(p+dt)));}
+    if(prevN&&(state.N>prevN||(state.spectral&&plan.ns>prevNs))&&FADE.cv&&!state.sceneOn){
       FADE.on=true;FADE.t0=(performance||Date).now();}
   };})();
 (function(){
@@ -1698,7 +1963,6 @@ function paintPerf(){
     gridN:      v=>String(NSIZES[v|0]||'')+' px',
     win:        v=>v.toFixed(1)+' mm',
     lashThick:  v=>v.toFixed(3)+' mm',
-    lidClose:   v=>Math.round(v*100)+'%',
     sceneFov:   v=>v.toFixed(1)+'\u00b0',
     sceneYaw:   v=>v.toFixed(0)+'\u00b0',
     scenePitch: v=>v.toFixed(0)+'\u00b0',
@@ -1727,15 +1991,15 @@ function paintPerf(){
 /* ---- user presets: save current, export / import JSON, de-duplicated ------
    Held in memory and round-tripped through a JSON file rather than browser
    storage, so a set travels with you and nothing is written behind your back. */
-const SNAP_KEYS=['D','lambda','lashOn','lashPos','lashIncursion','lashSpacing','lashThick',
-  'lashAngle','lashAngleJit','lashSpaceJit','lidOn','lidUpper','lidLower',
+const SNAP_KEYS=['D','lambda','eye','blink','squint','lidOn','lashOn','lashUp','lashLo','lashFan','lashJit',
+  'lashDens','lashClump','lashCurl','lashDepth','lashThick',
   'spectral','specSamples','lca','lcaStrength','absExp','near','nearLog','exposure','gamma','zoom','tint'];
 const KEY_TOGGLE={lashOn:'swLash',lidOn:'swLid',spectral:'swSpec',lca:'swLca',absExp:'swAbs',near:'swNear',tint:'swTint'};
 const SLIDER_SRC={
   D:()=>tgtOf(state,'D'), lambda:()=>tgtOf(state,'lambda'), gamma:()=>tgtOf(state,'gamma'),
   exp:()=>Math.log2(Math.max(1e-9,tgtOf(state,'exposure'))), zoom:()=>tgtOf(state,'zoom'),
   specSamples:()=>state.specSamples, lcaS:()=>tgtOf(state,'lcaStrength'),
-  lashThick:()=>tgtOf(state,'lashThick'), lidClose:()=>tgtOf(state,'lidUpper'),
+  lashThick:()=>tgtOf(state,'lashThick'),
   gridN:()=>Math.max(0,NSIZES.indexOf(state.Nreq)), win:()=>L_WIN,
   sceneFov:()=>state.sceneFov, sceneYaw:()=>state.sceneYaw,
   scenePitch:()=>state.scenePitch, sceneExp:()=>state.sceneExp};
@@ -1750,11 +2014,12 @@ const tgtOf=(store,k)=>{const sp=springOf(store,k);return sp?sp.tgt:store[k];};
    on the resident GPU path. */
 const PARTS={
   optics:['coeff','D','lambda','spectral','specSamples','lca','lcaStrength','near','nearLog'],
-  eye:['lashOn','lashPos','lashIncursion','lashSpacing','lashThick','lashAngle','lashAngleJit','lashSpaceJit','lidOn','lidUpper','lidLower'],
+  eye:['eye','blink','squint','lidOn','lashOn','lashUp','lashLo','lashFan','lashJit','lashDens','lashClump','lashCurl','lashDepth','lashThick'],
   look:['exposure','gamma','zoom','absExp','tint']};
 const LIB_STORE='engiscope.library';
+SNAP_DEFAULTS=snapshot();   /* the page's own defaults, before anything is touched */
 let LIB=[], libCurrent='';
-function snapshot(){const o={coeff:{}};
+function snapshot(){const o={coeff:{},zref:DREF};
   ZMODES.forEach(m=>o.coeff[m.id]=+(+tgtOf(state.coeff,m.id)).toFixed(6));
   SNAP_KEYS.forEach(k=>{const v=tgtOf(state,k);o[k]=(typeof v==='number')?+v.toFixed(6):v;});
   return o;}
@@ -1769,13 +2034,20 @@ function syncSlidersFromState(){
   Object.keys(SLIDER_SRC).forEach(id=>{const el=document.getElementById(id);
     if(el){const v=SLIDER_SRC[id]();if(isFinite(v))el.value=String(v);}});
   refreshNums();}
-function applySnapshot(o,part){if(!o)return;
+/* Like parhelion, a preset is completed from the defaults before it is
+   applied, so a load lands in the same place whatever was on screen. Older
+   presets (no zref) carry coefficients over their own pupil. */
+var SNAP_DEFAULTS=null;
+function completeSnap(o){const d=SNAP_DEFAULTS||{},r=Object.assign({},d,o);
+  r.coeff=Object.assign({},d.coeff||{},(o.zref||!o.coeff)?(o.coeff||{}):rescaleCoeff(o.coeff,o.D||4,DREF));
+  r.zref=DREF;if(r.zoom<1)r.zoom=1;return r;}
+function applySnapshot(o,part){if(!o)return;o=completeSnap(o);
   const keys=part?PARTS[part]:null,want=k=>!keys||keys.includes(k);
   if(o.coeff&&want('coeff'))ZMODES.forEach(m=>springTarget(state.coeff,m.id,o.coeff[m.id]||0));
   SNAP_KEYS.forEach(k=>{if(!(k in o)||!want(k))return;
     if(KEY_TOGGLE[k])setToggle(KEY_TOGGLE[k],o[k]);
     else springTarget(state,k,o[k]);});
-  basisDirty=true;antDirty=true;syncZernikeUI();syncSlidersFromState();touchDraft();requestCompute();}
+  basisDirty=true;antDirty=true;refreshEyeUI();syncZernikeUI();syncSlidersFromState();touchDraft();requestCompute();}
 (function(){
   const wrap=document.getElementById("lib"),hint=document.getElementById("pHint"),
         expB=document.getElementById("pExp"),impB=document.getElementById("pImp"),file=document.getElementById("pFile");
@@ -1783,10 +2055,13 @@ function applySnapshot(o,part){if(!o)return;
   const say=t=>{if(hint){hint.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>hint.textContent='',2600);}};
   /* built-ins: the old aberration presets (all other modes zeroed) + scenes */
   const zero=()=>{const c={};ZMODES.forEach(m=>c[m.id]=0);return c;};
-  const BUILTIN=Object.keys(PRESETS).map(nm=>({id:'b:'+nm,name:nm,builtin:true,snap:{coeff:Object.assign(zero(),PRESETS[nm]),near:false}}));
+  const b=(id,name,snap)=>({id:'b:'+id,name,builtin:true,snap:completeSnap(Object.assign({zref:DREF},snap))});
+  const BUILTIN=Object.keys(PRESETS).map(nm=>b(nm,nm,{coeff:Object.assign(zero(),PRESETS[nm]),D:nm==='Typical eye'?6:4}));
   BUILTIN.push(
-    {id:'b:speck',name:'Speck on glasses',builtin:true,snap:{coeff:zero(),near:true,nearLog:1.176,D:4,lashOn:true,lidOn:false,zoom:3}},
-    {id:'b:squint',name:'Squint',builtin:true,snap:{coeff:Object.assign(zero(),{defocus:0.25}),near:false,D:4,lashOn:true,lidOn:true,lidUpper:0.6,lidLower:0.6}});
+    b('speck','Speck on glasses',{coeff:zero(),near:true,nearLog:1.176,D:4,lashOn:true,zoom:1.6}),
+    b('squint','Squint',{coeff:at4({defocus:0.25}),D:4,lashOn:true,lidOn:true,squint:0.78}),
+    b('blink','Half blink',{coeff:zero(),D:5,lashOn:true,lidOn:true,blink:0.45}),
+    b('myope','−2 D at night',{coeff:Object.assign(zero(),rxToCoeff(-2,0,180)),D:7,lashOn:true,lidOn:true}));
   try{const raw=JSON.parse(localStorage.getItem(LIB_STORE)||'[]');if(Array.isArray(raw))LIB=raw.filter(p=>p&&p.name&&p.snap);}catch(_){}
   const save=()=>{try{localStorage.setItem(LIB_STORE,JSON.stringify(LIB));}catch(_){/* private mode: session only */}};
   const all=()=>BUILTIN.concat(LIB);
@@ -1801,10 +2076,10 @@ function applySnapshot(o,part){if(!o)return;
      angle into the tile, then put every value back and recompute the view */
   const thumbs=new Map();   /* id -> {key, bitmap} */
   const TH=220;
-  function thumbKey(p){return canon(p.snap);}
+  function thumbKey(p){return canon(completeSnap(p.snap));}
   function renderThumb(p){
     const keepS=Object.assign({},state),keepC=Object.assign({},state.coeff),keepN=state.N,keepD=draft;
-    try{const o=p.snap;
+    try{const o=completeSnap(p.snap);
       if(o.coeff)ZMODES.forEach(m=>state.coeff[m.id]=o.coeff[m.id]||0);
       SNAP_KEYS.forEach(k=>{if(k in o)state[k]=o[k];});
       /* the preset's own look, else a plain one — not whatever the view has */
@@ -2021,10 +2296,10 @@ slider("camSoft","camSoft",v=>v.toFixed(3),{ant:true,spring:true});
 slider("camRes","camRes",v=>v.toFixed(0),{ant:true});
 
 /* ---- boot -------------------------------------------------------------- */
-['optics','aberration','view','lashes','lids','camera','spectral','display','scene','presets','perf','next'].forEach(nm=>{const el=document.querySelector('.card[data-card="'+nm+'"]');if(el)el.parentElement.appendChild(el);});
+['optics','rx','aberration','lids','lashes','view','camera','spectral','display','scene','presets','perf','next'].forEach(nm=>{const el=document.querySelector('.card[data-card="'+nm+'"]');if(el)el.parentElement.appendChild(el);});
 /* default grid 2048 when the GPU path is available, else the CPU-friendly 256 */
 if(!gsCtx()){state.Nreq=256;const gn=document.getElementById("gridN");gn.value=String(NSIZES.indexOf(256));gn.defaultValue=gn.value;document.getElementById("n_gridN").textContent=256;refreshNums();}
-applyAccent();refreshSpectralUI();refreshOccUI();sizeCanvases();setupGrid(256);setupScene();loadProcedural();refreshSceneUI();refreshGpuUI();runCompute();
+applyAccent();refreshSpectralUI();refreshOccUI();refreshRx();refreshEyeUI();sizeCanvases();setupGrid(256);loadProcedural();refreshSceneUI();runCompute();
 </script>
 </body>
 </html>
