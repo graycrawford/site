@@ -237,7 +237,7 @@
 
     <div class="card" data-card="lashes">
       <h2><span class="chev">▾</span><span class="ttl">lashes</span><span class="hint" id="lashHint"></span></h2>
-      <div class="body"><div id="lashBody" class="body dim"><div class="zgrid" id="lashpads"></div><div class="ctrl"><div class="row"><label>thickness</label></div><input type="range" id="lashThick" min="0.02" max="0.3" step="0.002" value="0.10" title="lash shaft diameter at the root"></div></div></div>
+      <div class="body"><div id="lashBody" class="body dim"><div class="zgrid" id="lashpads"></div><div class="ctrl"><div class="row"><label>thickness</label></div><input type="range" id="lashThick" min="0.02" max="0.3" step="0.002" value="0.07" title="lash shaft diameter at the root"></div></div></div>
     </div>
 
     <div class="card" data-card="lids">
@@ -362,7 +362,7 @@ const PRESETS={"Diffraction-limited":{},"Defocus":at4({defocus:0.60}),"Astigmati
 const state={ N:256,Nreq:2048,D:4.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camColor:true,camRes:512,lambda:550,coeff:{},rot:0,
   spectral:true,specSamples:14,lca:false,lcaStrength:1.0,
   eye:'R',blink:0,squint:0,lidOn:false,
-  lashOn:false,lashUp:1.8,lashLo:0.7,lashFan:24,lashJit:7,lashDens:1,lashClump:0.35,lashCurl:0.45,lashDepth:7,lashThick:0.10,
+  lashOn:false,lashUp:1.8,lashLo:0.7,lashFan:40,lashJit:9,lashDens:1,lashClump:0.35,lashCurl:0.45,lashDepth:6,lashThick:0.07,
   gamma:1,exposure:1,zoom:1,absExp:true,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
   sceneOn:false,sceneFov:12,sceneYaw:0,scenePitch:1.5,sceneExp:0,sceneGlare:true,gpu:true,
   near:false,nearLog:1.176 };   /* nearLog = log10(source distance, mm) — 15 mm ≈ a speck on glasses */
@@ -497,8 +497,13 @@ function nasal(){return state.eye==='L'?1:-1;}
    flatter. A blink is almost all upper lid: it travels the whole fissure while
    the lower lid rises ~1 mm and slides nasally, and the upper margin closes
    temporal-first (a "zipper" tilt that peaks mid-blink and is gone when shut).
-   A squint is mostly the lower lid rising. */
-const LID={MRD1:4.0,MRD2:5.2,uK:0.034,lK:0.02,peak:0.6,lowRise:0.9,lowSlide:1.4,zip:0.14};
+   A squint is mostly the lower lid rising.
+   Measured: MRD1 3.5-4.2 mm, MRD2 ~5.2 mm, fissure 8.7-11 mm; upper-lid travel
+   ~9 mm spontaneous; lower lid 3-5 mm nasally (Doane 1980); close ~0.1 s,
+   open ~0.2 s. The upper peak's offset varies by population (temporal in
+   Korean eyes), the zipper and the squint split are not measured anywhere
+   we found -- those three are estimates. */
+const LID={MRD1:3.8,MRD2:5.2,uK:0.034,lK:0.02,peak:0.4,lowRise:0.9,lowSlide:3.0,zip:0.14};
 function lidGeom(){const b=Math.max(0,Math.min(1,state.blink)),q=Math.max(0,Math.min(1,state.squint)),ns=nasal();
   const uS=LID.MRD1-q*(LID.MRD1-0.9),lY=-LID.MRD2+q*(LID.MRD2-1.15)+b*LID.lowRise;
   return {uY:uS-b*(uS-lY),uP:ns*LID.peak,uK:LID.uK/(1+1.5*b),uT:ns*LID.zip*4*b*(1-b),
@@ -514,7 +519,13 @@ function lidT(G,x,y,soft){return ss((lidUpY(G,x)-y)/soft+0.5)*ss((y-lidLoY(G,x))
    whose deepest point is the lash's projected incursion. They fan outward
    from the middle of the lid, are shortest nasally, and ride on the lid, so a
    blink carries them down. Every lash has fixed random traits, so changing a
-   parameter moves lashes rather than reshuffling them. */
+   parameter moves lashes rather than reshuffling them.
+   Measured: 90-160 upper lashes in rows, 75-80 lower; ~0.5 mm apart; shaft
+   ~61 µm (Caucasian) to ~72 µm (Asian), tapering only at the tip; lower
+   lashes run 137° nasally to 25° temporally from the canthal line, i.e. a
+   fan of ~±50°. Pigmented keratin (n≈1.55) passes <5% through one shaft, so
+   an opaque mask is right. Shafts sit ~3-10 mm in front of the entrance
+   pupil, where √(λd) ≈ 50 µm -- the same as their width, hence Fresnel. */
 const LASHPOOL=(function(){const rng=mulberry32(1337);
   const mk=(n,x0,x1,cl)=>{const a=[],cs=[];
     for(let c=x0;c<x1;c+=cl)cs.push(c+cl*(0.5+0.6*(rng()-0.5)));
