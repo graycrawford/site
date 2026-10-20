@@ -198,10 +198,10 @@
   <div id="xy-pad-knob" title="defocus / spherical"></div>
 
   <span class="slot" style="top:-24px;left:0"><input type="range" class="xy-pad-row-slider" id="D" min="1.5" max="8" step="0.01" value="4" title="pupil diameter"></span>
-  <span class="slot" style="top:-54px;left:0"><input type="range" class="xy-pad-row-slider" id="exp" min="-3" max="14" step="0.02" value="0" title="exposure (stops)"></span>
+  <span class="slot" style="top:-54px;left:0"><input type="range" class="xy-pad-row-slider" id="exp" min="-3" max="14" step="0.02" value="1.585" title="exposure (stops)"></span>
 
   <span class="slot v" style="bottom:0;left:124px"><input type="range" class="xy-pad-row-slider" id="zoom" min="1" max="16" step="0.01" value="1" title="zoom"></span>
-  <span class="slot v" style="bottom:0;left:154px"><input type="range" class="xy-pad-row-slider" id="gamma" min="1" max="5" step="0.01" value="1" title="tone lift"></span>
+  <span class="slot v" style="bottom:0;left:154px"><input type="range" class="xy-pad-row-slider" id="gamma" min="1" max="5" step="0.01" value="3" title="tone lift"></span>
   <span class="slot v" id="sampCtrl" style="bottom:0;left:184px"><input type="range" class="xy-pad-row-slider" id="specSamples" min="3" max="25" step="1" value="14" title="spectral samples"></span>
   <span class="slot v" id="lamCtrl" style="bottom:0;left:214px"><input type="range" class="xy-pad-row-slider" id="lambda" min="400" max="700" step="1" value="550" title="wavelength"></span>
 
@@ -209,8 +209,8 @@
     <div id="preset-toggle" title="presets" style="left:0;bottom:17.32px">
       <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
     </div>
-    <div class="tog" id="swLash"  role="button" aria-pressed="false" tabindex="0" title="eyelashes"     style="left:20px;bottom:0">la</div>
-    <div class="tog" id="swLid"   role="button" aria-pressed="false" tabindex="0" title="eyelids"       style="left:40px;bottom:0">li</div>
+    <div class="tog" id="swLash"  role="button" aria-pressed="true" tabindex="0" title="eyelashes"     style="left:20px;bottom:0">la</div>
+    <div class="tog" id="swLid"   role="button" aria-pressed="true" tabindex="0" title="eyelids"       style="left:40px;bottom:0">li</div>
     <div class="tog" id="swSpec"  role="button" aria-pressed="true"  tabindex="0" title="polychromatic" style="left:60px;bottom:0">sp</div>
     <div class="tog" id="swScene" role="button" aria-pressed="false" tabindex="0" title="scene glare"   style="left:80px;bottom:0">sc</div>
     <div class="tog" id="swGpu"   role="button" aria-pressed="true"  tabindex="0" title="gpu fft"       style="left:100px;bottom:0">gp</div>
@@ -249,7 +249,7 @@
       <h2><span class="chev">▾</span><span class="ttl">prescription</span><span class="hint" id="rxHint"></span></h2>
       <div class="body">
         <div class="rx"><label>sph<input id="rxS" type="number" step="0.25" title="sphere (D)"></label><label>cyl<input id="rxC" type="number" step="0.25" title="cylinder (D), either sign"></label><label>axis<input id="rxA" type="number" step="1" min="0" max="180" title="axis (°)"></label></div>
-        <div class="seg" id="eyeSeg"><button data-eye="R" aria-pressed="true" title="right eye">od</button><button data-eye="L" aria-pressed="false" title="left eye">os</button></div>
+        <div class="seg" id="eyeSeg" style="display:none"><button data-eye="R" aria-pressed="true" title="right eye">od</button><button data-eye="L" aria-pressed="false" title="left eye">os</button></div>
       </div>
     </div>
 
@@ -271,7 +271,7 @@
     <div class="card" data-card="display">
       <h2><span class="chev">▾</span><span class="ttl">grid</span><span class="hint" id="fillHint"></span></h2>
       <div class="body">
-        <div class="ctrl"><div class="row"><label>size</label><span class="num" id="n_gridN"></span></div><input type="range" id="gridN" min="0" max="11" step="1" value="9" title="grid size (5-smooth)"></div>
+        <div class="ctrl"><div class="row"><label>size</label><span class="num" id="n_gridN"></span></div><input type="range" id="gridN" min="0" max="11" step="1" value="8" title="grid size (5-smooth)"></div>
         <div class="ctrl"><div class="row"><label>window</label><span class="num" id="n_win"></span></div><input type="range" id="win" min="6" max="32" step="0.5" value="16" title="pupil-plane window (mm)"></div>
       </div>
     </div>
@@ -360,11 +360,11 @@ const PRESETS={"Diffraction-limited":{},"Defocus":at4({defocus:0.60}),"Astigmati
   "Trefoil":at4({trefX:0.50}),"Spherical":at4({sph:0.50}),"Keratoconus":at4({comaY:0.42,trefX:0.30,astig0:0.28,defocus:0.18}),
   "Typical eye":{sph:-0.12,astig0:0.08,comaY:0.05}};
 
-const state={ N:256,Nreq:2048,D:4.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camColor:true,camRes:512,lambda:550,coeff:{},rot:0,
+const state={ N:256,Nreq:1024,D:4.0,camThresh:0.5,camSoft:0.05,camInvert:false,camPupil:false,camColor:true,camRes:512,lambda:550,coeff:{},rot:0,
   spectral:true,specSamples:14,lca:false,lcaStrength:1.0,
-  eye:'R',blink:0,squint:0,lidOn:false,
-  lashOn:false,lashUp:1.8,lashLo:0.7,lashFan:40,lashJit:9,lashDens:1,lashClump:0.35,lashCurl:0.45,lashDepth:6,lashThick:0.07,
-  gamma:1,exposure:1,zoom:1,absExp:true,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
+  eye:'R',blink:0,squint:0,lidOn:true,
+  lashOn:true,lashUp:1.8,lashLo:0.7,lashFan:40,lashJit:9,lashDens:1,lashClump:0.35,lashCurl:0.45,lashDepth:6,lashThick:0.07,
+  gamma:3,exposure:3,zoom:1,absExp:true,airyRing:false,tint:false,showWf:false,showApt:true,occ:false,
   sceneOn:false,sceneAge:30,sceneFov:12,sceneYaw:0,scenePitch:1.5,sceneExp:0,sceneGlare:true,gpu:true,
   near:false,nearLog:1.176 };   /* nearLog = log10(source distance, mm) — 15 mm ≈ a speck on glasses */
 ZMODES.forEach(m=>state.coeff[m.id]=0);
@@ -2136,7 +2136,7 @@ function applySnapshot(o,part){if(!o)return;o=completeSnap(o);
   /* built-ins: the old aberration presets (all other modes zeroed) + scenes */
   const zero=()=>{const c={};ZMODES.forEach(m=>c[m.id]=0);return c;};
   const b=(id,name,snap)=>({id:'b:'+id,name,builtin:true,snap:completeSnap(Object.assign({zref:DREF},snap))});
-  const BUILTIN=Object.keys(PRESETS).map(nm=>b(nm,nm,{coeff:Object.assign(zero(),PRESETS[nm]),D:nm==='Typical eye'?6:4}));
+  const BUILTIN=Object.keys(PRESETS).map(nm=>b(nm,nm,{coeff:Object.assign(zero(),PRESETS[nm]),D:nm==='Typical eye'?6:4,lashOn:false,lidOn:false}));
   BUILTIN.push(
     b('speck','Speck on glasses',{coeff:zero(),near:true,nearLog:1.176,D:4,lashOn:true,lidOn:true,blink:0.3,zoom:1.6}),
     b('squint','Squint',{coeff:at4({defocus:0.25}),D:4,lashOn:true,lidOn:true,squint:0.78}),
@@ -2163,7 +2163,7 @@ function applySnapshot(o,part){if(!o)return;o=completeSnap(o);
       if(o.coeff)ZMODES.forEach(m=>state.coeff[m.id]=o.coeff[m.id]||0);
       SNAP_KEYS.forEach(k=>{if(k in o)state[k]=o[k];});
       /* the preset's own look, else a plain one — not whatever the view has */
-      state.zoom=o.zoom||1;state.exposure=o.exposure||1;state.gamma=o.gamma||1;state.absExp=false;   /* a tile shows shape */
+      state.zoom=o.zoom||1;state.exposure=1;state.gamma=o.gamma||1;state.absExp=false;   /* a tile shows shape, unclipped */
       /* far field: frame the classic 256-grid field (~30′) so the PSF reads;
          near source: the whole shadowgram */
       draft=false;const n=state.near?Math.min(fullN(),1024):512,frame=state.near?n:256;
