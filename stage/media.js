@@ -13,7 +13,7 @@ export const MEDIA = local ? '/media/' : REMOTE_MEDIA;
 // ctx: loud() → may play with sound; onFocus(cell | null) → a grid cell was focused;
 // width() → px the item is drawn at (for picking image sizes).
 export async function build(part, box, ctx = {}) {
-  const { loud = () => false, onFocus = () => {}, width = () => box.getBoundingClientRect().width } = ctx;
+  const { loud = () => false, onFocus = () => {}, bare = false, width = () => box.getBoundingClientRect().width } = ctx;
   const kind = part.slice(0, part.indexOf(':')), id = part.slice(part.indexOf(':') + 1);
   box.className = `part part-${kind}`;
   const base = `${MEDIA}${id}/`;
@@ -27,6 +27,9 @@ export async function build(part, box, ctx = {}) {
     // A web-size copy; the image links to the untouched original.
     const m = await (await fetch(`${base}manifest.json`)).json();
     if (m.alpha) box.classList.add('alpha'); // has transparency: shown plain, no backing or corner clip
+    // m.frames: a strip of a blend's every step; hovering it shows the step in m.hero above (tiles.js)
+    if (m.frames) { box.classList.add('strip'); box.strip = { frames: m.frames.map(f => base + f), cuts: m.cuts, home: m.home, hero: m.hero }; }
+    if (m.height > m.width * 1.5) box.classList.add('tall'); // phone-shaped: held to the window's height, not the column's width
     const a = Object.assign(document.createElement('a'), { href: base + m.original });
     a.append(Object.assign(document.createElement('img'), {
       alt: m.alt, width: m.width, height: m.height, decoding: 'async',
@@ -43,24 +46,49 @@ export async function build(part, box, ctx = {}) {
     // with sound. It resumes where it left off. With the index at the front of the file, the
     // browser fetches only a little ahead of the playhead, as byte ranges.
     const m = await (await fetch(`${base}manifest.json`)).json();
+    if (m.height > m.width * 1.5) box.classList.add('tall');
     const vid = Object.assign(document.createElement('video'), {
       width: m.width, height: m.height,
-      controls: true, playsInline: true, preload: 'none', loop: !!m.loop,
+      controls: !bare, playsInline: true, preload: 'none', loop: true, // every video in a column loops; bare (data-bare): no player controls
+      crossOrigin: 'anonymous', // its sound can be routed through the page's audio (the media host allows it)
       poster: m.still || m.thumb ? base + (m.still ?? m.thumb) : '', // shows until it plays (nothing loads before)
     });
     box.append(vid);
+    // m.under: smaller videos cut from this one (Exposure's histograms), a row beneath it, one under each
+    // part of the frame, held to its time as it plays, pauses, seeks and loops.
+    if (m.under) {
+      const row = Object.assign(document.createElement('div'), { className: 'under' });
+      const subs = m.under.map(f => Object.assign(document.createElement('video'), { muted: true, playsInline: true, preload: 'auto', loop: true, src: MEDIA + f }));
+      row.append(...subs);
+      box.append(row);
+      const follow = (slack = 1 / 30) => { for (const v of subs) if (Math.abs(v.currentTime - vid.currentTime) > slack) v.currentTime = vid.currentTime; };
+      vid.addEventListener('play', () => { follow(0); subs.forEach(v => v.play().catch(() => {})); });
+      vid.addEventListener('pause', () => { subs.forEach(v => v.pause()); follow(0); });
+      vid.addEventListener('seeked', () => follow(0));
+      vid.addEventListener('ratechange', () => subs.forEach(v => { v.playbackRate = vid.playbackRate; }));
+      const tick = () => { if (!vid.paused) follow(); vid.requestVideoFrameCallback?.(tick); };
+      vid.requestVideoFrameCallback?.(tick);
+    }
+    // m.quiet: silent until the visitor clicks this video or turns its sound up themselves.
+    let asked = !m.quiet;
+    const heard = () => asked;
+    if (m.quiet) {
+      vid.addEventListener('click', () => { asked = true; vid.muted = false; });
+      vid.addEventListener('volumechange', () => { if (!vid.muted) asked = true; });
+    }
     // An HDR (HLG, 10-bit HEVC) copy where the browser plays it; m.web is the SDR H.264 for the rest.
     const src = m.hdr && vid.canPlayType('video/mp4; codecs="hvc1.2.4.L123.B0"') ? m.hdr : m.web;
     return {
+      el: vid,
       // Sound only when it's the one in front (loud) and the visitor has clicked or tapped (browsers
       // allow sound only after that); otherwise muted.
       play() {
-        if (!vid.src) vid.src = base + src;
-        vid.muted = !(loud() && navigator.userActivation?.hasBeenActive);
+        if (!vid.src) vid.src = base + src + (m.start ? `#t=${m.start}` : ''); // m.start: where a long recording begins (its still and loop are from there)
+        vid.muted = !(loud() && navigator.userActivation?.hasBeenActive && heard());
         vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
       },
       pause() { vid.pause(); },
-      sound(on) { vid.muted = !(on && navigator.userActivation?.hasBeenActive); },
+      sound(on) { vid.muted = !(on && navigator.userActivation?.hasBeenActive && heard()); },
     };
   }
   if (kind === 'year') {
@@ -213,7 +241,7 @@ export async function stillFor(part, want = 0) {
   // A short muted loop (m.preview) can play over it in the grid.
   if (kind === 'video') {
     const el = m.still && want > 240 ? img(base + m.still, m.width, m.height) : m.thumb ? img(base + m.thumb, m.width, m.height) : null;
-    if (el && m.preview && want > 240) el.dataset.preview = base + m.preview;
+    if (el && m.preview && want > 120) el.dataset.preview = base + m.preview; // mini tiles too, on a 2× screen
     return el;
   }
   const g = Array.isArray(m)

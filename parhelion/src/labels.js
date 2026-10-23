@@ -24,7 +24,6 @@ export function makeLabels(config) {
     'xy-pad-tilt-slider': () => ['tilt', num(config.crystalTilt, 2)],
     'xy-pad-y-slider': () => ['sun', num(config.sunElevation, 1)],
     'xy-pad-zoom-slider': () => ['zoom', num(config.zoom, 2)],
-    'xy-pad-fade-slider': () => ['fade', num(config.fadeFactor, 3)],
     'xy-pad-exposure-slider': () => ['exposure', num(Math.log10(config.exposure), 2)],
     'xy-pad-sky-slider': () => ['sky', config.skyLevel > 0 ? num(config.skyLevel, 2) : 'off'],
   };

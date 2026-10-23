@@ -3978,7 +3978,7 @@
         "dispersion": 0.970679012345679,
         "dotMode": 0,
         "dotSize": 0.5,
-        "dotsGain": 1,
+        "dotsGain": 0,
         "elevation": -1.5,
         "exposure": 10,
         "falloff": 14.62962962962963,

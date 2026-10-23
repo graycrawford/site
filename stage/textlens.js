@@ -6,7 +6,11 @@
 // is handed whole to the tile's own canvas (transferToImageBitmap): no copying back, no resizing, so
 // the page never waits on the GPU. A tile re-renders when its size changes; a tile with a loop
 // redraws on each of the loop's frames while it's on screen.
-const S = { pad: -12, feather: 58, inset: 0, blur: 5, smooth: 1, amount: 0.2 }; // plus-darker; shapes are full capsules
+import { off, cap, dpr } from './perf.js';
+
+const S = { pad: -18, feather: 58, inset: 0, blur: 5, smooth: 1, amount: 0.2, ws: 1 }; // plus-darker; shapes are full capsules
+// ?lens=pad:-12,feather:40 tries other values (any of S's) without an edit.
+for (const kv of (new URLSearchParams(location.search).get('lens') ?? '').split(',')) { const [k, v] = kv.split(':'); if (k in S && v !== '' && !isNaN(v)) S[k] = +v; }
 
 const VERT = `#version 300 es
 in vec2 p; out vec2 uv;
@@ -27,7 +31,12 @@ vec3 at(vec2 u, float lod) {
     vec2 d = exp2(lod) / res * 0.6;
     c += textureLod(tex, u + vec2(d.x, d.y * 0.4), lod).rgb + textureLod(tex, u + vec2(-d.x * 0.4, d.y), lod).rgb
        + textureLod(tex, u + vec2(-d.x, -d.y * 0.4), lod).rgb + textureLod(tex, u + vec2(d.x * 0.4, -d.y), lod).rgb;
-    c /= 5.0;
+    if (smoothTaps > 1.5) { // four more, farther out and between: the half-blurred levels crawl less as a loop moves
+      vec2 e = d * 1.6;
+      c += textureLod(tex, u + vec2(e.x, e.y) * 0.7, lod).rgb + textureLod(tex, u + vec2(-e.x, e.y) * 0.7, lod).rgb
+         + textureLod(tex, u + vec2(-e.x, -e.y) * 0.7, lod).rgb + textureLod(tex, u + vec2(e.x, -e.y) * 0.7, lod).rgb;
+      c /= 9.0;
+    } else c /= 5.0;
   }
   return c;
 }
@@ -135,29 +144,37 @@ function fromPicture(r, geo, canvas) {
   return lensed(r, geo);
 }
 // A loop's current frame, cropped to cover the tile as the still is.
-function fromVideo(r, geo, video) {
+function fromVideo(r, geo, video, cut) {
   const { gl } = r, vw = video.videoWidth, vh = video.videoHeight;
   gl.bindTexture(gl.TEXTURE_2D, r.src);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-  const ia = vw / vh, ba = r.w / r.h, sw = ia > ba ? vh * ba : vw, sh = ia > ba ? vh : vw / ba;
+  const [x, y, sw, sh] = window_(vw, vh, r.w / r.h, cut);
   gl.bindFramebuffer(gl.FRAMEBUFFER, r.fbo);
   gl.viewport(0, 0, r.w, r.h);
   gl.useProgram(r.cover);
-  gl.uniform4f(r.crop, (vw - sw) / 2 / vw, (vh - sh) / 2 / vh, sw / vw, sh / vh);
+  gl.uniform4f(r.crop, x / vw, y / vh, sw / vw, sh / vh);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   return lensed(r, geo);
 }
 
-// Draw `src` (natural size sw × sh) cropped to cover the rect dx, dy, dw, dh.
-function cover(g, src, sw0, sh0, dx, dy, dw, dh) {
-  const ia = sw0 / sh0, ba = dw / dh;
-  const sw = ia > ba ? sh0 * ba : sw0, sh = ia > ba ? sh0 : sw0 / ba;
-  g.drawImage(src, (sw0 - sw) / 2, (sh0 - sh) / 2, sw, sh, dx, dy, dw, dh);
+// The part of a picture (natural size sw0 × sh0) that covers a box of proportions ba, as x, y, w, h:
+// centered, or with the tile's crop (data-crop="zoom x y": that much closer, centered on that point,
+// as fractions of the picture), kept inside the picture.
+function window_(sw0, sh0, ba, crop) {
+  const ia = sw0 / sh0, z = crop?.z ?? 1;
+  const sw = (ia > ba ? sh0 * ba : sw0) / z, sh = (ia > ba ? sh0 : sw0 / ba) / z;
+  const x = Math.min(sw0 - sw, Math.max(0, (crop?.x ?? 0.5) * sw0 - sw / 2)), y = Math.min(sh0 - sh, Math.max(0, (crop?.y ?? 0.5) * sh0 - sh / 2));
+  return [x, y, sw, sh];
+}
+export const parseCrop = v => { const [z, x, y] = (v ?? '').split(' ').map(Number); return z ? { z, x: x ?? 0.5, y: y ?? 0.5 } : null; };
+// Draw `src` (natural size sw0 × sh0) cropped to cover the rect dx, dy, dw, dh.
+function cover(g, src, sw0, sh0, dx, dy, dw, dh, crop) {
+  g.drawImage(src, ...window_(sw0, sh0, dw / dh, crop), dx, dy, dw, dh);
 }
 
 // Paint the still as the tile shows it (an image cropped to cover, or every cell of a mosaic at
 // its own place) into a canvas at device pixels; that canvas is the texture.
-async function flatten(still, w, h, dpr) {
+async function flatten(still, w, h, dpr, crop) {
   const imgs = still.tagName === 'IMG' ? [still] : [...still.querySelectorAll('img')];
   imgs.forEach(i => { i.loading = 'eager'; }); // a lazy image out of view never decodes, and would hold up the queue
   await Promise.all(imgs.map(i => i.decode().catch(() => {})));
@@ -167,7 +184,7 @@ async function flatten(still, w, h, dpr) {
   const box = still.getBoundingClientRect();
   for (const img of imgs) {
     const r = img.getBoundingClientRect();
-    cover(g, img, img.naturalWidth, img.naturalHeight, (r.left - box.left) * dpr, (r.top - box.top) * dpr, r.width * dpr, r.height * dpr);
+    cover(g, img, img.naturalWidth, img.naturalHeight, (r.left - box.left) * dpr, (r.top - box.top) * dpr, r.width * dpr, r.height * dpr, imgs.length === 1 ? crop : null);
   }
   return c;
 }
@@ -196,25 +213,44 @@ function textLines(el) {
 }
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const phone = matchMedia('(pointer: coarse)').matches;
+
+// Which loops play: every one on screen, or (?cap=N) the N nearest the middle of the window.
+const visible = new Set();
+let pending = 0;
+function schedule() {
+  if (pending) return;
+  pending = requestAnimationFrame(() => {
+    pending = 0;
+    if (visible.size <= cap) { for (const l of visible) l.set(true); return; }
+    const mid = innerHeight / 2;
+    [...visible].map(l => { const r = l.tile.getBoundingClientRect(); return [Math.abs(r.top + r.height / 2 - mid), l]; })
+      .sort((a, b) => a[0] - b[0]).forEach(([, l], i) => l.set(i < cap));
+  });
+}
+if (cap < Infinity) addEventListener('scroll', schedule, { capture: true, passive: true });
 
 // Give `tile` a lensed copy of `still` behind `words`; render once it comes near the screen, and
 // again when it resizes. With a `video` (a short muted loop of the same picture), the tile plays it
 // while on screen and the lens is redrawn from each of its frames, reusing the measured lines; off
-// screen it pauses and the still stays.
+// screen it pauses and the still stays. (?no=lens: the picture and loop show as they are.)
 export function lensTile(tile, still, words, video = null) {
+  const lens = !off.has('lens'), crop = parseCrop(tile.dataset.crop);
   const out = document.createElement('canvas');
   out.className = 'lens';
-  tile.querySelector('.still')?.append(out);
+  if (lens) tile.querySelector('.still')?.append(out);
   let view = null; // the canvas's bitmap renderer
   let geo = null; // the last measure: device size, line boxes, units
+  let base = null, playing = false; // the picture as last flattened; whether its loop is drawing frames
   const measure = () => {
     // Sizes are in page px, so they scale with the page's zoom (below 1100px it zooms to fit).
     const r = tile.getBoundingClientRect();
-    const zoom = tile.currentCSSZoom ?? 1, dpr = devicePixelRatio;
-    const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+    // The lens scales with the tile's words (smaller tiles, smaller type: --ws), so it never outgrows them.
+    const zoom = (tile.currentCSSZoom ?? 1) * (S.ws ? parseFloat(getComputedStyle(tile).getPropertyValue('--ws')) || 1 : 1), d = dpr();
+    const w = Math.round(r.width * d), h = Math.round(r.height * d);
     const lines = textLines(words), flat = new Float32Array(32);
-    lines.forEach((q, i) => flat.set([(q.left - r.left) * dpr, (q.top - r.top) * dpr, (q.right - r.left) * dpr, (q.bottom - r.top) * dpr], i * 4));
-    return { w, h, dpr, unit: dpr * zoom, flat, n: lines.length };
+    lines.forEach((q, i) => flat.set([(q.left - r.left) * d, (q.top - r.top) * d, (q.right - r.left) * d, (q.bottom - r.top) * d], i * 4));
+    return { w, h, dpr: d, unit: d * zoom, flat, n: lines.length };
   };
   const show = frame => {
     if (out.width !== frame.width || out.height !== frame.height) { out.width = frame.width; out.height = frame.height; }
@@ -224,11 +260,24 @@ export function lensTile(tile, still, words, video = null) {
     const m = measure();
     if (m.w < 2 || m.h < 2) return;
     if (!renderer(m.w, m.h)) { out.remove(); return; }
-    const base = await flatten(still, m.w, m.h, m.dpr);
+    const b = await flatten(still, m.w, m.h, m.dpr, crop);
     const r = renderer(m.w, m.h); // again: another size may have taken its place meanwhile
     if (!r) return;
-    geo = m;
-    show(fromPicture(r, m, base));
+    geo = m; base = b;
+    show(fromPicture(r, m, b));
+  };
+  // While the tile changes size (the grid sliding), the lens is redrawn every frame at the size it was
+  // rendered at, from where the words are now (their type and inset change on their own curve, not
+  // with the tile), so it follows them instead of stretching; once the size rests it's rendered anew.
+  const refit = () => {
+    if (!geo || !base) return;
+    const m = measure();
+    if (m.w < 2 || m.h < 2) return;
+    const qx = geo.w / m.w, qy = geo.h / m.h;
+    geo = { ...geo, flat: m.flat.map((v, i) => v * (i % 2 ? qy : qx)), n: m.n, unit: m.unit * (qx + qy) / 2 };
+    if (playing) return; // the loop's next frame draws with it
+    const r = renderer(geo.w, geo.h, false);
+    if (r) show(fromPicture(r, geo, base));
   };
   // Render near the screen, and again when the tile's on-screen size changes (its own resizes, the
   // page zooming), once the size has come to rest: a grid easing narrower passes through many sizes,
@@ -236,6 +285,7 @@ export function lensTile(tile, still, words, video = null) {
   let size = '', near = false, settle = 0;
   const check = () => {
     if (!near) return;
+    refit();
     clearTimeout(settle);
     settle = setTimeout(() => {
       const r = tile.getBoundingClientRect(), s = `${Math.round(r.width)}x${Math.round(r.height)}`;
@@ -245,26 +295,40 @@ export function lensTile(tile, still, words, video = null) {
       drain();
     }, size ? 150 : 0);
   };
-  new IntersectionObserver(([e]) => { near = e.isIntersecting; check(); }, { rootMargin: '600px' }).observe(tile);
-  new ResizeObserver(check).observe(tile);
-  addEventListener('resize', check);
+  if (lens) {
+    new IntersectionObserver(([e]) => { near = e.isIntersecting; check(); }, { rootMargin: '600px' }).observe(tile);
+    new ResizeObserver(check).observe(tile);
+    addEventListener('resize', check);
+  }
   if (!video || reduceMotion.matches) return;
 
-  // The loop: plays while the tile is on screen, every one of its frames lensed as it comes.
-  let playing = false, chain = 0; // each play starts one chain of frame callbacks; older ones stop
-  const frames = me => {
+  // The loop: plays while the tile is on screen (and the schedule lets it), every one of its frames
+  // lensed as it comes.
+  let chain = 0, lastMedia = -1; // each play starts one chain of frame callbacks; older ones stop
+  const frames = (me, meta) => {
     if (!playing || me !== chain) return;
-    if (geo && video.videoWidth) {
+    // On a phone a 60 fps loop plays at half speed: every frame, slower, rather than every other one.
+    if (phone && meta && video.playbackRate === 1) {
+      const d = meta.mediaTime - lastMedia;
+      if (lastMedia >= 0 && d > 0 && d < 1 / 45) video.playbackRate = 0.5;
+      lastMedia = meta.mediaTime;
+    }
+    if (lens && geo && video.videoWidth) {
       const r = renderer(geo.w, geo.h, false);
-      if (r) show(fromVideo(r, geo, video));
+      if (r) show(fromVideo(r, geo, video, crop));
       else if (!queue.has(render)) { size = ''; queue.add(render); drain(); } // its renderer went: render the still again, which makes one
     }
-    const next = () => frames(me);
+    if (!lens) return; // nothing to draw: the video shows itself
+    const next = (now, m) => frames(me, m);
     video.requestVideoFrameCallback ? video.requestVideoFrameCallback(next) : requestAnimationFrame(next);
   };
+  const loop = { tile, set(on) {
+    if (on === playing) return;
+    playing = on;
+    if (on) { const me = ++chain; video.play().then(() => frames(me)).catch(() => {}); } else video.pause();
+  } };
   new IntersectionObserver(([e]) => {
-    if (e.isIntersecting === playing) return;
-    playing = e.isIntersecting;
-    if (playing) { const me = ++chain; video.play().then(() => frames(me)).catch(() => {}); } else video.pause();
+    if (e.isIntersecting) visible.add(loop); else { visible.delete(loop); loop.set(false); }
+    schedule();
   }).observe(tile);
 }

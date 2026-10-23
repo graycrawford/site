@@ -241,6 +241,8 @@
     .place, .details { display: block; }
     .place { margin-top: 2px; }
     .details { font-size: .84rem; margin-top: 4px; opacity: .72; }
+    .details-3, .details-10, .foot, .entry > .card, .entry > .app { display: none; } /* feet: tiles at the foot of a column in the grid version */
+    .entry[data-hidden] { display: none; } /* kept, not shown */ /* the longer versions show in the reel's columns */
     .range { font-variant-numeric: tabular-nums; opacity: .55; }
     .year-media { margin-top: 44px; }
     .year + .year-media { margin-top: 0; }
@@ -283,9 +285,10 @@
           <button data-tag="product">product</button>
           <button data-tag="video">realtime video</button>
           <button data-tag="audio">realtime audio</button>
-          <button data-tag="latent">latent space</button>
           <button data-tag="spatial">spatial</button>
           <button data-tag="talks">talks</button>
+          <button data-tag="sim">simulation</button>
+          <button data-tag="latent">latent space</button>
         </nav>
         <nav class="filters views" aria-label="Order">
           <button data-view="year" class="on">by year</button>
@@ -303,59 +306,61 @@
       <h2 class="year" id="y2026">2026</h2>
       <section class="group" aria-labelledby="y2026-product">
         <h3 class="group-title" id="y2026-product">Design + eng · Luma AI</h3>
-        <article class="entry" data-tags="product" data-stage="image:luma-agents-2026">
+        <article class="entry" data-bare data-subtitle="generative canvas" data-tags="product" data-still="image:agents-canvas-2026" data-lead data-stage="video:agents-overview-2026 image:agents-canvas-2026">
           <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Luma Agents</a><time class="date" datetime="2026-03-05">Mar</time></div>
-          <span class="details">Core design and engineering for agentic canvas.</span>
-        </article>
-        <article class="entry" data-stage="grid:latent-blend-grid image:latent-blend-canvas image:latent-blend image:latent-blend-trio-2025 image:latent-blend-chains-2025 image:latent-blend-interp-1-2025 image:latent-blend-interp-2-2025 image:latent-blend-fashion-2025+image:latent-blend-cars-2025 image:latent-blend-sweep-2026 image:latent-blend-batch-2026 image:latent-blend-face-2026+image:latent-blend-storyboard-2026 image:latent-blend-seed-2026+image:latent-blend-light-2026 image:latent-blend-bars-2025+image:latent-blend-ios-2025 image:latent-blend-trees-2025 image:latent-blend-board-5-2025" data-tags="product latent">
+          <span class="details">Luma Agents is a creative workspace canvas for making with generative models. I designed and built much of how the canvas behaves, surfacing new model capabilities and making the canvas a durable space for iteration. Principally drove design and engineering across tentpole releases (<a href="/?open=ray3-2-modify-2026">Ray3.2 Modify</a>, <a href="/?open=luma-scenes-2026">Luma Scenes</a>) and core interactions like the agent composer, timeline, frame container dynamics, selection, crop, reframe… and created Luma’s in-house embedding interpolation image model <a href="/?open=latent-blend-2026">Latent Blend</a>.</span>
+        <span class="foot" data-place="lead"><a href="/?open=timeline-2026">Timeline</a></span><span class="sub" data-stage="image:agents-toolbar-2026"><span class="entry-title">Toolbars</span></span><span class="sub" data-stage="video:agents-composer-2026"><span class="entry-title">Mini Composer</span></span><span class="sub" data-stage="video:agents-crop-updates-2026"><span class="entry-title">Crop</span></span><span class="sub" data-stage="video:agents-reframe-2026"><span class="entry-title">Reframe</span></span><span class="sub" data-stage="image:luma-agents-2026"><span class="entry-title">Frames</span></span><span class="sub" data-stage="image:agents-strokes-2026"><span class="entry-title">Selection</span></span></article>
+        <article class="entry" data-subtitle="embedding interpolation|image model" data-stage="grid:latent-blend-grid image:latent-blend-sweep-2026 image:latent-blend image:latent-blend-interp-1-2025 image:latent-blend-trio-2025 image:latent-blend-face-2026 image:latent-blend-strip-2026 image:latent-blend-storyboard-2026 image:latent-blend-seed-2026 image:latent-blend-light-2026 image:latent-blend-fashion-2025 image:latent-blend-cars-2025 image:latent-blend-canvas image:latent-blend-chains-2025 image:latent-blend-batch-2026 image:latent-blend-interp-2-2025 image:latent-blend-bars-2025+image:latent-blend-ios-2025 image:latent-blend-trees-2025 image:latent-blend-board-5-2025" data-tags="product latent">
           <div class="entry-head"><a class="entry-title" href="https://app.lumalabs.ai/">Latent Blend</a><time class="date" datetime="2026-03-05">Mar</time></div>
-          <span class="details">Created and led research + development of Luma’s custom in-house image model for blending between images through embedding space. Shipped March 2026.</span>
-        </article>
-        <article class="entry" data-tags="product" data-stage="video:ray32-modify-2026">
+          <span class="details">Created and led research + development of Luma’s custom in-house image model for blending between images through embedding space.<br><br>Latent Blend is made for finding regions of image space that are ineffable by spherically interpolating between image embeddings, allowing nuanced, expressive, and novel forms to be discovered.<br><br>Resolved an ontology of exploration vs control, via injecting noise around an embedding, sweeps between locations or across parameters, and fine control by locking seeds and vector embeddings. Terrifically interesting, weird, and fun.</span><span class="details-3">Reference images are encoded into style embeddings, mixed by weight, and generated from the mix, so you can explore the space between images you already like instead of describing it in words. On the canvas a blend can be a weighted mix, a sweep from one image to another, or a seeded grid, with its weights and seed shown on every result so it can be read and repeated. The idea goes back to <a href="/?open=xoromancy-2019">Xoromancy</a>, navigating a GAN’s latent space with your hands.</span><span class="details-10">Most image models are steered with text, which makes it hard to explore the space between images you already like. Latent Blend encodes a set of reference images with DINOv3, a self-supervised vision model, mixes their embeddings by weight, and generates new images from the mix. The research ran for a year before it shipped: interpolation views, how style weights behave, what a seed should mean when you move between images. The interpolation itself is treated as design material, spherical rather than straight-line, with guidance rescaled and the math checked against a high-precision reference. On the canvas, a blend can be a weighted mix of several images, a sweep from one to another, or a grid of seeds. Every result carries the weights and seed that made it, so outputs can be read, compared and made again. The canvas agent can run blends too, with the same instructions a person follows. Making it something an artist can steer, repeat and compare was most of the work. It continues a thread from <a href="/?open=xoromancy-2019">Xoromancy</a> in 2019, where hand movements steered a GAN through its latent space. Shipped March 2026.</span>
+        <span class="foot" data-label="From"><a href="/?open=luma-agents-2026">Luma Agents</a></span></article>
+        <article class="entry" data-subtitle="production video transfer model" data-tags="product" data-stage="video:ray32-modify-2026">
           <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-ray-3-2">Ray3.2 Modify</a><time class="date" datetime="2026-06-09">Jun</time></div>
-          <span class="details">Core design and engineering of production-class multi-keyframe video-to-video feature.</span>
-        </article>
-        <article class="entry" data-tags="product" data-stage="image:luma-timeline-2026">
-          <div class="entry-head"><a class="entry-title" href="https://www.toolkitly.com/latest-updates/luma-ai">Timeline</a><time class="date" datetime="2026-06-20">Jun</time></div>
-        </article>
-        <article class="entry" data-tags="product" data-stage="image:luma-scenes-2026">
+          <span class="details">Principal design and fullstack engineering of the production-class Ray3.2 suite. Worked closely with research bringing model capabilities zero-to-one into the product, tuning conditioning modalities, to developing the overall user surface into hardened reliability. Established a new multikeyframe system with super-satisfying isotonically-optimal keyframe slot displacement from their compact timeline positions. Further established a standardized canvas-native panel system that durably locates the workspace and its results.</span><span class="details-3">Modify groups its controls by what they hold or change in the source video, the subject and the environment, so a clip can be restyled without losing what mattered in it. Create pins up to 64 image keyframes to exact output frames and previews them step by step on the canvas timeline. Reframe changes a video’s aspect ratio in an editor that snaps, and seeds carry through end to end so a result can be made again.</span><span class="details-10">It started as the Modify panel: controls grouped per conditioning signal, with nested advanced sections that other tools now use too. Guide frames followed, then Create, which adds text-to-video and up to 64 image keyframes pinned to the frames they should land on, previewed as steps and holds on the <a href="/?open=timeline-2026">timeline</a>. Reframe, for changing a video’s aspect ratio by outpainting, got its own on-canvas editor with snapping. Auto controls choose settings for you when you’d rather not. Seeds now carry from the controls through to the model and back, so any result can be reproduced or varied on purpose. After launch came a long stretch of making it dependable: frame numbers rounded the same way in the interface, the Python workers and the Go services, and fixes wherever the three disagreed. The same controls reach API partners, with seed control and recovery and PNG frame exports added for them. <a href="/?open=luma-scenes-2026">Luma Scenes</a> builds its shots on Ray3.2 creates, and <a href="/?open=modify-video-2025">Modify Video</a> was the first version of this idea in 2025.</span>
+        <span class="foot" data-label="From"><a href="/?open=luma-agents-2026">Luma Agents</a></span></article>
+        <article class="entry" data-bare data-subtitle="autoregressive storyboarding harness" data-tags="product" data-stage="video:scenes-storyboard-2026 image:scenes-create-2026 image:luma-scenes-2026" data-size="normal">
           <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-luma-scenes">Luma Scenes</a><time class="date" datetime="2026-08-12">Aug</time></div>
-          <span class="details">Core design and engineering of autoregressive multi-keyframe storyboarding feature.</span>
+          <span class="details">Led design and engineering for Scenes, Luma’s custom video generation harness that autoregressively creates temporally-consistent Uni-1 keyframes. Given references and text instruction, an agent writes a multiscale, revisable scene where the resultant keyframes are editable on a dynamic, adjustable timeline.<br><br>Worked closely with Research to surface novel model capabilities, refine the harness + planner, and drive the productization 0-to-1.</span><span class="details-3">Clip editing lives in the track: trim, move, split, copy and paste, multi-select, and per-clip fit or fill, with resolution and frame-rate changes previewing live. Playback was rebuilt so the player, the video, hover and selection stop fighting each other, with frame-accurate timecode throughout. Scrubbing, stepping and looping work from the keyboard.</span><span class="details-10">Judging generated video means watching it closely, many times, so playback has to be exact. Early in the year came design and interaction passes on a windowed timeline editor: a frame-rate picker that keeps clip durations, more aspect ratios, frame-based timecode and tick labels, and a ghost playhead that previews where you’ll land. In June the canvas timeline got a full redesign with its other contributors. Clip editing moved into the track strip: trim, move, split, copy and paste, multi-select and per-clip fit or fill. Resolution and frame-rate changes preview live before they commit. In August, playback was rebuilt around one controller that owns its state, so the player library, the video element, hover and selection stopped fighting over it, with frame-rate-aware timecode and tests covering it. Scrubbing no longer freezes, and stepping and looping work from the keyboard. It’s the surface <a href="/?open=luma-scenes-2026">Luma Scenes</a> retimes on and <a href="/?open=ray3-2-modify-2026">Ray3.2 Modify</a> previews keyframes on.</span><span class="details-3">Ask for a change to any shot in plain language, drop in your own image for a keyframe (with a one-click restore), or drag keyframes and cuts to retime them. Renders run as independent jobs from the last approved version, so several can run at once and be compared. The canvas agent can take the same steps you can. With Eli and Lei.</span><span class="details-10">It began as a keyframes-only storyboard panel on the canvas, with a live strip of keyframes and a <a href="/?open=ray3-2-modify-2026">Ray3.2</a> create for each shot. Every keyframe is stamped with where it came from, so an image can always be traced back to its moment in the video. Review is built in: a keyframe or a segment can be revised by describing the change. Then the board became editable by hand. Any keyframe can be replaced by dropping in an image, with a one-click restore and an aspect-ratio pin so a mismatched image can’t reshape the video. Keyframes and cuts retime by dragging along the <a href="/?open=timeline-2026">timeline</a>. Around launch the product was renamed without breaking anything already saved. Video renders now run as independent jobs from the last approved revision, so several can overlap, and duplicates stay on that stable state while you keep editing. The canvas agent operates the same storyboard, so a story can be drafted by conversation and finished by hand. With Eli and Lei.</span>
+        <span class="foot" data-label="From"><a href="/?open=luma-agents-2026">Luma Agents</a></span></article>
+        <article class="entry" data-bare data-tags="product" data-stage="video:timeline-canvas-2026 image:luma-timeline-2026">
+          <div class="entry-head"><a class="entry-title" href="https://www.toolkitly.com/latest-updates/luma-ai">Timeline</a><time class="date" datetime="2026-06-20">Jun</time></div>
+          <span class="details">Designed, built, and polished the on-canvas timeline to include nuanced + robust clip dynamics and articulate zoom.</span><span class="foot" data-label="From"><a href="/?open=luma-agents-2026">Luma Agents</a></span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2026-projects">
         <h3 class="group-title" id="y2026-projects">Projects</h3>
-        <article class="entry" data-subtitle="realtime gen instrument" data-stage="video:neophon-2026" data-tags="audio latent" data-size="big">
-          <div class="entry-head"><a class="entry-title" href="https://x.com/graycrawford/status/2011518368013303933">Neophon</a><time class="date" datetime="2026-01-14">Jan</time></div>
-          <span class="details">Custom instrument for expressive generative music performance using Lyria Realtime, focused on responsive high-dimensional interpolation.</span>
-        </article>
+        <article class="entry" data-links="foot" data-subtitle="realtime gen instrument" data-stage="video:neophon-2026" data-still="neophon-graph-2026" data-tags="audio latent" data-size="big">
+          <div class="entry-head"><a class="entry-title" href="https://testflight.apple.com/join/BXPSWQsV">Neophon</a><time class="date" datetime="2026-01-14">Jan</time></div>
+          <span class="details">Custom instrument for expressive generative music performance using Lyria Realtime, focused on responsive high-dimensional interpolation. Performed at <a href="/?open=neophon-code-with-claude-2026">Code with Claude</a>, and demoed at <a href="/?open=generating-new-sounds-with-neophon-2026">Demos &amp; Chill</a> and <a href="/?open=neophon-spc-demo-night-2026">SPC Demo Night</a>.</span><span class="foot" data-label="Shown at"><a href="/?open=neophon-spc-demo-night-2026">SPC Demo Night</a><a href="/?open=generating-new-sounds-with-neophon-2026">Generating New Sounds with Neophon</a><a href="/?open=neophon-code-with-claude-2026">Code with Claude</a></span>
+        <a class="app" href="https://testflight.apple.com/join/BXPSWQsV" data-icon="neophon-icon-2026">TestFlight</a></article>
       </section>
       <section class="group" aria-labelledby="y2026-side">
         <h3 class="group-title" id="y2026-side">Side projects</h3>
-        <article class="entry" data-subtitle="camera" data-stage="video:exposure-2026" data-tags="product" data-size="big">
-          <div class="entry-head"><span class="entry-title">Exposure</span><time class="date" datetime="2026-09">Sep</time></div>
-          <span class="details">RAW camera app with a single exposure control.</span>
-        </article>
-        <article class="entry" data-stage="image:tangent-branching-2024 video:tangent-night-2024 image:tangent-thread-dryhurst-2024 tweet:1559349301104365570 tweet:1811921270151483578" data-tags="spatial"><div class="entry-head"><span class="entry-title">Tangent</span><span class="date range">2022–26</span></div></article>
-        <article class="entry" data-stage="page:/orbital/" data-still="orbital-2026" data-size="big">
+        <article class="entry" data-bare data-subtitle="RAW camera" data-sheet-subtitle="" data-stage="video:exposure-2026" data-tags="product" data-size="big">
+          <div class="entry-head"><a class="entry-title" href="https://testflight.apple.com/join/CjZW3ycc">Exposure</a><time class="date" datetime="2026-09">Sep</time></div>
+          <span class="details">The RAW camera I always wanted. Hyper direct controls, and a sweet lensing shader for the focus loupe, so nothing is occluded. Developed a true color histogram using pixel sorting.</span>
+        <a class="app" href="https://testflight.apple.com/join/CjZW3ycc" data-icon="exposure-icon-2026">TestFlight</a></article>
+        <article class="entry" data-bare data-subtitle="branching tree UI" data-stage="image:tangent-branching-2024 video:coral-phone-2023 video:tangent-night-2024 image:tangent-thread-dryhurst-2024 tweet:1559349301104365570 tweet:1811921270151483578" data-tags="spatial"><div class="entry-head"><span class="entry-title">Tangent</span><span class="date range">2022–26</span></div></article>
+        <article class="entry" data-tags="sim" data-stage="page:/orbital/" data-still="orbital-2026" data-crop="1.08 .496 .529" data-subtitle="atomic raytracer" data-size="big">
           <div class="entry-head"><a class="entry-title" href="/orbital/">Orbital</a><time class="date" datetime="2026-09-15">Sep</time></div>
           <span class="details">Hydrogen eigenstates, superpositions, volumetric light and probability-current tracers, in WebGPU.</span>
         </article>
-        <article class="entry" data-stage="page:/engiscope/">
+        <article class="entry" data-tags="sim" data-stage="page:/physarum/" data-still="physarum-2026" data-size="mini"><div class="entry-head"><a class="entry-title" href="/physarum/">Physarum</a><time class="date" datetime="2026-10-03">Oct</time></div></article>
+        <article class="entry" data-tags="sim" data-subtitle="squinting optics sim" data-stage="page:/engiscope/" data-still="engiscope-2026" data-crop="1.15">
           <div class="entry-head"><a class="entry-title" href="/engiscope/">Engiscope</a><time class="date" datetime="2026-07-25">Jul</time></div>
           <span class="details">Bench for the eye's point spread function: how a point of light looks through the eye's optics.</span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2026-live">
         <h3 class="group-title" id="y2026-live">Live</h3>
-        <article class="entry" data-stage="image:cirrus-flyer-2026 image:cirrus-duo-2026 image:cirrus-solo-2026" data-tags="audio">
+        <article class="entry" data-subtitle="live AV set" data-stage="image:cirrus-flyer-2026 image:cirrus-duo-2026 image:cirrus-solo-2026" data-tags="audio">
           <div class="entry-head"><a class="entry-title" href="https://ra.co/events/2355085">Optia · Cirrus</a><time class="date" datetime="2026-01-31">Jan</time></div>
           <span class="place">TIAT, SF</span>
         </article>
-        <article class="entry" data-tags="audio latent">
+        <article class="entry" data-links="foot" data-subtitle="live set" data-tags="audio latent">
           <div class="entry-head"><a class="entry-title" href="https://claude.com/code-with-claude">Neophon · Code with Claude</a><time class="date" datetime="2026-05-06">May</time></div>
           <span class="place">Anthropic developer conference</span>
-          <span class="details">Two 3hr improvised performances of realtime audio generation instrument.</span>
+          <span class="details">Two 3hr improvised performances of <a href="/?open=neophon-2026">Neophon</a>, my realtime audio generation instrument, alongside <a href="https://kyt.software/#p/sleepwalker-realtime-code-with-claude">Kyt Janae</a> running live visuals.</span><span class="foot" data-label="Related"><a href="/?open=neophon-2026">Neophon</a></span>
         </article>
         <article class="entry" data-stage="video:arca-c2c-rig-2026 grid:arca-c2c video:arca-c2c-stage-2026" data-subtitle="C2C Festival, NY" data-tags="video">
           <div class="entry-head"><a class="entry-title" href="https://clubtoclub.it/event/c2c-festival-nyc-2026/">Arca</a><time class="date" datetime="2026-05-08">May</time></div>
@@ -367,22 +372,24 @@
           <span class="place">Parameter, Gray Area, SF</span>
           <span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
         </article>
-        <article class="entry" data-tags="audio" data-size="mini">
+        <article class="entry" data-tags="audio" data-size="mini" data-hidden>
           <div class="entry-head"><a class="entry-title" href="https://www.instagram.com/fwbfest.info/">FWB Fest</a><time class="date" datetime="2026-07-31">Jul</time></div>
           <span class="place">Idyllwild Arts, CA</span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2026-talks">
         <h3 class="group-title" id="y2026-talks">Talks</h3>
-        <article class="entry" data-stage="video:demos-neophon-2026" data-tags="audio talks latent">
+        <article class="entry" data-subtitle="talk" data-stage="video:demos-neophon-2026" data-tags="audio talks latent">
           <div class="entry-head"><a class="entry-title" href="https://demos.club/">Generating New Sounds with Neophon</a><time class="date" datetime="2026-01-15">Jan</time></div>
           <span class="place">Demos &amp; Chill, SF</span>
+          <span class="foot" data-label="Related"><a href="/?open=neophon-2026">Neophon</a></span>
         </article>
-        <article class="entry" data-page="/work/neophon/spc-demo-night/" data-stage="video:spc-neophon-2026 tweet:2024235626162434373" data-tags="audio talks latent">
+        <article class="entry" data-links="foot" data-page="/work/neophon/spc-demo-night/" data-crop="1.365 .373 .4995" data-subtitle="talk" data-stage="video:spc-neophon-2026 tweet:2024235626162434373" data-tags="audio talks latent">
           <div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/2024235626162434373">Neophon · SPC Demo Night</a><time class="date" datetime="2026-02-12">Feb</time></div>
           <span class="place">South Park Commons Demo Night, SF</span>
+          <span class="details">Live demo of <a href="/?open=neophon-2026">Neophon</a>.</span><span class="foot" data-label="Related"><a href="/?open=neophon-2026">Neophon</a></span>
         </article>
-        <article class="entry" data-stage="image:ai-on-the-lot-2026 video:ai-on-the-lot-stage-2026" data-tags="talks product">
+        <article class="entry" data-stage="image:ai-on-the-lot-2026 video:ai-on-the-lot-stage-2026" data-tags="talks product" data-size="mini" data-crop="1 .5 0">
           <div class="entry-head"><a class="entry-title" href="https://app.aionthelot.com/agenda">What's the User Interface for Creative Work?</a><time class="date" datetime="2026-05-27">May</time></div>
           <span class="place">AI on the Lot, Culver City</span>
           <span class="details">Panel with Soleio Cuervo.</span>
@@ -397,26 +404,26 @@
       <h2 class="year" id="y2025">2025</h2>
       <section class="group" aria-labelledby="y2025-product">
         <h3 class="group-title" id="y2025-product">Product design · Luma AI</h3>
-        <article class="entry" data-tags="product"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan</time></div><span class="details">Model eval + finetuning data.</span></article>
-        <article class="entry" data-stage="video:modify-strength-2025 tweet:1930318575694426202" data-tags="product">
-          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-modify-video">Modify Video</a><time class="date" datetime="2025-06-02">Jun</time></div>
+        <article class="entry" data-bare data-tags="product" data-stage="video:ray2-2025" data-size="normal"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/introducing-ray2">Ray2</a><time class="date" datetime="2025-01-15">Jan</time></div><span class="details">Model eval + finetuning data.</span></article>
+        <article class="entry" data-subtitle="video transfer model" data-bare data-stage="video:modify-strength-2025 tweet:1930318575694426202" data-tags="product">
+          <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/introducing-modify-video">Ray2 Modify Video</a><time class="date" datetime="2025-06-02">Jun</time></div>
           <span class="details">Core design of video-to-video feature.</span>
         </article>
-        <article class="entry" data-stage="video:ray3-draft-2025" data-tags="product"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/ray3">Ray3</a><time class="date" datetime="2025-09-18">Sep</time></div></article>
+        <article class="entry" data-stage-parked="video:ray3-draft-2025" data-tags="product"><div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/news/ray3">Ray3</a><time class="date" datetime="2025-09-18">Sep</time></div></article>
       </section>
       <section class="group" aria-labelledby="y2025-side">
         <h3 class="group-title" id="y2025-side">Side projects</h3>
-        <article class="entry" data-stage="page:/parhelion/src/" data-still="parhelion-2025" data-tab="parhelion-2025" data-size="big">
+        <article class="entry" data-tags="sim" data-stage="page:/parhelion/src/" data-still="parhelion-2025" data-tab="parhelion-2025" data-size="big">
           <div class="entry-head"><a class="entry-title" href="/parhelion/src/">Parhelion</a><time class="date" datetime="2025-11-22">Nov</time></div>
           <span class="details">Ice-crystal halos, sun dogs and the sky around them, spectrally ray traced in WebGPU.</span>
         </article>
       </section>
       <section class="group" aria-labelledby="y2025-live">
         <h3 class="group-title" id="y2025-live">Live</h3>
-        <article class="entry" data-stage="video:arca-palomosa-2025 video:arca-palomosa-crowd-2025" data-subtitle="Palomosa, Montréal" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2245890">Arca</a><time class="date" datetime="2025-09-06">Sep</time></div><span class="place">Palomosa Festival, Montréal</span></article>
+        <article class="entry" data-stage="video:arca-palomosa-2025 video:arca-palomosa-crowd-2025 video:arca-palomosa-screen-2025" data-subtitle="Palomosa, Montréal" data-tags="video"><div class="entry-head"><a class="entry-title" href="https://ra.co/events/2245890">Arca</a><time class="date" datetime="2025-09-06">Sep</time></div><span class="place">Palomosa Festival, Montréal</span></article>
         <article class="entry" data-subtitle="Portola, San Francisco" data-tags="video" data-size="mini"><div class="entry-head"><a class="entry-title" href="https://www.flaunt.com/post/portola-festival-2025">Arca</a><time class="date" datetime="2025-09-21">Sep</time></div><span class="place">Portola Festival, SF</span></article>
         <article class="entry" data-stage="video:arca-nolineup-2025 instagram:DQQhlPsAPJS" data-subtitle="No LineUp, São Paulo" data-tags="video" data-size="mini"><div class="entry-head"><a class="entry-title" href="https://www.instagram.com/reel/DQQhlPsAPJS/">Arca</a><time class="date" datetime="2025-10-25">Oct</time></div><span class="place">Heineken No LineUp Festival, São Paulo</span></article>
-        <article class="entry" data-tags="video">
+        <article class="entry" data-tags="video" data-stage="video:hesaitix-2-2025 video:hesaitix-3-2025 video:hesaitix-1-2025" data-size="normal">
           <div class="entry-head"><a class="entry-title" href="https://grayarea.org/event/recombinant-festival-2025-network-editions/">Hesaitix</a><time class="date" datetime="2025-12-05">Dec</time></div>
           <span class="place">Recombinant Festival, Gray Area, SF</span><span class="details">Realtime improvised streamDiffusion visuals alongside Subset.</span>
         </article>
@@ -444,7 +451,7 @@
       <h2 class="year" id="y2024">2024</h2>
       <section class="group" aria-labelledby="y2024-product">
         <h3 class="group-title" id="y2024-product">Product design · Luma AI</h3>
-        <article class="entry" data-stage="video:dm-minimap-2025+video:dm-minimap-scrub-2025" data-tags="product">
+        <article class="entry" data-bare data-stage="image:dm-interface-2024 video:dm-minimap-2025" data-tags="product" data-size="big">
           <div class="entry-head"><a class="entry-title" href="https://lumalabs.ai/changelog/welcome-to-the-all-new-dream-machine">Dream Machine</a><time class="date" datetime="2024-11-20">Nov</time></div>
         </article>
       </section>
@@ -462,7 +469,7 @@
           <span class="place">SeedAI Hack the Future, SXSW, Austin</span>
           <span class="details">Panel with Ruby Justice Thelot, alongside a live streamDiffusion installation.</span>
         </article>
-        <article class="entry" data-page="/work/new-behaviors/" data-stage="video:spc-new-behaviors-2024 tweet:1841647480238395513" data-tags="talks latent"><div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/1841647480238395513">New Behaviors</a><time class="date" datetime="2024-10-01">Oct</time></div><span class="place">South Park Commons Demo Night, SF</span></article>
+        <article class="entry" data-page="/work/new-behaviors/" data-subtitle="talk" data-stage="video:spc-new-behaviors-2024 tweet:1841647480238395513" data-tags="talks latent"><div class="entry-head"><a class="entry-title" href="https://x.com/gopalkraman/status/1841647480238395513">New Behaviors</a><time class="date" datetime="2024-10-01">Oct</time></div><span class="place">South Park Commons Demo Night, SF</span></article>
       </section>
       <section class="year-media" aria-label="Selected posts">
         <div class="tweet-cluster">
@@ -489,7 +496,7 @@
       <section class="group" aria-labelledby="y2023-talks">
         <h3 class="group-title" id="y2023-talks">Talks</h3>
         <article class="entry" data-tags="talks"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces</a><time class="date" datetime="2023-02-10">Feb</time></div><span class="place">Demos &amp; Chill, SF</span></article>
-        <article class="entry" data-stage="video:coral-phone-2023 video:coral-hand-2023+video:coral-flick-2024 video:cascade-screen-1-2024+video:cascade-screen-2-2024 image:coral-branching-2023 tweet:1729248497143259409 tweet:1734737530606825599 tweet:1828485425041940743" data-tags="talks latent"><div class="entry-head"><a class="entry-title" href="https://luma.com/jokxud96">Growing Branches through Latent Space</a><time class="date" datetime="2023-03-25">Mar</time></div><span class="place">Show &amp; Tell: AI &amp; Design, SF</span></article>
+        <article class="entry" data-stage="video:coral-hand-2023+video:coral-flick-2024 video:cascade-screen-1-2024+video:cascade-screen-2-2024 image:coral-branching-2023 image:branches-tree-1-2023 image:branches-tree-2-2023 image:branches-tree-3-2023 tweet:1729248497143259409 tweet:1734737530606825599 tweet:1828485425041940743" data-tags="talks latent"><div class="entry-head"><a class="entry-title" href="https://luma.com/jokxud96">Growing Branches through Latent Space</a><time class="date" datetime="2023-03-25">Mar</time></div><span class="place">Show &amp; Tell: AI &amp; Design, SF</span></article>
         <article class="entry" data-tags="talks spatial"><div class="entry-head"><a class="entry-title" href="https://demos.club/">Superwide Interfaces 2</a><time class="date" datetime="2023-10-02">Oct</time></div><span class="place">Demos &amp; Chill, SF</span></article>
         <article class="entry" data-stage="tweet:1624731336702566402" data-tags="talks spatial"><div class="entry-head"><a class="entry-title" href="https://www.tiat.place/">Wide Views</a><span class="date">TIAT #2</span></div><span class="place">SF</span></article>
       </section>
@@ -552,7 +559,7 @@
       </section>
       <section class="group" aria-labelledby="y2019-education">
         <h3 class="group-title" id="y2019-education">Education</h3>
-        <article class="entry" data-stage="video:thesis-2019" data-subtitle="MDes in Design for Interactions" data-tags="latent"><div class="entry-head"><span class="entry-title">Carnegie Mellon University School of Design</span><span class="date range">2017–19</span></div><span class="details">Masters thesis · <a href="/thesis.html"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em></a></span></article>
+        <article class="entry" data-stage="video:thesis-2019" data-subtitle="MDes in Design for Interactions" data-tags="latent"><div class="entry-head"><span class="entry-title">Carnegie Mellon University School of Design</span><span class="date range">2017–19</span></div><span class="details" data-card>Masters thesis · <a href="/thesis.html"><em>Developing Embodied Familiarity with Hyperphysical Phenomena</em></a></span><a class="card" href="/thesis.html" data-still="video:thesis-2019"><b>Masters thesis</b><i>Developing Embodied Familiarity with Hyperphysical Phenomena</i></a></article>
       </section>
       <section class="year-media" aria-label="Selected posts">
         <div class="tweet-cluster">
@@ -579,7 +586,7 @@
       <h2 class="year" id="earlier">Earlier</h2>
       <section class="group" aria-labelledby="earlier-education">
         <h3 class="group-title" id="earlier-education">Education</h3>
-        <article class="entry" data-stage="image:st-johns-thesis-2015 image:st-johns-darwin-2015 image:st-johns-notebook-2015" data-page="/work/st-johns/"><div class="entry-head"><span class="entry-title">St. John’s College</span><span class="date range">2011–15</span></div><span class="details">Senior thesis · <a href="/work/st-johns/"><em>Graphical Representation of Motion and Time in the Works of Newton, Galileo, and Einstein</em></a></span></article>
+        <article class="entry" data-stage="image:st-johns-notebook-2015 image:st-johns-thesis-2015 image:st-johns-darwin-2015" data-page="/work/st-johns/" data-size="big"><div class="entry-head"><span class="entry-title">St. John’s College</span><span class="date range">2011–15</span></div><span class="details" data-card>Senior thesis · <a href="/work/st-johns/"><em>Graphical Representation of Motion and Time in the Works of Newton, Galileo, and Einstein</em></a></span><a class="card" href="/work/st-johns/" data-still="image:st-johns-thesis-2015"><b>Senior thesis</b><i>Graphical Representation of Motion and Time in the Works of Newton, Galileo, and Einstein</i></a></article>
         <article class="entry" data-subtitle="MA in Design for Interactions"><div class="entry-head"><span class="entry-title">Carnegie Mellon University School of Design</span><span class="date range">2016–17</span></div></article>
       </section>
     </section>

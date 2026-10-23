@@ -3,7 +3,7 @@
 // curvature ramps up instead of jumping. `smoothing` 0 is a plain rounded rect; 0.6 is iOS-like.
 const rad = deg => (deg * Math.PI) / 180;
 
-export function squirclePath(w, h, radius, smoothing = 0.6) {
+export function squirclePath(w, h, radius, smoothing = 0.6, x = 0, y = 0) { // x, y: where its top left sits
   // The corner takes (1 + smoothing) × radius of each edge; shrink to fit small boxes.
   const r = Math.min(radius, Math.min(w, h) / 2 / (1 + smoothing));
   const p = (1 + smoothing) * r;
@@ -20,13 +20,13 @@ export function squirclePath(w, h, radius, smoothing = 0.6) {
   const [A, B, C, D, S] = [a, a + b, a + b + c, d, arc].map(f);
   const R = f(r), cc = f(c), bc = f(b + c);
   return [
-    `M${f(p)} 0`, `L${f(w - p)} 0`,
+    `M${f(x + p)} ${f(y)}`, `L${f(x + w - p)} ${f(y)}`,
     `c${A} 0 ${B} 0 ${C} ${D}`, `a${R} ${R} 0 0 1 ${S} ${S}`, `c${D} ${cc} ${D} ${bc} ${D} ${C}`,
-    `L${f(w)} ${f(h - p)}`,
+    `L${f(x + w)} ${f(y + h - p)}`,
     `c0 ${A} 0 ${B} ${-D} ${C}`, `a${R} ${R} 0 0 1 ${-S} ${S}`, `c${-cc} ${D} ${-bc} ${D} ${-C} ${D}`,
-    `L${f(p)} ${f(h)}`,
+    `L${f(x + p)} ${f(y + h)}`,
     `c${-A} 0 ${-B} 0 ${-C} ${-D}`, `a${R} ${R} 0 0 1 ${-S} ${-S}`, `c${-D} ${-cc} ${-D} ${-bc} ${-D} ${-C}`,
-    `L0 ${f(p)}`,
+    `L${f(x)} ${f(y + p)}`,
     `c0 ${-A} 0 ${-B} ${D} ${-C}`, `a${R} ${R} 0 0 1 ${S} ${-S}`, `c${cc} ${-D} ${bc} ${-D} ${C} ${-D}`,
     'Z',
   ].join('');

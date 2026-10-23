@@ -13,7 +13,11 @@ head = s[:s.index('<body>')]
 head = re.sub(r'\s*<meta name="viewport"[^>]*>', '', head, count=1)  # scale like the vertical page
 ident = s[s.index('    <header class="identity">'):s.index('    </header>') + len('    </header>')]
 ident = re.sub(r'\s*<div class="stage-media".*?</div>', '', ident, flags=re.S)
-ident = re.sub(r'<nav class="filters views".*?</nav>', '<nav class="filters views" aria-label="Order">\n          <button data-view="year" class="on">by year</button>\n          <button data-view="cluster">clustered</button>\n        </nav>', ident, flags=re.S)
+ident = ident.replace('<nav class="filters"', '<i class="bar-break"></i>\n        <nav class="filters"', 1)  # where the top bar's second row starts
+ident = re.sub(r'\s*<nav class="nav-works".*?</nav>', '', ident, flags=re.S)  # the live pages are tiles here
+ident = ident.replace('<button data-tag="spatial">', '<i class="row-break"></i>\n          <button data-tag="spatial">', 1)  # the tags always in two rows
+ident = ident.replace('engineer * researcher', 'engineer *<br>researcher', 1)  # the intro wraps where the grid would
+ident = re.sub(r'<nav class="filters views".*?</nav>', '<nav class="filters views" aria-label="Order">\n          <button data-view="cluster" class="on">clustered</button>\n          <button data-view="year">by year</button>\n        </nav>', ident, flags=re.S)
 
 css = '''
   <style>
@@ -46,7 +50,7 @@ css = '''
     .cv.reel-mode.reading .identity { display: none; }
     .cv.reel-mode.reading .pane.home > .scroll { grid-template-columns: minmax(0, 1fr); }
     .cv.reel-mode.reading .tile-col { padding: 22px 8px 160px 12px; }
-    .cv.reel-mode.reading .tile .words { font-size: .74rem; padding: 7px 8px; } /* small tiles: less inset, smaller type */
+    .cv.reel-mode.reading .tile .words { font-size: calc(.74rem * var(--ws, 1)); padding: 7px 8px; } /* beside the reel: smaller type, the same inset at every size */
     .reel { flex: 1 1 0; height: 100%; min-width: 0; position: relative; touch-action: pan-y; } /* unclipped, so shadows fall softly onto the grid; the page clips at the window */
     .cv.reel-mode:not(.reading) .reel { display: none; }
     /* The reel starts just right of the grid, so the packed columns' tabs settle right beside the tiles. It blends onto the grid
@@ -55,8 +59,28 @@ css = '''
     /* ?debug "sharp text": the soft blur off wherever it's on (filtering still dims what doesn't match) */
     html.sharp-text :is(a, .stage-caption, .filters button, .name, .year, .lastname, .intro, .group-title, .entry, .tyear h2, .tyear h3) { filter: none; mix-blend-mode: normal; }
     /* ?debug "dark grid while reading" */
-    html.dark-grid .cv.reel-mode.reading .tile-col { background: #000; }
-    html.dark-grid .cv.reel-mode.reading .tile-col :is(h2, h3) { color: #eee; }
+    html.dark-grid :is(.cv.reel-mode.reading:not(.flow), .cv.flow.deep), html.dark-grid :is(.cv.reel-mode.reading:not(.flow), .cv.flow.deep) .tile-col { background: #000; } /* the grid and the strip of tabs beside it, up to the cards */
+    html.dark-grid :is(.cv.reel-mode.reading:not(.flow), .cv.flow.deep) .tile-col :is(h2, h3) { color: #eee; }
+    /* Flow (tiles.js): everything that changes between home and reading follows --u, 0 at home to 1 reading. */
+    @property --u { syntax: '<number>'; inherits: true; initial-value: 0; }
+    @property --ws { syntax: '<number>'; inherits: true; initial-value: 1; } /* a number, so the lens can read it mid-slide */
+    .cv.reel-mode.flow.reading .pane.home { transition: none; width: calc((80 - 50 * var(--u)) * 1vw); } /* 80vw home, 30vw from the second entry on */
+    .cv.reel-mode.flow.reading .tile-col { padding: calc(28px - 6px * var(--u)) calc(28px - 20px * var(--u)) 160px calc(24px - 12px * var(--u)); }
+    .cv.reel-mode.flow.reading .tile .words { font-size: calc((.84rem - .1rem * var(--u)) * var(--ws)); padding: calc(12px - 5px * var(--u)) calc(12px - 4px * var(--u)); }
+    .cv.flow.reading .tile[data-size=normal] { --ws: calc(1 - .5 * var(--u)); }
+    .cv.flow.reading .tile[data-size=mini] { --ws: calc(.5 - .25 * var(--u)); }
+    .cv.reel-mode.flow.reading:not(.deep) .reel-close { display: none; } /* nothing to close at home */
+    /* The top bar across the whole window, over the grid and the reel alike, at every point of the slide. */
+    /* In flow the name and filters head the grid and scroll away with it, laid out at the grid's reading width from the
+       start: they never reflow as the split slides, so the grid starts where it will end up. */
+    html.top-bar .cv.reel-mode.flow .identity { box-sizing: border-box; display: block; padding: 22px 12px 0 calc(24px - 12px * var(--u)); position: static; width: calc(30vw + 12px - 12px * var(--u)); } /* the words keep one width as the inset changes */
+    html.top-bar .cv.flow .identity-card::before { display: none; }
+    .cv.flow .tile-col { touch-action: pan-y; } /* sideways drags slide the split */
+    .identity .filters button .n { display: none; } /* no counts */
+    html.top-bar .identity .nav { flex-basis: 100%; } /* tw ig on a line of its own, between the bio and the tags */
+    .identity .filters .row-break { flex-basis: 100%; height: 0; }
+    .row-break { display: none; } html.top-bar .identity .filters .row-break { display: block; }
+    .identity .filters button.let-go:not(.on) { filter: blur(.65px); opacity: .55; }
     /* Full-size columns placed by tiles.js (translateX); each lies over the one before it. */
     .reel .col { background: var(--background) center / cover no-repeat; height: 100%; left: 0; overflow: visible; position: absolute; top: 0; will-change: transform; }
     /* Its shadow on the column before it: an image strip (cheap to move; no blur), faded by tiles.js. */
@@ -112,16 +136,91 @@ css = '''
     .tgrid { display: grid; gap: 8px; grid-auto-flow: dense; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-auto-rows: calc((100cqw - 56px) / 8); }
     .tyear { container-type: inline-size; } /* rows as tall as columns are wide, so spans make squares (and 1×2 portraits) */
     .tyear h3 { filter: blur(.7px); font-size: .69rem; font-weight: 750; letter-spacing: .09em; margin: 18px 0 10px; opacity: .55; text-transform: uppercase; }
-    /* a click on a heading folds its grid away (tiles.js), and its entries leave the reel */
-    .tyear > :is(h2, h3) { cursor: pointer; user-select: none; }
-    .tyear.folded > .tgrid { display: none; }
-    .tyear.folded > h2 { opacity: .25; }
-    .tyear.folded + .tyear { margin-top: 18px; }
+    .tyear > :is(h2, h3) { cursor: pointer; user-select: none; } /* a click goes to its first entry (tiles.js) */
     .tyear .tyear { margin-top: 0; }
     /* Tiles are .entry for the filters, but not the text styling entries get (opacity, blur, blend). */
     /* The sky behind the page (sky.js): a small canvas stretched to the window; ?debug tunes it. */
     canvas.sky { height: 100vh; inset: 0; pointer-events: none; position: fixed; width: 100vw; z-index: -1; }
     html.has-sky body { background: transparent; }
+    /* ?debug "columns as abutted blocks": no padding; the words and each picture or player run the
+       column's full width as round rects of one form and fill, touching edge to edge */
+    html.reel-blocks .reel .col:not(.page-card) .body { padding: 0 0 120px; }
+    html.reel-blocks .reel .col:not(.page-card) { background: none; } /* only the blocks are filled; around their corners, whatever lies beneath */
+    html.reel-blocks .entry-view :is(.words-block, .sub-head, .drafts) { background: #f3f3f5; border-radius: 10px; margin: 0; padding: 14px 16px 16px; }
+    html.reel-blocks .entry-view .text { margin: 8px 0 0; }
+    html.reel-blocks .entry-view .text:empty { display: none; }
+    html.reel-blocks .entry-view .media > * + *, html.reel-blocks .entry-view .media.posts > * { margin: 0; }
+    html.reel-blocks .entry-view .media .row { gap: 0; }
+    html.reel-blocks .entry-view .media.posts { column-gap: 0; }
+    html.reel-blocks .entry-view :is(.part-image img, .part-video video) { border-radius: 10px; max-height: none; width: 100%; }
+    html.reel-blocks .entry-view .grid { border-radius: 10px; }
+    /* an entry told at three lengths: "more" steps through them */
+    .entry-view .text .more { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; opacity: .55; padding: 0 2px; text-decoration: underline; text-underline-offset: 2px; }
+    .entry-view .text .more:hover { opacity: 1; }
+    .entry-view .text a[href*="open="] { text-decoration: underline; text-decoration-color: rgba(0, 0, 0, .3); text-underline-offset: 2px; }
+    /* The tiles of entries an entry's words link to, under the words, at a 1x tile's size. */
+    .entry-view .mentions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; } /* under the words' own 18px, the same again before the media */
+    .entry-view .mention { display: block; filter: none; mix-blend-mode: normal; text-decoration: none; }
+    .entry-view .mention .tile { --ws: 1; aspect-ratio: 1; width: 150px; }
+    .entry-view .app-link { align-items: center; color: inherit; display: flex; flex-direction: column; gap: 6px; text-decoration: none; width: 84px; } /* an app's icon, linking to its TestFlight */
+    .entry-view .app-link img { aspect-ratio: 1; border-radius: 22.5%; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .12); display: block; width: 84px; }
+    .entry-view .app-link span { font-size: .74rem; opacity: .7; }
+    .entry-view :is(.part-tweet, .part-instagram) iframe { pointer-events: none; } /* scrolling passes over a post to the column and the reel; a click wakes it */
+    .entry-view :is(.part-tweet, .part-instagram).awake iframe { pointer-events: auto; }
+    .entry-view :is(.part-tweet, .part-instagram):not(.awake) { cursor: pointer; }
+    .cv.filtering .entry-view .mention .tile { filter: none; opacity: 1; } /* copies, not the grid's tiles: a filter leaves them be */
+    .entry-view :is(.mentions.kin, .foot-block) { margin-top: 46px; } /* at the foot: the same name's other entries, or tiles a line of words names; space, no rule */
+    .entry-view .meta .when { display: none; }
+    .entry-view .media > .lead { margin-top: 56px; } /* data-lead: the first piece set apart from the tiles above it by a section's gap */
+    .entry-view .foot-block.lead-foot { margin-top: 16px; } /* a foot placed right under the entry's own media */
+    .cv.clustered .entry-view .meta .when { display: inline; } /* clustered, the years mix: a column says when */
+    .entry-view .foot-label { font-size: .84rem; margin-bottom: 10px; opacity: .6; }
+    .entry-view .foot-block .mentions { margin: 0; }
+    /* a link to another entry previews it */
+    .peek { background: #fff; border-radius: 12px; box-shadow: 0 6px 28px rgba(0, 0, 0, .18); display: grid; font-size: .8rem; gap: 2px; line-height: 1.4; opacity: 0; padding: 0 0 12px; pointer-events: none; position: fixed; transition: opacity .12s; width: 280px; z-index: 40; overflow: hidden; }
+    .peek.on { opacity: 1; }
+    .peek img { aspect-ratio: 16 / 9; display: block; margin-bottom: 8px; object-fit: cover; width: 100%; }
+    .peek b, .peek i, .peek span { padding: 0 12px; }
+    .peek i { font-style: normal; opacity: .55; }
+    .peek span { opacity: .75; margin-top: 4px; }
+    /* ?edit: an entry's words, and the atlas's texts under them, to keep (dot) or switch off and cut down */
+    .entry-view .drafting, .drafts .txt { outline: none; border-radius: 3px; }
+    .entry-view .drafting:focus, .drafts .txt:focus { background: rgba(0, 0, 0, .05); box-shadow: 0 0 0 3px rgba(0, 0, 0, .05); }
+    .entry-view .edited { box-shadow: inset 2px 0 0 #2a78d6; padding-left: 6px; }
+    .entry-view .emptied { min-height: 1.4em; }
+    .entry-view .emptied:not(:focus)::before { content: "removed"; opacity: .35; font-style: italic; }
+    .entry-view .restore { background: none; border: 0; color: #2a78d6; cursor: pointer; font: inherit; font-size: .72rem; padding: 0; }
+    .drafts { border-top: 1px dashed rgba(0, 0, 0, .18); display: grid; font-size: .82rem; gap: 6px; line-height: 1.45; margin: 14px 0 18px; padding-top: 10px; }
+    .drafts-head { color: rgba(0, 0, 0, .45); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+    .drafts-kind { color: rgba(0, 0, 0, .4); font-size: .68rem; margin-top: 6px; text-transform: uppercase; letter-spacing: .05em; }
+    .draft { padding-left: 16px; position: relative; }
+    .draft .dot { background: rgba(0, 0, 0, .55); border: 1.5px solid rgba(0, 0, 0, .55); border-radius: 50%; cursor: pointer; height: 8px; left: 0; padding: 0; position: absolute; top: .45em; width: 8px; }
+    .draft.off .dot { background: transparent; }
+    .draft.off .txt { color: rgba(0, 0, 0, .35); text-decoration: line-through; text-decoration-color: rgba(0, 0, 0, .2); }
+    .draft code { font-size: .9em; }
+    /* ?arrange: drag tiles within a section; a bar marks where the tile will land */
+    html.arranging .tile { cursor: grab; }
+    html.arranging .tile.dragging { opacity: .35; }
+    html.arranging .tile:is(.drop-before, .drop-after)::after { background: #2a78d6; bottom: 0; content: ""; position: absolute; top: 0; width: 5px; z-index: 5; }
+    html.arranging .tile.drop-before::after { left: 0; }
+    html.arranging .tile.drop-after::after { right: 0; }
+    /* An open entry's pictures and videos move as wholes: nothing inside them takes the drag or a click. */
+    html.arranging .entry-view .media > [data-part] { -webkit-user-drag: element; cursor: grab; height: 120px; overflow: hidden; } /* a short strip each, so a column reads as a list to reorder */
+    html.arranging .entry-view .media > [data-part] :is(img, video, .grid) { height: 120px !important; max-height: 120px; object-fit: cover; width: 100% !important; }
+    html.arranging .entry-view .media > [data-part].grid-host { aspect-ratio: auto; max-height: 120px; }
+    html.arranging .entry-view .media > [data-part] * { pointer-events: none; }
+    html.arranging :is(.tile, .entry-view) :is(img, a) { -webkit-user-drag: none; }
+    html.arranging .entry-view .media > .dragging { opacity: .35; }
+    html.arranging .entry-view .media > .drop-before { box-shadow: 0 -5px 0 #2a78d6; }
+    html.arranging .entry-view .media > .drop-after { box-shadow: 0 5px 0 #2a78d6; }
+    html.arranging .entry-view .media:empty { min-height: 60px; outline: 1px dashed #2a78d6; border-radius: 10px; }
+    /* ?no=blend: the tiles' subtitles without their blend */
+    html.no-blend .tile.has-still .words :is(b, i) { mix-blend-mode: normal; }
+    /* ?perf: the frame meter and switches (stage/perf.js) */
+    .perf-hud { background: rgba(255, 255, 255, .9); border-radius: 10px; bottom: 12px; box-shadow: 0 1px 8px rgba(0, 0, 0, .15); display: grid; font: 12px/1.3 -apple-system, sans-serif; gap: 3px; left: 12px; padding: 10px 12px; position: fixed; z-index: 30; }
+    .perf-hud .fps { font-size: 20px; font-variant-numeric: tabular-nums; }
+    .perf-hud .worst { color: #666; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+    .perf-hud label { align-items: center; display: flex; gap: 6px; }
     html:not(.sky-controls) .sky-debug { display: none !important; } /* ?debug: shown with "sky controls" */
     .sky-debug { background: rgba(255, 255, 255, .85); border-radius: 10px; bottom: 12px; box-shadow: 0 1px 8px rgba(0, 0, 0, .12); display: grid; font: 11px/1.2 -apple-system, sans-serif; gap: 4px; padding: 10px 12px; position: fixed; right: 12px; z-index: 10; }
     .sky-debug label { align-items: center; display: grid; gap: 8px; grid-template-columns: 56px 140px 36px; }
@@ -134,16 +233,19 @@ css = '''
     .tile .still > video { height: 100%; inset: 0; object-fit: cover; position: absolute; width: 100%; } /* under the lens; shows as is without WebGL */
     /* A grid's mosaic fills its tile: every cell cropped square. */
     .tile .still > .mosaic { aspect-ratio: 1 !important; height: 100%; width: 100%; }
-    .tile .words { bottom: 0; color: var(--font-color); display: flex; flex-direction: column; font-size: .84rem; gap: 2px; justify-content: flex-start; left: 0; line-height: 1.25; padding: 12px; position: absolute; right: 0; top: 0; }
+    .tile .words { bottom: 0; color: var(--font-color); display: flex; flex-direction: column; font-size: calc(.84rem * var(--ws, 1)); gap: calc(2px * var(--ws, 1)); justify-content: flex-start; left: 0; line-height: 1.25; padding: 12px; position: absolute; right: 0; top: 0; }
     .tile .words b { color: var(--link-color); font-weight: 650; }
     .tile .words i { font-style: normal; opacity: .75; }
-    .tile.has-still .words i { mix-blend-mode: plus-lighter; opacity: .6; }
-    .tile[data-size=mini] .words { display: none; } /* too small for words; the lens finds none, so the picture stays clear */
+    .tile.has-still .words i { mix-blend-mode: plus-lighter; opacity: .5; }
+    .tile.has-still .words b { mix-blend-mode: plus-lighter; opacity: .9; } /* both blend: a dark halo would grey the title where the subtitle stays bright */
+    .tile[data-size=mini] { --ws: .5; } /* small tiles' words at half size */
+    .cv.reading .tile[data-size=normal] { --ws: .5; } .cv.reading .tile[data-size=mini] { --ws: .25; } /* reading, beside the reel: words scale down with the narrower grid */
     .tile .words span { display: none; } /* month: hidden for now, kept in the markup */
     /* Picture tiles keep their words on, in white, over a lensed copy of the picture (stage/textlens.js). */
     .tile.has-still .words { color: #fff; text-shadow: 0 0 12.5px rgba(0, 0, 0, .5); } /* not its own layer (it comes after the picture anyway), so the subtitle can blend with it */
     .tile.has-still .words b { color: #fff; }
     .tile .still canvas.lens { height: 100%; inset: 0; position: absolute; width: 100%; }
+    .tile[data-crop] .still > :is(img, video) { object-position: var(--crop-at); transform: scale(var(--crop-z)); transform-origin: var(--crop-at); } /* the lens crops the same way itself */
     /* A year's posts, after its work. */
     .tile.post { background: #fff; }
     .tile.post .tweet-mini { aspect-ratio: auto; inset: 0; position: absolute; }
@@ -153,19 +255,44 @@ css = '''
     .tile::after { border-radius: 10px; box-shadow: inset 0 0 0 2px transparent; content: ""; inset: 0; pointer-events: none; position: absolute; transition: box-shadow .15s linear; z-index: 2; }
     .tile:hover::after { box-shadow: inset 0 0 0 2px rgba(17, 5, 99, .25); }
     .tile.open::after { box-shadow: inset 0 0 0 2.5px var(--link-color); }
-    .cv.filtering .tile.entry:not(.match) { filter: blur(1.4px); opacity: .12; }
+    /* With squircle corners the ring is a band cut to the tile's own shape (--ring, from tiles.js), not a round rect's shadow. */
+    .tile.sq::after, .tile.sq:is(:hover, .open, .hot)::after { background: transparent; box-shadow: none; clip-path: var(--ring); transition: background-color .15s linear; }
+    .tile.sq:hover::after { background: rgba(17, 5, 99, .25); }
+    .tile.sq:is(.open, .hot)::after { background: var(--link-color); }
+    .cv.filtering .tgrid .tile.entry:not(.match) { filter: blur(1.4px); opacity: .12; }
     .cv.filtering .tile.entry.match { filter: none; opacity: 1; }
+    /* The name, filters and views along the top of the grid (?debug "name and filters along the top"), a frosted bar that stays as the grid scrolls. */
+    html.top-bar .pane.home > .scroll { display: block; } /* the bar, then the grid */
+    html.top-bar .identity { align-self: start; height: auto; min-height: 0; padding: 18px 28px 12px 24px; position: sticky; top: 0; width: auto; z-index: 6; }
+    html.top-bar .identity-card { align-items: baseline; column-gap: 22px; display: flex; flex-wrap: wrap; row-gap: 6px; }
+    html.top-bar .identity-card > * { margin-top: 0; }
+    html.top-bar .identity-card > a { order: 1; } html.top-bar .intro { order: 2; } html.top-bar .nav { order: 3; } html.top-bar .nav-works { order: 4; }
+    html.top-bar .bar-break { display: block; flex-basis: 100%; height: 0; order: 5; } html.top-bar .filters { order: 6; } html.top-bar .views { order: 7; }
+    .bar-break { display: none; }
+    html.top-bar .identity-card::before { -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 60%, transparent 100%); inset: -18px -28px -26px -24px; mask-image: linear-gradient(180deg, #000 0%, #000 60%, transparent 100%); }
+    html.top-bar :is(.filters, .nav-works) { column-gap: 12px; flex-direction: row; flex-wrap: wrap; }
+    html.top-bar .tile-col { padding-top: 18px; }
+    html.top-bar .name { font-size: 1.25rem; }
     .entry-view .title { color: var(--link-color); font-size: 1.1rem; font-weight: 650; padding-right: 28px; }
     .entry-view .meta .also { color: inherit; }
     .entry-view .meta { font-size: .84rem; margin-top: 4px; opacity: .6; }
     .entry-view .text { font-size: .84rem; margin: 10px 0 18px; max-width: 34em; opacity: .75; }
     .entry-view .media > * + * { margin-top: 16px; }
     /* Standalone pictures only; a grid's cells are placed by grid.js. */
-    .entry-view .part-image img, .entry-view .part-video video { border-radius: 6px; display: block; height: auto; max-height: calc(100vh - 160px); max-width: 100%; width: auto; }
+    .entry-view .part-image img, .entry-view .part-video video { border-radius: 6px; display: block; height: auto; max-height: none; max-width: 100%; width: 100%; } /* the column's full width, like the grids */
+    .entry-view :is(.part-image, .part-video).tall :is(img, video) { max-height: calc(100vh - 160px); width: auto; }
     .entry-view .grid { border-radius: 6px; overflow: hidden; position: relative; background: #000; }
     .entry-view .grid .cell { left: 0; overflow: hidden; position: absolute; top: 0; }
     .entry-view .grid video, .entry-view .grid img { display: block; height: 100%; left: 0; max-width: none; object-fit: fill; position: absolute; top: 0; width: 100%; }
-    .entry-view .media .part-image a { filter: none; mix-blend-mode: normal; }
+    .entry-view .media .part-image a { display: block; filter: none; mix-blend-mode: normal; overflow: hidden; position: relative; width: 100%; } /* the frame a picture zooms inside (tiles.js) */
+    .entry-view .media .part-image.tall a { margin: 0 auto; width: fit-content; } /* phone-shaped: as wide as the picture held to the window's height */
+    .entry-view .media .part-image.strip a { cursor: crosshair; position: relative; } /* a blend's every step: hover to see one above (tiles.js) */
+    .entry-view .strip-shown { height: 100%; inset: 0; pointer-events: none; position: absolute; width: 100%; } /* the step showing, drawn over the picture */
+    .entry-view .strip-mark { border: 1.5px solid #fff; border-radius: 3px; bottom: 0; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); opacity: 0; pointer-events: none; position: absolute; top: 0; transition: opacity .2s; }
+    .entry-view .strip.live .strip-mark { opacity: 1; }
+    .entry-view .part-video .under { display: grid; gap: 8px; grid-auto-flow: column; grid-auto-columns: 1fr; margin-top: 8px; } /* under a video, the parts cut from it, each under its own */
+    .entry-view .part-video .under video { background: #000; display: block; height: auto; max-height: none; width: 100%; }
+    .entry-view .media .part-image a img { transform-origin: 0 0; }
     .entry-view .grid-host { aspect-ratio: 9 / 16; display: flex; max-height: calc(100vh - 160px); width: 100%; }
     .entry-view .part-youtube iframe { aspect-ratio: 16 / 9; border: 0; border-radius: 6px; width: 100%; }
     .cv.scaled { height: calc(100vh / var(--s)); zoom: var(--s); }
@@ -177,8 +304,11 @@ FIT = '''  <script>
     (() => {
       const DESIGN_W = 900, ENTRY_W = 520;
       const cv = document.querySelector('.cv');
+      let width = -1; // only the width matters: on phones the height changes with every scroll (the address bar)
       function fit() {
         const w = document.documentElement.clientWidth, s = Math.min(1, w / DESIGN_W);
+        if (w === width) return;
+        width = w;
         cv.classList.toggle('scaled', s < 1);
         cv.style.setProperty('--s', s);
         cv.style.setProperty('--home-w', `${Math.max(860, Math.min(1200, w - ENTRY_W))}px`);

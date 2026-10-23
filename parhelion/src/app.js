@@ -34,7 +34,7 @@ const CONFIG = {
   polyhedralSpin: 0,
   ior: 1.31,
   exposure: 0.02,
-  fadeFactor: 0.05,
+  fadeFactor: 0.5,
   saturation: 1,
   lockSunCenter: false,
   lockZoom: false,
@@ -268,7 +268,6 @@ export function start(renderer) {
   gui.add(CONFIG, 'ior', 1.0, 1.5).step(0.001).name('IOR (Ice=1.31)').onChange(v => { setIor(v); refresh(); pad.update(); });
   gui.add(exposureProxy, 'log', -6, 1).step(0.01).name('Log Exposure').onChange(v => { setExposure(10 ** v); pad.update(); });
   gui.add(CONFIG, 'saturation', 0, 3).name('Saturation').onChange(syncTargets);
-  gui.add(CONFIG, 'fadeFactor', 0, 0.5).step(0.001).name('Fade Out (Speed)').onChange(() => { syncTargets(); pad.update(); });
   const physics = gui.addFolder('Physics');
   physics.add(CONFIG, 'lowitzSpin', 0, 90).step(0.1).name('Lowitz Spin (Deg)').onChange(syncTargets);
   physics.add(CONFIG, 'crystalSize', 0, 200).step(1).name('Crystal Size (µm)').onChange(syncTargets);
@@ -416,7 +415,6 @@ export function start(renderer) {
     },
     onZoom(v) { setZoom(v); refresh(); },
     onTilt(v) { CONFIG.crystalTilt = v; syncTargets(); refresh(); },
-    onFade(v) { CONFIG.fadeFactor = v; syncTargets(); refresh(); },
     onSky(v) { CONFIG.skyLevel = v < 0.02 ? 0 : v; syncTargets(); refresh(); },
     onExposure(v) { CONFIG.autoExposure = false; setExposure(v); refresh(); }, // hand-set takes over
     onToggle(key) { toggleType(key); pad.update(); },
@@ -654,18 +652,18 @@ function refreshControllers(gui) {
 }
 
 // The bottom-left instrument: IOR × sun-elevation pad plus its rails.
-function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onSky, onToggle }) {
+function makePad({ config, onPad, onZoom, onTilt, onExposure, onSky, onToggle }) {
   const $ = id => document.getElementById(id);
   const padEl = $('xy-pad'), knob = $('xy-pad-knob'), bg = $('xy-pad-background');
   const sliders = {
     x: $('xy-pad-x-slider'), y: $('xy-pad-y-slider'), zoom: $('xy-pad-zoom-slider'),
-    fade: $('xy-pad-fade-slider'), exposure: $('xy-pad-exposure-slider'), tilt: $('xy-pad-tilt-slider'),
+    exposure: $('xy-pad-exposure-slider'), tilt: $('xy-pad-tilt-slider'),
     sky: $('xy-pad-sky-slider'),
   };
   const toggles = document.querySelectorAll('.crystal-toggle');
 
   // Normalised 0..1 parameters; every rail reads "up / right = more".
-  const IOR = [1, 1.5], SUN = [-90, 90], ZOOM = [0.5, 20], FADE = [0, 0.5], LOGEXP = [-6, 1], TILT = 45;
+  const IOR = [1, 1.5], SUN = [-90, 90], ZOOM = [0.5, 20], LOGEXP = [-6, 1], TILT = 45;
   const norm = (v, [a, b]) => (v - a) / (b - a);
   const lerp = (t, [a, b]) => a + t * (b - a);
   const inset = t => 0.1 + 0.8 * t; // knob travel stays inside the pad
@@ -682,7 +680,6 @@ function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onSky, onT
     sliders.y.value = py * 100;
     sliders.zoom.value = norm(config.zoom, ZOOM) * 100;
     sliders.tilt.value = Math.pow(config.crystalTilt / TILT, 1 / 2.5) * 100;
-    sliders.fade.value = norm(config.fadeFactor, FADE) * 100;
     sliders.exposure.value = norm(Math.log10(config.exposure), LOGEXP) * 100;
     sliders.sky.value = config.skyLevel * 100;
     toggles.forEach(t => t.classList.toggle('active', !!config[t.dataset.type]));
@@ -715,7 +712,6 @@ function makePad({ config, onPad, onZoom, onTilt, onFade, onExposure, onSky, onT
   on(sliders.y, t => onPad(config.ior, lerp(t, SUN)));
   on(sliders.zoom, t => onZoom(lerp(t, ZOOM)));
   on(sliders.tilt, t => onTilt(TILT * Math.pow(t, 2.5)));
-  on(sliders.fade, t => onFade(lerp(t, FADE)));
   on(sliders.exposure, t => onExposure(10 ** lerp(t, LOGEXP)));
   on(sliders.sky, t => onSky(t));
 

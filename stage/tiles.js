@@ -12,14 +12,31 @@ import { build, stillFor, MEDIA } from './media.js';
 import { lensTile } from './textlens.js';
 import { squirclePath } from './squircle.js';
 import { Spring } from './spring.js';
+import { off, dpr } from './perf.js';
 
 const SPAN = { mini: [1, 1], normal: [2, 2], big: [4, 4], post: [1, 2] }; // columns, rows
 // Options to try out (?debug shows a panel for them, bottom left), kept per browser.
-const OPTS = Object.assign({ tabsBySize: true, groupGaps: true, yearByDate: false, sharpText: false, darkGrid: false, hideEmpty: false, skyControls: false }, (() => { try { return JSON.parse(localStorage.getItem('reel.opts')) ?? {}; } catch { return {}; } })());
+const OPTS = Object.assign({ tabsBySize: true, groupGaps: true, yearByDate: false, sharpText: false, darkGrid: false, hideEmpty: false, topBar: true, flow: true, skyControls: false, flushStack: true, stackEdge: 4, blocks: false, springK: 0.07, springD: 0.5, fitOpen: true, zoomK: 0.015, zoomD: 0.55, zoom: 2 }, (() => { try { return JSON.parse(localStorage.getItem('reel.opts')) ?? {}; } catch { return {}; } })());
+// ?edit (see drafting(), below render()): set up before anything opens an entry.
+const LOCAL = /^(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
+const EDIT = new URLSearchParams(location.search).has('edit') && LOCAL;
+// ?arrange (this Mac or the local network): drag tiles to reorder them within their section, and an open
+// entry's pictures and videos within its column; each section's order is kept in drafts/state.json (as
+// order:<view>:<section>, and media:<entry> listing each block's stage, the entry's first) to be locked into the site.
+const ARRANGE = new URLSearchParams(location.search).has('arrange') && LOCAL;
+let orders = ARRANGE ? await fetch('/drafts/state.json', { cache: 'no-store' }).then(r => (r.ok ? r.json() : {})).catch(() => ({})) : {}; // before anything opens
+const tileKey = t => `${t.title} ${t.when.slice(0, 4)}`;
+function applyOrder(section, key) {
+  const order = orders[`order:${key}`]?.tags, grid = section.querySelector(':scope > .tgrid');
+  if (!order || !grid) return;
+  const rank = el => { const t = tiles.find(x => x.tile === el), i = t ? order.indexOf(tileKey(t)) : -1; return i < 0 ? order.length : i; };
+  grid.append(...[...grid.children].sort((a, b) => rank(a) - rank(b)));
+}
+const drafts = EDIT ? Promise.all(['/drafts/atlas.json', '/drafts/state.json'].map(u => fetch(u, { cache: 'no-store' }).then(r => (r.ok ? r.json() : {})).catch(() => ({})))) : null;
 // Two looks the options switch: sharp text (no soft blur), and the grid going dark while you read.
-const looks = () => { const r = document.documentElement.classList; r.toggle('sharp-text', !!OPTS.sharpText); r.toggle('dark-grid', !!OPTS.darkGrid); r.toggle('sky-controls', !!OPTS.skyControls); };
+const looks = () => { const r = document.documentElement.classList; r.toggle('sharp-text', !!OPTS.sharpText); r.toggle('dark-grid', !!OPTS.darkGrid); r.toggle('sky-controls', !!OPTS.skyControls); r.toggle('reel-blocks', !!OPTS.blocks); r.toggle('top-bar', !!OPTS.topBar); };
 looks();
-let shownView = 'year', onOptions = () => {};
+let shownView = 'cluster', onOptions = () => {};
 const area = size => `span ${SPAN[size][1]} / span ${SPAN[size][0]}`;
 const col = document.querySelector('.tile-col');
 
@@ -46,8 +63,8 @@ function when(e, fallbackYear) {
 // Spatial UI shows again everything tagged spatial.
 const CLUSTERS = [
   ['Luma', t => /Luma/.test(t.group)],
-  ['Side projects', t => t.group === 'Side projects'],
   ['Realtime audio', t => t.tags.has('audio')], // the Neophon talks included
+  ['Side projects', t => t.group === 'Side projects' || t.title === 'Neophon', null, { again: true }], // Neophon a second time, its first in Realtime audio
   ['Live realtime video', t => t.group === 'Live', null, { first: t => /^Arca\b/.test(t.title) }], // Arca's shows first, then the rest
   ['Talks', t => t.group === 'Talks', null, { again: true }],
   ['Education', t => t.group === 'Education'],
@@ -63,12 +80,15 @@ const SHOWN = ['Luma', 'Side projects', 'Realtime audio', 'Live realtime video',
 const PLACE = {
   'Luma': [
     ['Luma Agents', 'big'], ['Ray3.2 Modify', 'big'],
-    ['Latent Blend', 'big'], ['Luma Scenes', 'normal'], ['Dream Machine', 'normal'],
-    ['Modify Video', 'normal'], ['Ray3', 'mini'], ['Ray2', 'mini'], ['Timeline', 'mini'],
+    ['Latent Blend', 'big'], ['Luma Scenes', 'normal'], ['Ray2 Modify Video', 'normal'], ['Timeline', 'mini'],
+    ['Dream Machine', 'normal'], ['Ray3', 'mini'], ['Ray2', 'mini'],
   ],
   'Realtime audio': [
     ['Neophon', 'big'], ['Neophon · SPC Demo Night', 'normal'], ['Generating New Sounds with Neophon', 'normal'],
     ['Neophon · Code with Claude', 'normal'], ['Optia · Cirrus', 'normal'],
+  ],
+  'Side projects': [
+    ['Neophon', 'big'], ['Orbital', 'big'], ['Exposure', 'big'], ['Engiscope', 'normal'], ['Parhelion', 'big'], ['Tangent', 'normal'], ['Physarum', 'mini'],
   ],
   'Talks': [
     ['New Behaviors', 'big'], ['Neophon · SPC Demo Night', 'normal'], ['Generating New Sounds with Neophon', 'normal'],
@@ -77,10 +97,19 @@ const PLACE = {
 
 // Tiles are clipped to a continuous-curvature round rect (squircle.js) at their exact size,
 // redrawn when that changes; border-radius stays underneath as the fallback.
-const RADIUS = 10, SMOOTHING = 0.6;
+const RADIUS = 10, SMOOTHING = 0.6, RING = 2.5;
 const corners = new ResizeObserver(list => {
   for (const { target, contentRect: r } of list) {
-    if (r.width > 1) target.style.clipPath = `path('${squirclePath(r.width, r.height, RADIUS, SMOOTHING)}')`;
+    if (r.width > 1 && !off.has('corners')) {
+      const outer = squirclePath(r.width, r.height, RADIUS, SMOOTHING);
+      target.style.clipPath = `path('${outer}')`;
+      // A tile's ring is the band between that shape and the same shape RING px in, so it hugs the corners.
+      if (target.classList.contains('tile')) {
+        const inner = squirclePath(r.width - 2 * RING, r.height - 2 * RING, RADIUS - RING, SMOOTHING, RING, RING);
+        target.style.setProperty('--ring', `path(evenodd, '${outer}${inner}')`);
+        target.classList.add('sq');
+      }
+    }
     if (r.width > 1) target.style.setProperty('--w', r.width); // posts scale to it
   }
 });
@@ -96,13 +125,14 @@ function makeTile(kind) {
 
 const placedSize = title => Object.values(PLACE).flat().find(([t]) => t === title)?.[1];
 // Device px a tile's still is drawn at.
-const stillWidth = t => SPAN[t.size][0] * 85 * devicePixelRatio;
+const stillWidth = t => SPAN[t.size][0] * 85 * dpr();
 
-function addStill(t, part) {
+// `tile`: t's own, or a copy of it (a mention in another entry's column).
+function addStill(t, part, tile = t.tile) {
   stillFor(part, stillWidth(t)).then(el => {
     if (!el) return;
     if (t.post) {
-      t.tile.append(el);
+      tile.append(el);
       return;
     }
     const box = document.createElement('div');
@@ -110,14 +140,19 @@ function addStill(t, part) {
     box.append(el);
     // A video's tile plays its short loop while on screen (the lens follows its frames).
     let loop = null;
-    if (el.dataset.preview) {
+    if (el.dataset.preview && !off.has('loops')) {
       loop = Object.assign(document.createElement('video'), { crossOrigin: 'anonymous', muted: true, loop: true, playsInline: true, preload: 'none', src: el.dataset.preview });
       box.append(loop);
     }
-    t.tile.prepend(box);
-    t.tile.classList.add('has-still');
-    document.dispatchEvent(new Event('tile-still')); // the reel picks it up for its bookmarks
-    lensTile(t.tile, el, t.tile.querySelector('.words'), loop); // words stay on, legible over the picture
+    tile.prepend(box);
+    if (tile === t.tile) tile.classList.add('has-still');
+    else { // a copy in a column: its picture now, not when the column nears the window, and white words only over it
+      const imgs = el.tagName === 'IMG' ? [el] : [...el.querySelectorAll('img')];
+      imgs.forEach(i => { i.loading = 'eager'; });
+      Promise.all(imgs.map(i => i.decode().catch(() => {}))).then(() => tile.classList.add('has-still'));
+    }
+    if (tile === t.tile) document.dispatchEvent(new Event('tile-still')); // the reel picks it up for its bookmarks
+    lensTile(tile, el, tile.querySelector('.words'), loop); // words stay on, legible over the picture
   });
 }
 
@@ -130,7 +165,13 @@ function entryTile(e, year, of = null) {
   const first = parts[0]?.slice(0, parts[0].indexOf(':'));
   const tile = makeTile('entry');
   if (e.dataset.tags) tile.dataset.tags = e.dataset.tags;
-  const sub = e.dataset.subtitle ? `<i>${e.dataset.subtitle}</i>` : '';
+  if (e.dataset.crop) { // closer in on its picture, centered where it says (lens, still and loop alike)
+    const [z, x = 0.5, y = 0.5] = e.dataset.crop.split(' ').map(Number);
+    tile.dataset.crop = e.dataset.crop;
+    tile.style.setProperty('--crop-z', z);
+    tile.style.setProperty('--crop-at', `${x * 100}% ${y * 100}%`);
+  }
+  const sub = e.dataset.subtitle ? `<i>${e.dataset.subtitle.replaceAll('|', '<br>')}</i>` : ''; // | breaks the line on the tile
   tile.innerHTML = `<div class="words"><b>${link?.innerHTML ?? ''}</b>${sub}<span>${e.querySelector('.date')?.textContent ?? ''}</span></div>`;
   const title = link?.textContent.trim() ?? '';
   const t = {
@@ -142,7 +183,8 @@ function entryTile(e, year, of = null) {
   tiles.push(t);
   // The tile shows its first still-able item; tweets, Instagram and pages stay as words, unless
   // the entry lends its tile a picture of its own (data-still: a media folder, e.g. a page's loop).
-  const stillable = e.dataset.still ? `video:${e.dataset.still}` : parts.flatMap(p => p.split('+')).find(p => /^(grid|image|video|youtube):/.test(p));
+  const stillable = e.dataset.still ? (e.dataset.still.includes(':') ? e.dataset.still : `video:${e.dataset.still}`) : parts.flatMap(p => p.split('+')).find(p => /^(grid|image|video|youtube):/.test(p)); // data-still: a media folder's loop, or any part (image:…)
+  t.stillable = stillable;
   if (stillable) addStill(t, stillable);
   hook(t);
   return t;
@@ -150,7 +192,7 @@ function entryTile(e, year, of = null) {
 for (const panel of source.querySelectorAll('.panel')) {
   const year = panel.querySelector('.year')?.textContent.trim();
   if (!year) continue;
-  for (const e of panel.querySelectorAll('.entry')) entryTile(e, year);
+  for (const e of panel.querySelectorAll('.entry:not([data-hidden])')) entryTile(e, year); // data-hidden: kept in the source, not shown
   // The year's posts (the text version opens these from the year heading), mini tiles.
   for (const a of panel.querySelectorAll('.year-media blockquote a[href*="/status/"]')) {
     const id = a.getAttribute('href').match(/status\/(\d+)/)?.[1];
@@ -205,26 +247,23 @@ function tabPicture(t) {
 }
 
 // Arrange the same tiles into sections. by year: the page's own years, posts at each year's end.
-// A click on a section's heading folds its grid away, and its entries leave the reel, until it's
-// clicked again (kept per browser, per view).
-const folded = new Set((() => { try { return JSON.parse(localStorage.getItem('reel.folded')) ?? []; } catch { return []; } })());
-let onFold = () => {};
+// A click on a section's heading goes to its first entry.
 function section(title, level = 'h2') {
-  const s = document.createElement('section'), key = `${shownView}:${title}`;
+  const s = document.createElement('section');
   s.className = 'tyear';
-  s.innerHTML = `<${level} title="fold / unfold">${title}</${level}><div class="tgrid"></div>`;
-  s.classList.toggle('folded', folded.has(key));
+  s.innerHTML = `<${level} title="go to ${title}">${title}</${level}><div class="tgrid"></div>`;
   s.firstElementChild.addEventListener('click', () => {
-    folded.has(key) ? folded.delete(key) : folded.add(key);
-    s.classList.toggle('folded', folded.has(key));
-    try { localStorage.setItem('reel.folded', JSON.stringify([...folded])); } catch {}
-    onFold();
+    const el = s.querySelector('.tgrid .tile'), t = el && tiles.find(x => x.tile === el);
+    if (t) openEntry(t);
   });
   return s;
 }
 // Entries with nothing but words (no pictures, video, posts or pages); ?debug can leave them out.
 const empty = t => !t.post && !t.parts.length && !t.source?.querySelector?.(':scope > .sub[data-stage]');
-const shown = t => !(OPTS.hideEmpty && empty(t));
+// A kind of work chosen above the grid (a click on a filter) leaves only its tiles, packed together,
+// and only its entries in the reel; hovering a filter still just previews it, in place.
+let kind = null;
+const shown = t => !(OPTS.hideEmpty && empty(t)) && (!kind || (t.of ?? t).tags.has(kind));
 const firsts = () => tiles.filter(t => !t.of);
 // Mini tiles are too small for words (they hide; the tile keeps its title as its label).
 function setSize(t, size) {
@@ -236,7 +275,14 @@ function arrange(view) {
   const out = [];
   for (const t of tiles) setSize(t, t.size);
   shownView = view;
-  if (view === 'year') {
+  document.querySelector('.cv').classList.toggle('clustered', view === 'cluster'); // columns then say when (month and year)
+  if (kind) {
+    // A chosen kind: its tiles together under its name, newest first, whichever view.
+    const s = section(document.querySelector(`.filters button[data-tag="${kind}"]`)?.firstChild.textContent.trim() ?? kind);
+    const rank = { big: 0, normal: 1, post: 2, mini: 3 }; // the big ones lead, then newest first
+    s.querySelector('.tgrid').append(...firsts().filter(shown).sort((a, b) => (rank[a.size] ?? 1) - (rank[b.size] ?? 1) || b.when.localeCompare(a.when)).map(t => t.tile));
+    out.push(s);
+  } else if (view === 'year') {
     for (const y of [...new Set(firsts().map(t => t.year))]) {
       const s = section(y);
       // The page's own order within a year (grouped: work, projects, live, talks…), or newest first.
@@ -282,11 +328,65 @@ function arrange(view) {
       out.push(s);
     }
   }
+  if (ARRANGE) {
+    for (const sec of out.flatMap(s => [s, ...s.querySelectorAll('.tyear')])) applyOrder(sec, `${view}:${sec.querySelector('h2, h3').textContent}`);
+    for (const t of tiles) t.tile.draggable = true;
+  }
   col.replaceChildren(...out);
   for (const b of document.querySelectorAll('.views button')) b.classList.toggle('on', b.dataset.view === view);
 }
-arrange('year');
+arrange('cluster');
+if (ARRANGE) {
+  document.documentElement.classList.add('arranging');
+  let dragged = null;
+  const clear = () => document.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+  // What's dragged: a tile (within its section), or a part of an open entry's media (anywhere in its column).
+  const piece = el => el?.closest?.('.tile, .entry-view .media > [data-part]');
+  const target = e => {
+    const el = piece(e.target);
+    if (!dragged || !el || el === dragged) return null;
+    if (dragged.matches('.tile')) return el.parentElement === dragged.parentElement ? el : null;
+    return el.closest('.entry-view') === dragged.closest('.entry-view') ? el : null;
+  };
+  // A column's empty media block takes a part dropped onto it.
+  const emptyBlock = e => { const m = e.target.closest?.('.entry-view .media'); return dragged?.dataset.part && m && !m.children.length && m.closest('.entry-view') === dragged.closest('.entry-view') ? m : null; };
+  document.addEventListener('dragstart', e => { const el = piece(e.target); if (!el) return; dragged = el; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); el.classList.add('dragging'); });
+  document.addEventListener('dragend', () => { dragged?.classList.remove('dragging'); dragged = null; clear(); });
+  document.addEventListener('dragover', e => {
+    const m = emptyBlock(e); if (m) { e.preventDefault(); return; }
+    const el = target(e); if (!el) return;
+    e.preventDefault(); clear();
+    const r = el.getBoundingClientRect(), after = el.matches('.tile') ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
+    el.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  document.addEventListener('drop', e => {
+    const m = emptyBlock(e), el = m ? null : target(e); if (!m && !el) return;
+    e.preventDefault();
+    if (m) m.append(dragged);
+    else el.classList.contains('drop-after') ? el.after(dragged) : el.before(dragged);
+    clear();
+    if (dragged.dataset.part) {
+      const v = dragged.closest('.entry-view'), list = [...v.querySelectorAll(':scope > .media')].map(b => [...b.children].map(x => x.dataset.part).filter(Boolean).join(' '));
+      orders[`media:${v.dataset.slug}`] = { tags: list };
+      keep(`media:${v.dataset.slug}`, { tags: list });
+      return;
+    }
+    const grid = el.parentElement, key = `${shownView}:${grid.closest('.tyear').querySelector('h2, h3').textContent}`;
+    const list = [...grid.children].map(x => tiles.find(t => t.tile === x)).filter(Boolean).map(tileKey);
+    orders[`order:${key}`] = { tags: list };
+    keep(`order:${key}`, { tags: list });
+    onOptions();
+  });
+}
 for (const b of document.querySelectorAll('.views button')) b.addEventListener('click', () => arrange(b.dataset.view));
+for (const b of document.querySelectorAll('.filters button[data-tag]')) b.addEventListener('click', () => {
+  kind = kind === b.dataset.tag ? null : b.dataset.tag;
+  b.classList.toggle('let-go', !kind); // switched off: it looks off at once, not hovered, until the pointer leaves
+  b.addEventListener('pointerleave', () => b.classList.remove('let-go'), { once: true });
+  arrange(shownView);
+  onOptions();
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && kind) { kind = null; arrange(shownView); onOptions(); } });
 
 function hook(t) {
   t.tile.addEventListener('click', () => openEntry(t));
@@ -304,7 +404,7 @@ function remember(list) {
   for (const t of list) q.append('open', slug(t));
   history.replaceState(null, '', `${location.pathname}${q.size ? `?${q}` : ''}${location.hash}`);
 }
-let current = () => false; // is this entry the one in front (it may play with sound)
+let current = () => false; // (entry, its video's box?) is this the entry in front, and this the one video in it with sound
 // An entry's embedded frames (posts, YouTube, live pages) load only while it's live: off, each
 // frame is blanked and keeps its address to come back to.
 function setLive(view, live) {
@@ -327,9 +427,15 @@ let hotEntry = () => {}; // light an entry's counterpart (its bookmark), set by 
 // fingers; clicking a column glides it there on the spring. Video plays only in the column at the
 // position; live pages run only where enough of their column shows. Esc gives the grid its width
 // back. ?panels=stack keeps the earlier stacked panels.
+// ?debug "reel always there" (flow, the default): the reel never closes. Its position runs from -1, home,
+// where the grid takes 80% of the window and the first column shows in the rest, through 0, the grid
+// narrowed to its reading width with the first entry open, on along the entries; the split, the tiles
+// and their words follow the position every frame (--u, 0 at home to 1), so nothing jumps in or out.
+const FLOW = !!OPTS.flow;
 function reelMode() {
   const cv = document.querySelector('.cv');
   cv.classList.add('reel-mode');
+  cv.classList.toggle('flow', FLOW);
   const reel = document.createElement('div');
   reel.className = 'reel';
   const shut = Object.assign(document.createElement('button'), { className: 'reel-close', ariaLabel: 'Close', textContent: '×' });
@@ -350,7 +456,10 @@ function reelMode() {
   // The reel's box, read only when it can change (resizes, a label coming up), never between the
   // writes of a frame.
   let box = null, W = 0;
-  const measure = () => { box = reel.getBoundingClientRect(); box.z = reel.currentCSSZoom ?? 1; W = reel.clientWidth; };
+  // ?debug "open column whole": the packed strip narrows when the reel is too narrow for it and a whole
+  // column (small windows), so the column at the position always shows whole.
+  let pack = PACK;
+  const measure = () => { box = reel.getBoundingClientRect(); box.z = reel.currentCSSZoom ?? 1; W = reel.clientWidth; pack = OPTS.fitOpen ? Math.max(40, Math.min(PACK, W - FULL - GAP)) : PACK; };
   function place() {
     const c = named && cols.get(named);
     if (!c || c.hidden || c.x == null || !c.tab) { label.classList.remove('on'); return; }
@@ -365,20 +474,67 @@ function reelMode() {
     label.classList.toggle('on', !!named);
   }
   const cols = new Map();
-  const pos = new Spring(0);
+  const pos = new Spring(0, { k: OPTS.springK, d: OPTS.springD });
+  // Flow's home, before the first entry: the grid narrows by 50vw over it, at one column (FULL) per entry.
+  const home = () => -Math.max(0.4, 0.5 * innerWidth / FULL);
+  addEventListener('resize', () => { if (FLOW && reading && pos.target < 0) { pos.jump(home()); requestAnimationFrame(paint); } }); // home moves with the window's width // ?debug tunes it: k pulls, d keeps velocity (both up: quicker)
   let order = [], reading = false, near = null, raf = 0, last = 0, settle = 0;
   const groupOf = new Map(); // entry → its year or cluster, for the gaps between groups of tabs
   // Sound: only the column you're hovering, else the one in front; every other video plays muted.
   let hovered = null;
-  function voice() {
-    const loud = hovered ?? near;
-    for (const t of cols.keys()) t.view?.apis.forEach(a => a?.sound?.(t === loud));
+  // One video with sound at most: in the column hovered (else the one in front), the video under the
+  // pointer, else the one with the most of it on screen. Every other video plays muted.
+  let overVid = null, voicing = 0;
+  function leadBox(t) {
+    const boxes = [...(t.view?.el.querySelectorAll('.part-video') ?? [])];
+    if (overVid) { const b = boxes.find(b => b.contains(overVid)); if (b) return b; }
+    let best = null, most = 0;
+    for (const b of boxes) {
+      const r = b.getBoundingClientRect(), seen = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0));
+      if (seen > most) { most = seen; best = b; }
+    }
+    return best;
   }
+  function voice() {
+    if (ac) { for (const t of cols.keys()) { const lead = t.view && leadBox(t); t.view?.apis.forEach(a => a?.sound?.(a?.box === lead)); } return; }
+    const loud = hovered ?? near, lead = loud && leadBox(loud);
+    for (const t of cols.keys()) t.view?.apis.forEach(a => a?.sound?.(t === loud && a?.box === lead));
+  }
+  // Sound by how much of a column shows: each column's videos run through a low-pass filter and a gain
+  // (Web Audio, once a click or key has woken it), opened and raised as the column comes into view and
+  // closed and lowered as it slides under the others. Each change is handed to the audio thread as a
+  // short exponential approach (setTargetAtTime), so it moves at audio rate between frames: no steps,
+  // no zipper. Within a column one video speaks (the hovered one, else the one most on screen).
+  let ac = null;
+  const chains = new Map();
+  const wake = () => { if (ac) { if (ac.state !== 'running') ac.resume(); return; } try { ac = new AudioContext(); revoice(); } catch {} };
+  addEventListener('pointerdown', wake, { capture: true });
+  addEventListener('keydown', wake, { capture: true });
+  function hear(t, e) {
+    if (!ac || !t.view) return;
+    let c = chains.get(t);
+    if (!c) {
+      const filter = ac.createBiquadFilter(), gain = ac.createGain();
+      filter.type = 'lowpass'; filter.Q.value = 0.5; filter.frequency.value = 160; gain.gain.value = 0;
+      filter.connect(gain).connect(ac.destination);
+      chains.set(t, c = { filter, gain, e: -1 });
+    }
+    for (const a of t.view.apis) { const v = a?.el; if (v && !v.routed) { try { ac.createMediaElementSource(v).connect(c.filter); v.routed = true; } catch {} } }
+    const front = t === (hovered ?? near);
+    if (Math.abs(e - c.e) < 0.002 && front === c.front) return;
+    c.e = e; c.front = front;
+    const now = ac.currentTime;
+    c.gain.gain.setTargetAtTime(t === (hovered ?? near) ? e ** 1.5 : 0, now, 0.06); // one column sounds at a time: the one in front
+    c.filter.frequency.setTargetAtTime(160 * (20000 / 160) ** e, now, 0.04); // 160 Hz covered, open at a full column
+  }
+  const revoice = () => { if (!voicing) voicing = requestAnimationFrame(() => { voicing = 0; voice(); }); };
+  reel.addEventListener('pointerover', e => { const v = e.target.closest?.('.part-video video'); if (v !== overVid) { overVid = v; revoice(); } });
+  reel.addEventListener('scroll', revoice, { capture: true, passive: true }); // a column scrolled: another video may now be the one most on screen
 
   // The grid's order: chronological by year, or cluster by cluster.
   function sequence() {
     const seen = new Set(), out = [];
-    for (const el of col.querySelectorAll('.tyear:not(.folded) .tile.entry, .tyear:not(.folded) .tile.post')) { // posts too, in their place
+    for (const el of col.querySelectorAll('.tyear .tile.entry, .tyear .tile.post')) { // posts too, in their place
       const t = tiles.find(x => x.tile === el), e = t && entryOf(t);
       if (e && !seen.has(e)) { seen.add(e); out.push(e); groupOf.set(e, el.closest('.tile-col > section')); }
     }
@@ -448,7 +604,7 @@ function reelMode() {
   // leftward packed toward 0 as PACK / √(1 + 2·d·FULL/PACK): it leaves at the same speed as the row
   // moves, and its heavy tail spreads even the deepest columns over tens of px rather than piling them
   // into a wall.
-  const edge = (k, p) => { const d = p - k; return d <= 0 ? PACK - d * FULL : PACK / Math.sqrt(1 + 2 * d * FULL / PACK) - (PAD - GAP) * Math.min(1, d); };
+  const edge = (k, p) => { const d = p - k; return d <= 0 ? pack - d * FULL : pack / Math.sqrt(1 + 2 * d * FULL / pack) - (PAD - GAP) * Math.min(1, d); };
   const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
   // Only what shows is loaded. A column covered by the others keeps its tab and its shadow (so the
   // stack still packs down) but drops its entry and becomes a transparent sliver; off the right edge
@@ -475,13 +631,59 @@ function reelMode() {
       f.thaw?.();
     }
   }
+  // ?debug "stack flush left": the packed stack keeps its spacing but slides over each frame so the
+  // first column sits on the edge (eased in over the first entry, so the motion stays continuous).
+  const flush = (k, p) => (OPTS.flushStack ? (edge(0, p) - (OPTS.stackEdge ?? 8)) * Math.min(1, Math.max(0, p - k)) : 0);
+  const at = (k, p) => edge(k, p) - flush(k, p);
+  // As the grid narrows or widens, the point it's held by stays at its height: where the pointer is over
+  // the grid, else the middle of the topmost tile fully in view (phones, or the pointer elsewhere). Held
+  // for the whole slide, let go once it rests or the pointer moves.
+  const gridScroll = document.querySelector('.pane.home > .scroll');
+  let pointer = null, held = null, letGo = 0;
+  gridScroll.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse' || (pointer && Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) < 2)) return; // the page moving under a still mouse sends these too
+    pointer = { x: e.clientX, y: e.clientY }; held = null;
+  });
+  gridScroll.addEventListener('pointerleave', () => { pointer = null; }); // what it held stays held till the slide rests
+  function anchor() {
+    clearTimeout(letGo);
+    letGo = setTimeout(() => { held = null; }, 600);
+    if (held?.el.isConnected) return held;
+    if (pointer) {
+      const el = document.elementFromPoint(pointer.x, pointer.y)?.closest('.tile-col .tile, .tile-col .tyear');
+      if (el) { const r = el.getBoundingClientRect(); return (held = { el, f: (pointer.y - r.top) / r.height, y: pointer.y }); }
+    }
+    const top = gridScroll.getBoundingClientRect().top;
+    for (const el of gridScroll.querySelectorAll('.tgrid .tile')) {
+      const r = el.getBoundingClientRect();
+      if (r.top >= top && r.height) return (held = { el, f: 0.5, y: r.top + r.height / 2 });
+    }
+    return null;
+  }
   function paint() {
-    const p = pos.value;
+    // Flow, in two phases. From home to the first entry the grid narrows to its resting width while the
+    // whole row of columns slides in with its edge, one piece, nothing overlapping: once the grid rests
+    // the first column shows whole wherever the window has room. Only after it do the columns stack, the
+    // packed strip opening on an eased curve from nothing. Home lies as far before the first entry as
+    // makes the grid's edge travel one column's width per entry, so the row moves at one speed through
+    // both phases and the grid simply comes to rest under it.
+    const p = Math.max(0, pos.value), ease = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+    const u = FLOW ? Math.min(1, Math.max(0, 1 - pos.value / home())) : 1, lead = FLOW ? (1 - ease(pos.value)) * (pack - GAP) : 0;
+    if (FLOW && u !== cv.u) {
+      const a = anchor();
+      cv.u = u; cv.style.setProperty('--u', u); cv.classList.toggle('deep', u > 0.5);
+      if (a) { const r = a.el.getBoundingClientRect(); gridScroll.scrollTop += r.top + a.f * r.height - a.y; }
+    }
+    // A packed column slides under the next and stays against the stack's edge (never drifting back
+    // right as the strip opens behind it); the rest move as one row.
+    const edge0 = OPTS.flushStack ? (OPTS.stackEdge ?? 8) : 0;
+    const slot = (k, x) => (k < p ? Math.max(edge0, x - lead) : x - lead);
     order.forEach((t, k) => {
-      const c = column(t), x = edge(k, p), next = k + 1 < order.length ? edge(k + 1, p) : Infinity;
+      const c = column(t), x = slot(k, at(k, p)), next = k + 1 < order.length ? slot(k + 1, at(k + 1, p)) : Infinity;
       const shows = Math.max(0, Math.min(next, W) - Math.max(x, 0)); // what the next column leaves showing
       const card = c.card;
       const off = x >= W, covered = shows < 0.5;
+      hear(t, off ? 0 : Math.min(1, shows / FULL));
       if (off !== c.hidden) { c.hidden = off; if (off) drop(t, c); }
       if (off) return;
       // Covered: a sliver behind the next one, with its tab and shadow.
@@ -531,12 +733,12 @@ function reelMode() {
       if (open !== c.live) { c.live = open; c.classList.toggle('open', open); }
       // Videos play (muted) wherever enough of their column shows, several at once.
       const play = shows >= PLAY * FULL;
-      if (play !== c.playing) { c.playing = play; t.view.apis.forEach(a => !a?.page && (play ? a?.play?.() : a?.pause?.())); }
+      if (play !== c.playing) { c.playing = play; t.view.apis.forEach(a => !a?.page && (play ? a?.play?.() : a?.pause?.())); revoice(); }
     });
     if (named) place();
     // The entry at the position is the current one: it plays. The grid follows it, and the URL
     // names it, once the reel comes to rest.
-    const n = order[Math.round(p)];
+    const n = pos.value > home() / 2 ? order[Math.round(p)] : null; // nearer home than the first entry: none
     if (n !== near) {
       near = n;
       voice();
@@ -556,24 +758,25 @@ function reelMode() {
     if (moving) raf = requestAnimationFrame(frame);
   }
   function glide(k) {
-    pos.set(Math.max(0, Math.min(order.length - 1, k)));
+    pos.set(Math.max(FLOW ? home() : 0, Math.min(order.length - 1, k)));
     last = 0;
     if (!raf) raf = requestAnimationFrame(frame);
   }
   new ResizeObserver(() => { measure(); if (reading) { layoutTabs(); paint(); } }).observe(reel);
   onOptions = () => {
+    pos.tune(OPTS.springK, OPTS.springD);
+    measure(); // the packed strip's width can follow an option
     if (!reading) return;
     const was = near, at = pos.value;
     order = sequence();
     for (const [t, c] of cols) if (!order.includes(t)) { drop(t, c); c.hidden = true; }
     reel.replaceChildren(...order.map(column));
     const k = order.indexOf(was);
-    pos.jump(k >= 0 ? k + (at - Math.round(at)) : Math.max(0, Math.min(order.length - 1, Math.round(at))));
+    pos.jump(k >= 0 ? k + (at - Math.round(at)) : at < 0 ? at : Math.max(0, Math.min(order.length - 1, Math.round(at))));
     near = null;
     layoutTabs();
     paint();
   };
-  onFold = onOptions;
   let pics = 0;
   document.addEventListener('tile-still', () => { if (reading && !pics) pics = requestAnimationFrame(() => { pics = 0; paint(); }); });
 
@@ -592,6 +795,7 @@ function reelMode() {
     }
   }
   function close() {
+    if (FLOW) { glide(home()); return; } // home: the reel stays, at its edge
     if (!reading) return;
     reading = false;
     for (const [t, c] of cols) { t.view?.apis.forEach(a => !a?.page && a?.pause?.()); c.playing = false; } // every playing video stops
@@ -620,33 +824,66 @@ function reelMode() {
     clearTimeout(still);
     still = setTimeout(() => {
       reel.classList.remove('scrolling');
+      if (FLOW) return; // anywhere from home on is a place to rest
       if (pos.value < -BACK) close();
       else if (pos.value < 0) glide(0);
     }, 300);
-    const step = dx / PX_PER_ENTRY * (pos.value < 0 && dx < 0 ? 0.5 : 1);
-    pos.jump(Math.max(-0.8, Math.min(order.length - 1, pos.value + step)));
+    const step = dx / PX_PER_ENTRY * (!FLOW && pos.value < 0 && dx < 0 ? 0.5 : 1);
+    pos.jump(Math.max(FLOW ? home() : -0.8, Math.min(order.length - 1, pos.value + step)));
     paint();
   }
-  reel.addEventListener('wheel', e => {
+  (FLOW ? cv : reel).addEventListener('wheel', e => { // flow: sideways scrolling slides from anywhere, the grid too
+    if (e.target.closest?.('.strip')) return; // a strip scrolls itself
     if (!reading || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
     e.preventDefault();
     sideways(e.deltaX);
   }, { passive: false });
+  reel.addEventListener('click', e => { const p = e.target.closest?.('.part-tweet:not(.awake), .part-instagram:not(.awake)'); if (p) { p.classList.add('awake'); p.addEventListener('pointerleave', () => p.classList.remove('awake'), { once: true }); } });
+  // Links between entries (an <a href="/?open=…"> in an entry's words): hovering one previews the
+  // entry it names, and clicking glides the reel there instead of leaving the page.
+  const peek = Object.assign(document.createElement('div'), { className: 'peek' });
+  document.body.append(peek);
+  const linked = a => { if (a.entry && order.includes(a.entry)) return a.entry; const to = new URL(a.href, location.href).searchParams.get('open'); return to ? order.find(x => slug(x) === to) : null; };
+  reel.addEventListener('click', e => {
+    const a = e.target.closest('a[href*="open="]'), t = a && linked(a);
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation();
+    peek.classList.remove('on');
+    glide(order.indexOf(t));
+  });
+  reel.addEventListener('pointerover', e => {
+    const a = e.target.closest('a[href*="open="]:not(.mention)'), t = a && linked(a);
+    if (!t) return;
+    const src = tabPicture(t), sub = t.source?.dataset?.subtitle, first = t.source?.querySelector?.('.details')?.textContent.trim();
+    peek.replaceChildren();
+    if (src) peek.append(Object.assign(document.createElement('img'), { src, alt: '' }));
+    peek.append(Object.assign(document.createElement('b'), { textContent: t.title }));
+    if (sub) peek.append(Object.assign(document.createElement('i'), { textContent: sub }));
+    if (first) peek.append(Object.assign(document.createElement('span'), { textContent: first }));
+    peek.classList.add('on');
+    const r = a.getBoundingClientRect(), h = peek.offsetHeight;
+    peek.style.left = `${Math.round(Math.min(innerWidth - peek.offsetWidth - 8, Math.max(8, r.left)))}px`;
+    peek.style.top = `${Math.round(r.bottom + 8 + h < innerHeight ? r.bottom + 8 : Math.max(8, r.top - 8 - h))}px`;
+  });
+  reel.addEventListener('pointerout', e => { if (e.target.closest('a[href*="open="]')) peek.classList.remove('on'); });
+
   // Touch (phones and tablets send no wheel events): a sideways drag moves the reel with the finger,
   // and a flick carries on, easing to rest; up and down stays the column's own scrolling (the reel is
   // touch-action: pan-y, so the browser hands over only the sideways moves).
   let drag = null;
-  reel.addEventListener('pointerdown', e => {
+  const pad = FLOW ? cv : reel; // flow: a sideways drag anywhere, the grid too
+  pad.addEventListener('pointerdown', e => {
+    if (e.target.closest?.('.strip')) return;
     if (!reading || e.pointerType === 'mouse') return;
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, moves: [] };
   });
-  reel.addEventListener('pointermove', e => {
+  pad.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.on) {
       if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy)) return;
       drag.on = true;
-      reel.setPointerCapture(e.pointerId);
+      pad.setPointerCapture(e.pointerId);
     }
     const z = box?.z ?? 1;
     drag.x = e.clientX; drag.y = e.clientY;
@@ -662,10 +899,10 @@ function reelMode() {
     // The flick's speed over its last moments, carried a little further on the spring.
     const [t0] = moves[0], [t1] = moves.at(-1), dt = Math.max(1, t1 - t0);
     const v = -moves.slice(1).reduce((a, [, d]) => a + d, 0) / dt; // px per ms, positive moves the reel on
-    if (Math.abs(v) > 0.2 && pos.value >= 0) glide(pos.value + v * 260 / PX_PER_ENTRY);
+    if (Math.abs(v) > 0.2 && (FLOW || pos.value >= 0)) glide(pos.value + v * 260 / PX_PER_ENTRY);
   };
-  reel.addEventListener('pointerup', lift);
-  reel.addEventListener('pointercancel', lift);
+  pad.addEventListener('pointerup', lift);
+  pad.addEventListener('pointercancel', lift);
   // Embedded pages (Orbital, Engiscope, Parhelion) are this site's own, so their sideways scrolling
   // can be handed to the reel; up and down stays theirs (their zoom).
   function hand(f) {
@@ -694,13 +931,20 @@ function reelMode() {
     if (!reading || e.target.closest?.('input, textarea, select')) return;
     if (e.key === 'Escape') close();
     else if (e.key === 'ArrowRight') glide(Math.round(pos.target) + 1);
-    else if (e.key === 'ArrowLeft') glide(Math.round(pos.target) - 1);
+    else if (e.key === 'ArrowLeft') glide(FLOW && pos.target <= 0 ? home() : Math.round(pos.target) - 1);
   });
-  current = t => t === (hovered ?? near);
+  current = (t, box) => t === (hovered ?? near) && (!box || leadBox(t) === box);
   hotEntry = (t, on) => name(on ? t : null);
   const first = new URLSearchParams(location.search).get('open');
   const t = first && [...tiles.filter(x => !x.of), ...postGroups.values()].find(x => slug(x) === first); // a year's posts column too
-  if (t) show(t);
+  if (FLOW) {
+    // The reel from the start, at home (or at the entry the URL names).
+    order = sequence();
+    reel.replaceChildren(...order.map(column));
+    reading = true; cv.classList.add('reading'); measure(); layoutTabs();
+    pos.jump(t ? Math.max(0, order.indexOf(entryOf(t))) : home());
+    paint();
+  } else if (t) show(t);
   return show;
 }
 
@@ -797,6 +1041,87 @@ function stackMode() {
 
 openEntry = new URLSearchParams(location.search).get('panels') === 'stack' ? stackMode() : reelMode();
 
+// ?edit on this Mac or the local network: an entry's words can be changed in place, and the atlas's
+// texts for it sit under them, each to keep or switch off (the dot) and to cut down. Changes go to
+// drafts/state.json through the site's own server (stage/serve.py); nothing here reaches a release.
+function keep(id, edit) {
+  return fetch('/__drafts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...edit }) })
+    .then(r => { if (!r.ok) throw new Error(r.status); }).catch(e => console.warn('draft not saved:', id, e));
+}
+async function drafting(t, el) {
+  const [atlas, state] = await drafts;
+  const editable = (node, id, orig, html = s => s) => {
+    node.contentEditable = 'plaintext-only';
+    if (node.contentEditable !== 'plaintext-only') node.contentEditable = 'true';
+    node.spellcheck = false;
+    // Emptied text is kept as removed (not a return to the original); "restore" brings the original back.
+    const restore = Object.assign(document.createElement('button'), { type: 'button', className: 'restore', textContent: 'restore' });
+    node.after(restore);
+    const show = () => {
+      const s = state[id], changed = typeof s?.text === 'string';
+      node.innerHTML = html(changed ? s.text : orig);
+      node.classList.toggle('edited', changed);
+      node.classList.toggle('emptied', changed && s.text === '');
+      restore.hidden = !changed;
+    };
+    show();
+    node.addEventListener('focus', () => { node.textContent = typeof state[id]?.text === 'string' ? state[id].text : orig; });
+    node.addEventListener('blur', () => {
+      const v = node.innerText.trim(), s = { ...(state[id] ?? {}) };
+      if (v !== orig) s.text = v; else delete s.text;
+      state[id] = s; keep(id, s); show();
+    });
+    restore.addEventListener('click', () => { const s = { ...(state[id] ?? {}) }; delete s.text; state[id] = s; keep(id, s); show(); });
+  };
+  const text = el.querySelector('.text');
+  const plain = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const levels = [['.details', 'text', '']];
+  text.replaceChildren();
+  for (const [q, key, label] of levels) {
+    if (label) { const h = document.createElement('div'); h.className = 'drafts-kind'; h.textContent = label; text.append(h); }
+    const d = document.createElement('div');
+    d.className = 'drafting';
+    text.append(d);
+    editable(d, `entry:${t.title}:${key}`, t.source.querySelector(q)?.textContent.trim() ?? '', plain);
+  }
+  const mine = atlas[t.title];
+  if (!mine) return;
+  const box = document.createElement('div');
+  box.className = 'drafts';
+  box.innerHTML = `<div class="drafts-head">From the atlas · ${mine.from.join(', ')}</div>`;
+  const md = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  let last = null;
+  for (const p of mine.passages) {
+    if (p.kind !== last) { last = p.kind; const h = document.createElement('div'); h.className = 'drafts-kind'; h.textContent = p.kind; box.append(h); }
+    const row = document.createElement('div');
+    row.className = 'draft' + (state[p.id]?.off ? ' off' : '');
+    row.innerHTML = '<button class="dot" type="button" aria-label="Keep or switch off"></button><div class="txt"></div>';
+    row.querySelector('.dot').addEventListener('click', () => {
+      const s = { ...(state[p.id] ?? {}) };
+      if (s.off) delete s.off; else s.off = true;
+      state[p.id] = s; row.classList.toggle('off', !!s.off); keep(p.id, s);
+    });
+    editable(row.querySelector('.txt'), p.id, p.text, md);
+    box.append(row);
+  }
+  el.querySelector('.media').before(box);
+}
+
+// A copy of the tile of the entry named `to` (its slug, or the entry itself), linking there.
+function mention(to) {
+  const t = typeof to === 'string' ? tiles.find(x => !x.post && slug(x) === to) : to;
+  if (!t) return null;
+  const a = Object.assign(document.createElement('a'), { className: 'mention', href: `/?open=${slug(t)}` });
+  a.entry = t; // the very entry, where several share a name and a year (Arca)
+  const tile = makeTile('entry');
+  tile.tabIndex = -1; tile.removeAttribute('role');
+  tile.innerHTML = t.tile.querySelector('.words').outerHTML;
+  if (t.tile.dataset.crop) { tile.dataset.crop = t.tile.dataset.crop; for (const k of ['--crop-z', '--crop-at']) tile.style.setProperty(k, t.tile.style.getPropertyValue(k)); }
+  a.append(tile);
+  if (t.stillable) addStill(t, t.stillable, tile);
+  return a;
+}
+
 function render(t) {
   if (t.postGroup) return renderPosts(t);
   const e = t.source;
@@ -806,17 +1131,46 @@ function render(t) {
   // The title goes to the entry's own page where it has one (a talk's walkthrough), else its link.
   const href = e.dataset.page ?? link?.getAttribute('href');
   const out = e.dataset.page ? '' : ' target="_blank" rel="noopener"';
-  const also = e.dataset.page && link?.getAttribute('href') ? `<a class="also" href="${link.getAttribute('href')}" target="_blank" rel="noopener">${new URL(link.href, location.href).hostname.replace(/^www\./, '')} ↗</a>` : '';
+  const meta = [...new Set([(e.dataset.sheetSubtitle ?? e.dataset.subtitle)?.replaceAll('|', ' '), e.querySelector('.place')?.textContent].filter(Boolean))].join(' · '); // data-sheet-subtitle: the column's own ("" for none)
+  const also = '';
   el.innerHTML = `
-    <div class="title">${href ? `<a href="${href}"${out}>${link.innerHTML}</a>` : link?.innerHTML ?? ''}</div>
-    <div class="meta">${[e.querySelector('.date')?.textContent, e.querySelector('.place')?.textContent].filter(Boolean).join(' · ')}${also ? ` · ${also}` : ''}</div>
-    <div class="text">${e.querySelector('.details')?.innerHTML ?? ''}</div>
+    <div class="words-block">
+      <div class="title">${href ? `<a href="${href}"${out}>${link.innerHTML}</a>` : link?.innerHTML ?? ''}</div>
+      <div class="meta">${meta}${also ? ` · ${also}` : ''}<span class="when">${meta ? ' · ' : ''}${[e.querySelector('.date')?.textContent, t.year].filter(Boolean).join(' ')}</span></div>
+      <div class="text">${e.querySelector('.details:not([data-card])')?.innerHTML ?? ''}</div>
+    </div>
     <div class="media"></div>`;
   const view = { el, apis: [] };
-  fill(el.querySelector('.media'), t.parts, view, t, el);
+  // Entries its words link to, as their tiles under the words (a click glides there, as the link does).
+  const named = e.dataset.links === 'foot' ? [] : [...new Set([...el.querySelectorAll('.text a[href*="open="]')].map(a => new URL(a.href, location.href).searchParams.get('open')))]; // data-links="foot": the tiles go in a foot instead
+  // <a class="card" href="…" data-still="image:…"><b>…</b><i>…</i></a>: a page elsewhere (a thesis), shown as a
+  // tile in the column (the line it stands for, data-card, only on the text page), opening that page.
+  const cards = [...e.querySelectorAll(':scope > a.card')].map(c => {
+    const a = Object.assign(document.createElement('a'), { className: 'mention card', href: c.getAttribute('href') });
+    const tile = makeTile('entry');
+    tile.tabIndex = -1; tile.removeAttribute('role');
+    tile.innerHTML = `<div class="words">${c.innerHTML}</div>`;
+    a.append(tile);
+    if (c.dataset.still) addStill({ size: 'normal', tile: null }, c.dataset.still, tile);
+    return a;
+  });
+  // <a class="app" href="…" data-icon="…">TestFlight</a>: the app's icon, a link to try it.
+  const apps = [...e.querySelectorAll(':scope > a.app')].map(c => {
+    const a = Object.assign(document.createElement('a'), { className: 'app-link', href: c.getAttribute('href'), target: '_blank', rel: 'noopener' });
+    a.append(Object.assign(document.createElement('img'), { src: `${MEDIA}${c.dataset.icon}/icon-320.avif`, alt: '' }), Object.assign(document.createElement('span'), { textContent: c.textContent }));
+    return a;
+  });
+  const strip = [...named.map(mention), ...cards, ...apps].filter(Boolean);
+  if (strip.length) el.querySelector('.words-block').append(Object.assign(document.createElement('div'), { className: 'mentions' }));
+  el.querySelector('.mentions')?.append(...strip);
+  if (EDIT) drafting(t, el);
+  el.dataset.slug = slug(t);
+  if (e.dataset.lead != null) requestAnimationFrame(() => el.querySelector(':scope > .media > *')?.classList.add('lead'));
+  const saved = ARRANGE ? orders[`media:${slug(t)}`]?.tags : null; // an arrangement not yet locked in
+  fill(el.querySelector('.media'), saved ? saved[0].split(' ').filter(Boolean) : t.parts, view, t, el);
   // More of the same work under its own header in the column (Xoromancy's later showings):
   // <span class="sub" data-stage="…"><a class="entry-title" href="…">Title</a><time>…</time><span class="place">…</span></span>
-  for (const sub of e.querySelectorAll(':scope > .sub')) {
+  [...e.querySelectorAll(':scope > .sub')].forEach((sub, i) => {
     const s = sub.querySelector('.entry-title');
     const head = document.createElement('div');
     head.className = 'sub-head';
@@ -826,9 +1180,113 @@ function render(t) {
     const media = document.createElement('div');
     media.className = 'media';
     el.append(head, media);
-    fill(media, (sub.dataset.stage ?? '').split(' ').filter(Boolean), view, t, el);
+    fill(media, (saved?.[i + 1] ?? sub.dataset.stage ?? '').split(' ').filter(Boolean), view, t, el);
+  });
+  // Feet: <span class="foot" data-label="From"><a href="/?open=…">…</a></span>, a line of words and the tiles it names.
+  for (const f of e.querySelectorAll(':scope > .foot')) {
+    const tilesOf = [...f.querySelectorAll('a[href*="open="]')].map(a => mention(new URL(a.getAttribute('href'), location.href).searchParams.get('open'))).filter(Boolean);
+    if (!tilesOf.length) continue;
+    const foot = Object.assign(document.createElement('div'), { className: 'foot-block' });
+    if (f.dataset.label) foot.append(Object.assign(document.createElement('div'), { className: 'foot-label', textContent: f.dataset.label }));
+    const strip = Object.assign(document.createElement('div'), { className: 'mentions' });
+    strip.append(...tilesOf);
+    foot.append(strip);
+    if (f.dataset.place === 'lead') { foot.classList.add('lead-foot'); el.querySelector(':scope > .media').after(foot); } // right under the entry's own media
+    else el.append(foot);
+  }
+  // The same name's other entries (Arca's other shows), their tiles at the foot of the column.
+  const kin = tiles.filter(x => !x.of && !x.post && x !== t && x.title === t.title && shown(x));
+  if (kin.length) {
+    const foot = Object.assign(document.createElement('div'), { className: 'foot-block' });
+    foot.append(Object.assign(document.createElement('div'), { className: 'foot-label', textContent: 'Related' }));
+    const strip = Object.assign(document.createElement('div'), { className: 'mentions' });
+    strip.append(...kin.sort((a, b) => b.when.localeCompare(a.when)).map(mention));
+    foot.append(strip);
+    el.append(foot);
   }
   return view;
+}
+
+// Hovering a picture in a column zooms it toward the pointer, as hovering the Latent Blend grid opens a
+// cell: on springs, the point under the pointer staying put, the frame staying where it is. In slowly,
+// out at the grid's pace. ?debug tunes the zoom in and how far it goes.
+const ZOOM_OUT = { k: 0.09, d: 0.55 };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+function zoomable(frame, img) {
+  if (!img || reduce.matches) return;
+  const z = new Spring(1, { k: 0.09, d: 0.55 }), x = new Spring(0, { k: 0.09, d: 0.55 }), y = new Spring(0, { k: 0.09, d: 0.55 });
+  let raf = 0, last = 0;
+  const frameStep = now => {
+    const dt = (now - (last || now)) / 1000; last = now;
+    const moving = [z, x, y].map(s => s.step(dt)).some(Boolean);
+    const k = z.value;
+    img.style.transform = k === 1 ? '' : `translate(${(1 - k) * x.value}px, ${(1 - k) * y.value}px) scale(${k})`;
+    raf = moving ? requestAnimationFrame(frameStep) : 0;
+    if (!raf) last = 0;
+  };
+  const go = () => { if (!raf) raf = requestAnimationFrame(frameStep); };
+  const at = e => { last_ = e; const r = frame.getBoundingClientRect(), s = r.width / frame.offsetWidth || 1; x.set((e.clientX - r.left) / s); y.set((e.clientY - r.top) / s); };
+  let last_ = null;
+  // Scrolling moves the picture under a still pointer: aim again from where the pointer was.
+  const onScroll = () => { if (last_ && z.target !== 1) { at(last_); go(); } };
+  frame.addEventListener('pointerenter', e => { if (e.pointerType !== 'mouse' || ARRANGE) return; at(e); if (z.value === 1) { x.jump(x.target); y.jump(y.target); } z.tune(OPTS.zoomK, OPTS.zoomD); z.set(OPTS.zoom); go(); addEventListener('scroll', onScroll, { capture: true, passive: true }); });
+  frame.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' || z.target === 1) return; at(e); go(); });
+  frame.addEventListener('pointerleave', () => { z.tune(ZOOM_OUT.k, ZOOM_OUT.d); z.set(1); go(); removeEventListener('scroll', onScroll, { capture: true }); });
+}
+
+// A blend's strip of steps (Latent Blend): hovering it shows the step under the pointer in the picture
+// it came from (m.hero, above it), travelling there through the steps between on the zoom-in spring,
+// and back through them to that picture when the pointer leaves; an outline on the strip marks the
+// step showing.
+function stripSwap(box, frame) {
+  const { frames, cuts, home, hero } = box.strip, total = cuts.at(-1);
+  // Toward the pointer nearly at once (the zoom's way out); back home a little slower, between the zoom's in and out.
+  const TO = ZOOM_OUT, BACK = { k: 0.045, d: 0.55 }; // (the spring takes no bounce: k and d must keep (1 − dk + d)² ≥ 4d)
+  const pos = new Spring(home, TO);
+  const mark = Object.assign(document.createElement('i'), { className: 'strip-mark' });
+  frame.append(mark);
+  // Each step decoded once, drawn onto a canvas over the picture, so swapping never blanks.
+  const bitmaps = [];
+  let canvas = null, raf = 0, last = 0, shown = home, over = false, loaded = false;
+  const heroFrame = () => box.parentElement?.querySelector(`:scope > [data-part="image:${hero}"] > a`);
+  const place = i => { mark.style.left = `${cuts[i] / total * 100}%`; mark.style.width = `${(cuts[i + 1] - cuts[i]) / total * 100}%`; };
+  const show = i => {
+    const f = heroFrame();
+    if (!f) return;
+    if (i === home && !over) { canvas?.remove(); canvas = null; f.querySelector('img').style.visibility = ''; return; }
+    const b = bitmaps[i];
+    if (!b) return; // not decoded yet: the last one drawn stays
+    if (!canvas) { canvas = Object.assign(document.createElement('canvas'), { className: 'strip-shown' }); f.append(canvas); f.querySelector('img').style.visibility = 'hidden'; } // the picture under it can't peek out at an edge
+    const r = f.getBoundingClientRect(), d = Math.min(2, devicePixelRatio), w = Math.round(r.width * d), h = Math.round(r.height * d);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    // A step of the picture's shape fills it, as the picture does; one of another shape (an input) fits whole.
+    const g = canvas.getContext('2d'), fits = Math.abs(Math.log((b.width / b.height) / (w / h))) > 0.05;
+    const s = (fits ? Math.min : Math.max)(w / b.width, h / b.height);
+    const dw = b.width * s, dh = b.height * s, x = (w - dw) / 2, y = (h - dh) / 2;
+    g.save();
+    if (fits) { g.fillStyle = getComputedStyle(document.body).backgroundColor; g.fillRect(0, 0, w, h); g.beginPath(); g.roundRect(x, y, dw, dh, 10 * d); g.clip(); } // rounded as the pictures are
+    g.drawImage(b, x, y, dw, dh);
+    g.restore();
+  };
+  const step = now => {
+    const moving = pos.step((now - (last || now)) / 1000); last = now;
+    const i = Math.max(0, Math.min(frames.length - 1, Math.round(pos.value)));
+    if (i !== shown) { shown = i; place(i); show(i); }
+    raf = moving ? requestAnimationFrame(step) : 0;
+    if (!raf) { last = 0; if (!over) { box.classList.remove('live'); show(home); } }
+  };
+  const go = spring => { pos.tune(spring.k, spring.d); if (!raf) raf = requestAnimationFrame(step); };
+  const at = e => { const r = frame.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * total; let i = 0; while (i < frames.length - 1 && cuts[i + 1] <= x) i++; return i; };
+  frame.addEventListener('pointerenter', e => {
+    over = true; box.classList.add('live'); place(shown);
+    if (!loaded) { // the steps, decoded before they're asked for
+      loaded = true;
+      frames.forEach((src, i) => fetch(src).then(r => r.blob()).then(createImageBitmap).then(b => { bitmaps[i] = b; if (i === shown && over) show(i); }).catch(() => {}));
+    }
+    pos.set(at(e)); go(TO);
+  });
+  frame.addEventListener('pointermove', e => { pos.set(at(e)); go(TO); });
+  frame.addEventListener('pointerleave', () => { over = false; pos.set(home); go(BACK); });
 }
 
 // Build parts into `media`. A part joined with '+' (image:a+image:b) is a row: its items side by side
@@ -836,24 +1294,31 @@ function render(t) {
 function fill(media, parts, view, t, el) {
   for (const part of parts) {
     const items = part.split('+');
-    let host = media;
-    if (items.length > 1) { host = document.createElement('div'); host.className = 'row'; media.append(host); }
+    const row = items.length > 1 ? Object.assign(document.createElement('div'), { className: 'row' }) : null;
+    if (row) media.append(row);
     for (const item of items) {
       const box = document.createElement('div');
-      host.append(box);
-      build(item, box, { loud: () => current(t), width: () => (el.getBoundingClientRect().width || 480) / items.length })
+      (row ?? media).append(box);
+      build(item, box, { loud: () => current(t, box), bare: t.source?.dataset?.bare != null, width: () => (el.getBoundingClientRect().width || 480) / items.length })
         .then(api => {
+          if (api) api.box = box; // which video it is, for the one-voice rule
           view.apis.push(api);
           if (view.live === false) setLive(view, false); // built after its reel column said not live
           else if (current(t)) api?.play?.();
-          if (items.length > 1) { const m = box.querySelector('img, video'); if (m?.width) box.style.flex = `${m.width / m.height} 1 0`; }
-          if (box.classList.contains('alpha')) return; // transparent pictures stay plain
+          if (items.length > 1) { const m = box.querySelector('img, video'), w = +m?.getAttribute('width'), h = +m?.getAttribute('height'); if (w && h) box.style.flex = `${w / h} 1 0`; } // the file's proportions, not its laid-out size
           // The same continuous-curvature corners as the tiles, on each picture, player and grid.
+          // A picture zooms toward the pointer, so its frame (its link) takes the corners instead.
+          const pic = box.classList.contains('part-image') && box.querySelector(':scope > a');
+          if (pic) { corners.observe(pic); if (box.strip) stripSwap(box, pic); else zoomable(pic, pic.querySelector('img')); }
           for (const m of box.querySelectorAll(':scope img, :scope video, :scope .grid, :scope .part-youtube iframe, :scope iframe')) {
+            if (pic && m.parentElement === pic) continue;
             if (!m.closest('.grid') || m.classList.contains('grid')) corners.observe(m);
           }
         });
     }
+    const unit = row ?? media.lastElementChild; // what ?arrange moves: the part, a row as one
+    unit.dataset.part = part;
+    if (ARRANGE) unit.draggable = true;
   }
 }
 
@@ -861,11 +1326,26 @@ function fill(media, parts, view, t, el) {
 if (new URLSearchParams(location.search).has('debug')) {
   const panel = document.createElement('div');
   panel.className = 'reel-debug';
-  panel.innerHTML = [['tabsBySize', 'tabs sized by their tile'], ['groupGaps', 'gap between groups of tabs'], ['yearByDate', 'by year: newest first'], ['sharpText', 'sharp text'], ['darkGrid', 'dark grid while reading'], ['hideEmpty', 'leave out entries with no media'], ['skyControls', 'sky controls']]
-    .map(([k, text]) => `<label><input type="checkbox" name="${k}"${OPTS[k] ? ' checked' : ''}> ${text}</label>`).join('');
+  panel.innerHTML = [['tabsBySize', 'tabs sized by their tile'], ['groupGaps', 'gap between groups of tabs'], ['yearByDate', 'by year: newest first'], ['sharpText', 'sharp text'], ['darkGrid', 'dark grid while reading'], ['hideEmpty', 'leave out entries with no media'], ['skyControls', 'sky controls'], ['flushStack', 'stack flush left'], ['blocks', 'columns as abutted blocks'], ['topBar', 'name and filters along the top'], ['flow', 'reel always there, the split sliding (reloads)'], ['fitOpen', 'open column whole: the stack squeezes in small windows']]
+    .map(([k, text]) => `<label><input type="checkbox" name="${k}"${OPTS[k] ? ' checked' : ''}> ${text}</label>`).join('')
+    + `<label>stack edge <input type="range" name="stackEdge" min="-24" max="40" step="1" value="${OPTS.stackEdge ?? 8}"> <span class="v">${OPTS.stackEdge ?? 8}px</span></label>`
+    + `<label>glide pull (k) <input type="range" name="springK" min="0.01" max="0.2" step="0.005" value="${OPTS.springK}"> <span class="v">${OPTS.springK}</span></label>`
+    + `<label>glide carry (d) <input type="range" name="springD" min="0.2" max="0.7" step="0.01" value="${OPTS.springD}"> <span class="v">${OPTS.springD}</span></label>`
+    + `<label>picture zoom <input type="range" name="zoom" min="1.2" max="4" step="0.1" value="${OPTS.zoom}"> <span class="v">${OPTS.zoom}</span></label>`
+    + `<label>zoom-in pull (k) <input type="range" name="zoomK" min="0.005" max="0.2" step="0.005" value="${OPTS.zoomK}"> <span class="v">${OPTS.zoomK}</span></label>`
+    + `<label>zoom-in carry (d) <input type="range" name="zoomD" min="0.2" max="0.7" step="0.01" value="${OPTS.zoomD}"> <span class="v">${OPTS.zoomD}</span></label>`;
+  panel.addEventListener('input', e => {
+    if (e.target.type !== 'range') return;
+    OPTS[e.target.name] = +e.target.value;
+    e.target.nextElementSibling.textContent = e.target.name === 'stackEdge' ? `${e.target.value}px` : e.target.value;
+    try { localStorage.setItem('reel.opts', JSON.stringify(OPTS)); } catch {}
+    onOptions();
+  });
   panel.addEventListener('change', e => {
+    if (e.target.type === 'range') return;
     OPTS[e.target.name] = e.target.checked;
     try { localStorage.setItem('reel.opts', JSON.stringify(OPTS)); } catch {}
+    if (e.target.name === 'flow') { location.reload(); return; }
     if ((e.target.name === 'yearByDate' && shownView === 'year') || e.target.name === 'hideEmpty') arrange(shownView);
     looks();
     onOptions();
