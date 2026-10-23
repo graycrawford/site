@@ -84,6 +84,15 @@ export const PRESET_DEFAULTS = {
   tiltPlate: 1, tiltColumn: 1.5, tiltParry: 0.25, tiltLowitz: 1, tiltPolyhedral: 1,
 };
 
+// Presets from before the sky had no planet under them, so their sun lit the
+// crystals from below the horizon as well as above. Without a sky level or a
+// ground of their own they stand on a transparent planet: with the sky up
+// and the sun below the horizon, sunlight reaches the halos through the far
+// side's air instead of the solid ground's shadow blacking them out.
+export function presetDefaults(p) {
+  return 'skyLevel' in p ? PRESET_DEFAULTS : { ...PRESET_DEFAULTS, ground: 'vacuum' };
+}
+
 const STORE = 'parhelion.presets';
 
 // Brings presets saved under earlier setting names up to date:

@@ -22,7 +22,7 @@ export function makeLabels(config) {
   const rails = {
     'xy-pad-x-slider': () => ['ior', num(config.ior, 3)],
     'xy-pad-tilt-slider': () => ['tilt', num(config.crystalTilt, 2)],
-    'xy-pad-y-slider': () => ['sun', num(config.sunElevation, 1)],
+    'xy-pad-y-slider': () => ['sun elevation', num(config.sunElevation, 1)],
     'xy-pad-zoom-slider': () => ['zoom', num(config.zoom, 2)],
     'xy-pad-exposure-slider': () => ['exposure', num(Math.log10(config.exposure), 2)],
     'xy-pad-sky-slider': () => ['sky', config.skyLevel > 0 ? num(config.skyLevel, 2) : 'off'],
@@ -64,7 +64,7 @@ export function makeLabels(config) {
   const padLabel = document.createElement('div');
   padLabel.className = 'pad-label';
   pad.append(padLabel);
-  const renderPad = () => { padLabel.innerHTML = `ior ${num(config.ior, 3)}<br>sun ${num(config.sunElevation, 1)}`; };
+  const renderPad = () => { padLabel.innerHTML = `ior ${num(config.ior, 3)}<br>sun elevation ${num(config.sunElevation, 1)}`; };
   labels.set(padLabel, renderPad);
   for (const el of [document.getElementById('xy-pad-background'), document.getElementById('xy-pad-knob')]) {
     el.addEventListener('pointerenter', () => { shown.add(padLabel); renderPad(); padLabel.classList.add('on'); });
