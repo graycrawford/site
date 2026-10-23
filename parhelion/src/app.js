@@ -1,6 +1,6 @@
 import { GUI } from 'dat.gui';
 import {
-  DEFAULT_PRESET, PRESET_KEYS, PRESET_DEFAULTS, allPresets, savedPresets, nextPresetName,
+  DEFAULT_PRESET, PRESET_KEYS, presetDefaults, allPresets, savedPresets, nextPresetName,
   capturePreset, savePreset, removePreset, presetsAsCode,
 } from './presets.js';
 import { TYPE_KEYS, haloAngle, iorFromHaloAngle } from './optics.js';
@@ -143,7 +143,8 @@ export function start(renderer) {
     const p = allPresets()[name];
     if (!p) return;
     const values = {};
-    for (const k of PRESET_KEYS) values[k] = p[k] ?? PRESET_DEFAULTS[k] ?? CONFIG[k];
+    const defaults = presetDefaults(p);
+    for (const k of PRESET_KEYS) values[k] = p[k] ?? defaults[k] ?? CONFIG[k];
     applyConfig(values, k => p.types.includes(k.slice(6).toLowerCase()));
     CONFIG.preset = name;
   }
@@ -466,7 +467,7 @@ export function start(renderer) {
   });
   // A preset's full config (missing keys at their defaults).
   const presetConfig = p => {
-    const c = { ...CONFIG, ...PRESET_DEFAULTS };
+    const c = { ...CONFIG, ...presetDefaults(p) };
     for (const k of PRESET_KEYS) if (p[k] !== undefined) c[k] = p[k];
     for (const k of TYPE_KEYS) c[k] = p.types.includes(k.slice(6).toLowerCase());
     return c;
