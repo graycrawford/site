@@ -12,7 +12,7 @@ import { build, stillFor, MEDIA } from './media.js';
 import { lensTile } from './textlens.js';
 import { squirclePath } from './squircle.js';
 import { Spring } from './spring.js';
-import { off, dpr } from './perf.js';
+import { off, dpr, prof } from './perf.js';
 
 const SPAN = { mini: [1, 1], normal: [2, 2], big: [4, 4], post: [1, 2] }; // columns, rows
 // Options to try out (?debug shows a panel for them, bottom left), kept per browser.
@@ -87,6 +87,10 @@ const PLACE = {
     ['Neophon', 'big'], ['Neophon · SPC Demo Night', 'normal'], ['Generating New Sounds with Neophon', 'normal'],
     ['Neophon · Code with Claude', 'normal'], ['Optia · Cirrus', 'normal'],
   ],
+  'Live realtime video': [ // same-titled shows by their subtitle: "Title | subtitle"
+    ['Arca | Palomosa, Montréal', 'big'], ['Arca | C2C Festival, NY', 'big'], ['Arca | No LineUp, São Paulo', 'mini'], ['Arca | Portola, San Francisco', 'mini'],
+    ['Arca | Live Night, CAP UCLA', 'normal'], ['Moritz von Oswald & Azu Tiwaline', 'normal'], ['Optia · HydeFM × The Lab', 'big'], ['Hesaitix', 'normal'],
+  ],
   'Side projects': [
     ['Neophon', 'big'], ['Orbital', 'big'], ['Exposure', 'big'], ['Engiscope', 'normal'], ['Parhelion', 'big'], ['Tangent', 'normal'], ['Physarum', 'mini'],
   ],
@@ -98,7 +102,7 @@ const PLACE = {
 // Tiles are clipped to a continuous-curvature round rect (squircle.js) at their exact size,
 // redrawn when that changes; border-radius stays underneath as the fallback.
 const RADIUS = 10, SMOOTHING = 0.6, RING = 2.5;
-const corners = new ResizeObserver(list => {
+const corners = new ResizeObserver(list => prof('corners', () => {
   for (const { target, contentRect: r } of list) {
     if (r.width > 1 && !off.has('corners')) {
       const outer = squirclePath(r.width, r.height, RADIUS, SMOOTHING);
@@ -112,7 +116,7 @@ const corners = new ResizeObserver(list => {
     }
     if (r.width > 1) target.style.setProperty('--w', r.width); // posts scale to it
   }
-});
+}));
 
 function makeTile(kind) {
   const tile = document.createElement('div');
@@ -303,7 +307,7 @@ function arrange(view) {
       mine.forEach(t => placed.add(t.of ?? t));
       // Hand placement: listed titles first, in order, at their listed sizes.
       const place = PLACE[name] ?? [];
-      const rank = t => { const i = place.findIndex(([title]) => title === t.title); return i < 0 ? place.length : i; };
+      const rank = t => { const i = place.findIndex(([title]) => title === t.title || title === `${t.title} | ${t.source?.dataset?.subtitle}`); return i < 0 ? place.length : i; };
       mine.sort((a, b) => rank(a) - rank(b) || (first ? first(b) - first(a) : 0));
       for (const t of mine) setSize(t, place[rank(t)]?.[1] ?? t.size);
       claimed.set(name, mine);
@@ -618,9 +622,9 @@ function reelMode() {
     if (c.card) { run(t, 'hidden'); return; }
     if (t.view?.el.isConnected) { t.view.apis.forEach(a => a?.pause?.()); setLive(t.view, false); t.view.el.remove(); }
   }
-  // A live page runs while a tab's width or more of it shows; thinner, it holds its last frame (its own
-  // animation frames wait, see hand()), and all but covered it isn't drawn at all. Its state stays.
-  const TAB = 16;
+  // A live page runs while three tabs' width or more of it shows; thinner, it holds its last frame (its
+  // own animation frames wait, see hand()), and all but covered it isn't drawn at all. Its state stays.
+  const TAB = 16, RUN = 3 * TAB;
   function run(t, state) {
     if (!t.view || state === t.view.state) return;
     t.view.state = state;
@@ -672,7 +676,7 @@ function reelMode() {
     if (FLOW && u !== cv.u) {
       const a = anchor();
       cv.u = u; cv.style.setProperty('--u', u); cv.classList.toggle('deep', u > 0.5);
-      if (a) { const r = a.el.getBoundingClientRect(); gridScroll.scrollTop += r.top + a.f * r.height - a.y; }
+      if (a) prof('anchor (forces layout)', () => { const r = a.el.getBoundingClientRect(); gridScroll.scrollTop += r.top + a.f * r.height - a.y; });
     }
     // A packed column slides under the next and stays against the stack's edge (never drifting back
     // right as the strip opens behind it); the rest move as one row.
@@ -712,7 +716,7 @@ function reelMode() {
         // of px), and pauses only once it's all but gone.
         const veil = 1 - smooth(2, 2 * PAD, shows);
         if (Math.abs((c.veil ?? -1) - veil) > 0.004) { c.veil = veil; c.querySelector('.veil').style.opacity = veil; }
-        const state = veil >= 0.98 ? 'hidden' : shows < TAB ? 'held' : 'running';
+        const state = veil >= 0.98 ? 'hidden' : shows < RUN ? 'held' : 'running';
         if (state !== 'hidden' && !t.view?.el.isConnected) {
           t.view ??= render(t);
           c.querySelector('.body').replaceChildren(t.view.el);
@@ -754,7 +758,7 @@ function reelMode() {
     raf = 0;
     const moving = pos.step((now - (last || now)) / 1000);
     last = now;
-    paint();
+    prof('paint', paint);
     if (moving) raf = requestAnimationFrame(frame);
   }
   function glide(k) {
@@ -833,7 +837,6 @@ function reelMode() {
     paint();
   }
   (FLOW ? cv : reel).addEventListener('wheel', e => { // flow: sideways scrolling slides from anywhere, the grid too
-    if (e.target.closest?.('.strip')) return; // a strip scrolls itself
     if (!reading || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
     e.preventDefault();
     sideways(e.deltaX);
@@ -873,7 +876,7 @@ function reelMode() {
   let drag = null;
   const pad = FLOW ? cv : reel; // flow: a sideways drag anywhere, the grid too
   pad.addEventListener('pointerdown', e => {
-    if (e.target.closest?.('.strip')) return;
+    if (e.target.closest?.('.strip')) return; // a finger drawn along a strip scrubs its steps
     if (!reading || e.pointerType === 'mouse') return;
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, moves: [] };
   });
@@ -1157,7 +1160,10 @@ function render(t) {
   // <a class="app" href="…" data-icon="…">TestFlight</a>: the app's icon, a link to try it.
   const apps = [...e.querySelectorAll(':scope > a.app')].map(c => {
     const a = Object.assign(document.createElement('a'), { className: 'app-link', href: c.getAttribute('href'), target: '_blank', rel: 'noopener' });
-    a.append(Object.assign(document.createElement('img'), { src: `${MEDIA}${c.dataset.icon}/icon-320.avif`, alt: '' }), Object.assign(document.createElement('span'), { textContent: c.textContent }));
+    const icon = Object.assign(document.createElement('i'), { className: 'icon' });
+    icon.append(Object.assign(document.createElement('img'), { src: `${MEDIA}${c.dataset.icon}/icon-320.avif`, alt: '' }));
+    icon.firstChild.style.clipPath = `path('${squirclePath(84, 84, 84 * 0.2237, SMOOTHING)}')`; // an iOS icon's continuous-curvature corners
+    a.append(icon, Object.assign(document.createElement('span'), { textContent: c.textContent }));
     return a;
   });
   const strip = [...named.map(mention), ...cards, ...apps].filter(Boolean);
@@ -1192,6 +1198,7 @@ function render(t) {
     strip.append(...tilesOf);
     foot.append(strip);
     if (f.dataset.place === 'lead') { foot.classList.add('lead-foot'); el.querySelector(':scope > .media').after(foot); } // right under the entry's own media
+    else if (f.dataset.place === 'top') { foot.classList.add('top-foot'); el.querySelector(':scope > .media').before(foot); } // above the entry's media
     else el.append(foot);
   }
   // The same name's other entries (Arca's other shows), their tiles at the foot of the column.
@@ -1244,7 +1251,7 @@ function stripSwap(box, frame) {
   const TO = ZOOM_OUT, BACK = { k: 0.045, d: 0.55 }; // (the spring takes no bounce: k and d must keep (1 − dk + d)² ≥ 4d)
   const pos = new Spring(home, TO);
   const mark = Object.assign(document.createElement('i'), { className: 'strip-mark' });
-  frame.append(mark);
+  box.append(mark); // on the box, not in the picture's frame, which would clip its edge and shadow
   // Each step decoded once, drawn onto a canvas over the picture, so swapping never blanks.
   const bitmaps = [];
   let canvas = null, raf = 0, last = 0, shown = home, over = false, loaded = false;
@@ -1277,7 +1284,8 @@ function stripSwap(box, frame) {
   };
   const go = spring => { pos.tune(spring.k, spring.d); if (!raf) raf = requestAnimationFrame(step); };
   const at = e => { const r = frame.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * total; let i = 0; while (i < frames.length - 1 && cuts[i + 1] <= x) i++; return i; };
-  frame.addEventListener('pointerenter', e => {
+  // The box (and the gap above it, up to the picture it swaps) takes the pointer; where along it reads off the strip.
+  box.addEventListener('pointerenter', e => {
     over = true; box.classList.add('live'); place(shown);
     if (!loaded) { // the steps, decoded before they're asked for
       loaded = true;
@@ -1285,8 +1293,21 @@ function stripSwap(box, frame) {
     }
     pos.set(at(e)); go(TO);
   });
-  frame.addEventListener('pointermove', e => { pos.set(at(e)); go(TO); });
-  frame.addEventListener('pointerleave', () => { over = false; pos.set(home); go(BACK); });
+  box.addEventListener('pointermove', e => { pos.set(at(e)); go(TO); });
+  box.addEventListener('pointerleave', () => { over = false; pos.set(home); go(BACK); });
+}
+
+// A column's videos and grids of clips play only while they're on screen: further down a long column
+// they wait, paused but already loaded (prime), so a column doesn't decode a dozen videos at once, and
+// each starts the moment it scrolls into view. The column still says when it wants them playing.
+const onScreen = new IntersectionObserver(es => { for (const e of es) { e.target.gate.seen = e.isIntersecting; e.target.gate.sync(); } });
+function gate(api, box) {
+  const { play, pause } = api;
+  let want = false, on = false;
+  const g = box.gate = { seen: false, sync() { const now = want && g.seen; if (now !== on) { on = now; (now ? play : pause).call(api); } } };
+  api.play = () => { want = true; api.prime?.(); g.sync(); };
+  api.pause = () => { want = false; g.sync(); };
+  onScreen.observe(box);
 }
 
 // Build parts into `media`. A part joined with '+' (image:a+image:b) is a row: its items side by side
@@ -1302,6 +1323,7 @@ function fill(media, parts, view, t, el) {
       build(item, box, { loud: () => current(t, box), bare: t.source?.dataset?.bare != null, width: () => (el.getBoundingClientRect().width || 480) / items.length })
         .then(api => {
           if (api) api.box = box; // which video it is, for the one-voice rule
+          if (api && box.matches('.part-video, .grid-host')) gate(api, box);
           view.apis.push(api);
           if (view.live === false) setLive(view, false); // built after its reel column said not live
           else if (current(t)) api?.play?.();

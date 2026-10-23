@@ -25,7 +25,7 @@ css = '''
        name and filters | the grid of the work; each open entry is a panel after it. Every panel is
        a full-height column that scrolls on its own; they stick 40px apart, so older ones fold under
        newer ones to a spine with their title. */
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; overflow: hidden; overscroll-behavior-x: none; } /* a sideways swipe the reel doesn't take never turns into Back or Forward */
     .cv.stack { display: flex; height: 100vh; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; padding: 0; }
     .pane { background: var(--background); flex: 0 0 auto; height: 100%; position: sticky; transition: box-shadow .15s linear; }
     .pane > .scroll { height: 100%; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
@@ -73,10 +73,11 @@ css = '''
     /* The top bar across the whole window, over the grid and the reel alike, at every point of the slide. */
     /* In flow the name and filters head the grid and scroll away with it, laid out at the grid's reading width from the
        start: they never reflow as the split slides, so the grid starts where it will end up. */
-    html.top-bar .cv.reel-mode.flow .identity { box-sizing: border-box; display: block; padding: 22px 12px 0 calc(24px - 12px * var(--u)); position: static; width: calc(30vw + 12px - 12px * var(--u)); } /* the words keep one width as the inset changes */
+    html.top-bar .cv.reel-mode.flow .identity { box-sizing: border-box; display: block; padding: 22px 12px 0 calc(24px - 12px * var(--u)); position: static; width: min(calc((80 - 50 * var(--u)) * 1vw), calc(max(30vw, 324px) + 12px - 12px * var(--u))); } /* the words keep one width as the inset changes; in a narrower window they keep their lines (300px of text: the name over two lines of intro, the tags in two rows) while the grid's pane has room */
     html.top-bar .cv.flow .identity-card::before { display: none; }
     .cv.flow .tile-col { touch-action: pan-y; } /* sideways drags slide the split */
     .identity .filters button .n { display: none; } /* no counts */
+    html.top-bar .identity .intro { flex-basis: 100%; } /* the descriptors always under the name, never beside it */
     html.top-bar .identity .nav { flex-basis: 100%; } /* tw ig on a line of its own, between the bio and the tags */
     .identity .filters .row-break { flex-basis: 100%; height: 0; }
     .row-break { display: none; } html.top-bar .identity .filters .row-break { display: block; }
@@ -162,9 +163,10 @@ css = '''
     .entry-view .mentions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; } /* under the words' own 18px, the same again before the media */
     .entry-view .mention { display: block; filter: none; mix-blend-mode: normal; text-decoration: none; }
     .entry-view .mention .tile { --ws: 1; aspect-ratio: 1; width: 150px; }
-    .entry-view .app-link { align-items: center; color: inherit; display: flex; flex-direction: column; gap: 6px; text-decoration: none; width: 84px; } /* an app's icon, linking to its TestFlight */
-    .entry-view .app-link img { aspect-ratio: 1; border-radius: 22.5%; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .12); display: block; width: 84px; }
-    .entry-view .app-link span { font-size: .74rem; opacity: .7; }
+    .entry-view .app-link { align-items: center; color: inherit; display: flex; filter: none; flex-direction: column; gap: 6px; mix-blend-mode: normal; text-decoration: none; width: 84px; } /* an app's icon, linking to its TestFlight: the icon sharp */
+    .entry-view .app-link .icon { display: block; filter: drop-shadow(0 0 .5px rgba(0, 0, 0, .3)); } /* a hairline that follows the clipped shape */
+    .entry-view .app-link img { aspect-ratio: 1; display: block; width: 84px; } /* clipped to an icon's squircle by tiles.js */
+    .entry-view .app-link span { filter: blur(.65px); font-size: .74rem; mix-blend-mode: plus-darker; opacity: .7; } /* its label soft, as links are */
     .entry-view :is(.part-tweet, .part-instagram) iframe { pointer-events: none; } /* scrolling passes over a post to the column and the reel; a click wakes it */
     .entry-view :is(.part-tweet, .part-instagram).awake iframe { pointer-events: auto; }
     .entry-view :is(.part-tweet, .part-instagram):not(.awake) { cursor: pointer; }
@@ -173,6 +175,7 @@ css = '''
     .entry-view .meta .when { display: none; }
     .entry-view .media > .lead { margin-top: 56px; } /* data-lead: the first piece set apart from the tiles above it by a section's gap */
     .entry-view .foot-block.lead-foot { margin-top: 16px; } /* a foot placed right under the entry's own media */
+    .entry-view .foot-block.top-foot { margin: 0 0 16px; } /* a foot placed above the entry's media */
     .cv.clustered .entry-view .meta .when { display: inline; } /* clustered, the years mix: a column says when */
     .entry-view .foot-label { font-size: .84rem; margin-bottom: 10px; opacity: .6; }
     .entry-view .foot-block .mentions { margin: 0; }
@@ -220,6 +223,7 @@ css = '''
     .perf-hud { background: rgba(255, 255, 255, .9); border-radius: 10px; bottom: 12px; box-shadow: 0 1px 8px rgba(0, 0, 0, .15); display: grid; font: 12px/1.3 -apple-system, sans-serif; gap: 3px; left: 12px; padding: 10px 12px; position: fixed; z-index: 30; }
     .perf-hud .fps { font-size: 20px; font-variant-numeric: tabular-nums; }
     .perf-hud .worst { color: #666; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+    .perf-hud .parts { color: #666; font-variant-numeric: tabular-nums; margin-bottom: 4px; max-width: 220px; }
     .perf-hud label { align-items: center; display: flex; gap: 6px; }
     html:not(.sky-controls) .sky-debug { display: none !important; } /* ?debug: shown with "sky controls" */
     .sky-debug { background: rgba(255, 255, 255, .85); border-radius: 10px; bottom: 12px; box-shadow: 0 1px 8px rgba(0, 0, 0, .12); display: grid; font: 11px/1.2 -apple-system, sans-serif; gap: 4px; padding: 10px 12px; position: fixed; right: 12px; z-index: 10; }
@@ -245,6 +249,8 @@ css = '''
     .tile.has-still .words { color: #fff; text-shadow: 0 0 12.5px rgba(0, 0, 0, .5); } /* not its own layer (it comes after the picture anyway), so the subtitle can blend with it */
     .tile.has-still .words b { color: #fff; }
     .tile .still canvas.lens { height: 100%; inset: 0; position: absolute; width: 100%; }
+    .tile .still.lensed > :not(canvas, video) { visibility: hidden; } /* under the lens's opaque canvas: never seen, so never painted (a loop's video keeps decoding, unseen, for the lens) */
+    .tile .still.lensed > video { opacity: 0; }
     .tile[data-crop] .still > :is(img, video) { object-position: var(--crop-at); transform: scale(var(--crop-z)); transform-origin: var(--crop-at); } /* the lens crops the same way itself */
     /* A year's posts, after its work. */
     .tile.post { background: #fff; }
@@ -288,7 +294,9 @@ css = '''
     .entry-view .media .part-image.tall a { margin: 0 auto; width: fit-content; } /* phone-shaped: as wide as the picture held to the window's height */
     .entry-view .media .part-image.strip a { cursor: crosshair; position: relative; } /* a blend's every step: hover to see one above (tiles.js) */
     .entry-view .strip-shown { height: 100%; inset: 0; pointer-events: none; position: absolute; width: 100%; } /* the step showing, drawn over the picture */
-    .entry-view .strip-mark { border: 1.5px solid #fff; border-radius: 3px; bottom: 0; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); opacity: 0; pointer-events: none; position: absolute; top: 0; transition: opacity .2s; }
+    .entry-view .media .part-image.strip { position: relative; }
+    .entry-view .media .part-image.strip::before { bottom: 100%; content: ''; cursor: crosshair; height: 16px; left: 0; position: absolute; right: 0; } /* the gap above it hovers too */
+    .entry-view .strip-mark { border: 1.5px solid #fff; border-radius: 4px; bottom: -2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); box-sizing: border-box; opacity: 0; pointer-events: none; position: absolute; top: -2px; transition: opacity .2s; } /* a little proud of the strip, its edge and shadow whole */
     .entry-view .strip.live .strip-mark { opacity: 1; }
     .entry-view .part-video .under { display: grid; gap: 8px; grid-auto-flow: column; grid-auto-columns: 1fr; margin-top: 8px; } /* under a video, the parts cut from it, each under its own */
     .entry-view .part-video .under video { background: #000; display: block; height: auto; max-height: none; width: 100%; }

@@ -77,13 +77,31 @@ export async function build(part, box, ctx = {}) {
       vid.addEventListener('volumechange', () => { if (!vid.muted) asked = true; });
     }
     // An HDR (HLG, 10-bit HEVC) copy where the browser plays it; m.web is the SDR H.264 for the rest.
-    const src = m.hdr && vid.canPlayType('video/mp4; codecs="hvc1.2.4.L123.B0"') ? m.hdr : m.web;
+    const hdr = m.hdr && vid.canPlayType('video/mp4; codecs="hvc1.2.4.L123.B0"');
+    const full = hdr ? m.hdr : m.web;
+    // m.fit: a copy as wide as a column ever shows it (one resize from the full file, see the site-media
+    // skill's fit.py), played while it's drawn no wider: the full file's extra pixels would only be
+    // decoded and thrown away. Fullscreen switches to the full file, from the same moment.
+    const fit = m.fit && (!hdr || m.fit.hdr) && width() * devicePixelRatio <= m.fit.width * 1.1 ? (hdr ? m.fit.hdr : m.fit.web) : null;
+    const src = fit ?? full;
+    if (fit) {
+      const grow = () => {
+        if (!(document.fullscreenElement === vid || document.webkitFullscreenElement === vid || vid.webkitDisplayingFullscreen) || vid.dataset.full) return;
+        vid.dataset.full = '1';
+        const t = vid.currentTime, on = !vid.paused;
+        vid.src = base + full;
+        vid.addEventListener('loadedmetadata', () => { vid.currentTime = t; if (on) vid.play().catch(() => {}); }, { once: true });
+      };
+      for (const e of ['fullscreenchange', 'webkitfullscreenchange', 'webkitbeginfullscreen']) vid.addEventListener(e, grow);
+    }
+    const load = () => { if (!vid.src) { vid.preload = 'auto'; vid.src = base + src + (m.start ? `#t=${m.start}` : ''); } }; // m.start: where a long recording begins (its still and loop are from there)
     return {
       el: vid,
+      prime: load, // fetched ahead of playing, so it starts the moment it's wanted
       // Sound only when it's the one in front (loud) and the visitor has clicked or tapped (browsers
       // allow sound only after that); otherwise muted.
       play() {
-        if (!vid.src) vid.src = base + src + (m.start ? `#t=${m.start}` : ''); // m.start: where a long recording begins (its still and loop are from there)
+        load();
         vid.muted = !(loud() && navigator.userActivation?.hasBeenActive && heard());
         vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
       },
