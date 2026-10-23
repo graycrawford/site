@@ -93,11 +93,15 @@ const phone = matchMedia('(pointer: coarse)').matches;
 // the N of those nearest the middle of the window.
 const LOOP_MIN = 48;
 const visible = new Set();
-let pending = 0;
+let pending = 0, held = false;
+// While the grid slides (tiles.js), every loop holds the frame it's on: the slide is the page's heaviest
+// moment, and half a second of a held frame barely shows.
+export function holdLoops(on) { if (on !== held && !off.has('hold')) { held = on; schedule(); } }
 function schedule() {
   if (pending) return;
   pending = requestAnimationFrame(() => {
     pending = 0;
+    if (held) { for (const l of visible) l.set(false); return; }
     const can = [...visible].filter(l => !l.small);
     for (const l of visible) if (l.small) l.set(false);
     if (can.length <= cap) { for (const l of can) l.set(true); return; }
@@ -249,7 +253,15 @@ export function lensTile(tile, still, words, video = null) {
   const loop = { tile, small: false, set(on) {
     if (on === playing) return;
     playing = on;
-    if (on) { const me = ++chain; video.play().then(() => frames(me)).catch(() => {}); } else video.pause();
+    if (on) { const me = ++chain; video.play().then(() => frames(me)).catch(() => {}); return; }
+    video.pause();
+    // Held for the slide: the lens redraws (refit) from the frame it's on, not the still, so nothing jumps.
+    if (held && lens && geo && video.videoWidth) {
+      const c = document.createElement('canvas');
+      c.width = geo.w; c.height = geo.h;
+      cover(c.getContext('2d'), video, video.videoWidth, video.videoHeight, 0, 0, geo.w, geo.h, crop);
+      base = c; forget();
+    }
   } };
   const sized = () => { const small = tile.getBoundingClientRect().width < LOOP_MIN; if (small !== loop.small) { loop.small = small; if (visible.has(loop)) schedule(); } };
   const was = h.size;

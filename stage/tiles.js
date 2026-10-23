@@ -9,7 +9,7 @@
 // data-still for a tile picture of its own (Orbital's turntable loop, while its view is the live page).
 // The clustered view can place a cluster by hand (PLACE): its order and sizes there.
 import { build, stillFor, MEDIA } from './media.js';
-import { lensTile } from './textlens.js';
+import { lensTile, holdLoops } from './textlens.js';
 import { squirclePath } from './squircle.js';
 import { Spring } from './spring.js';
 import { off, dpr, prof } from './perf.js';
@@ -691,6 +691,7 @@ function reelMode() {
     }
     return null;
   }
+  let sliding = 0; // the timer that lets tile loops play again once the grid rests
   function paint() {
     // Flow, in two phases. From home to the first entry the grid narrows to its resting width while the
     // whole row of columns slides in with its edge, one piece, nothing overlapping: once the grid rests
@@ -703,6 +704,7 @@ function reelMode() {
     if (FLOW && u !== cv.u) {
       const a = anchor();
       cv.u = u; cv.style.setProperty('--u', u); cv.classList.toggle('deep', u > 0.5);
+      holdLoops(true); clearTimeout(sliding); sliding = setTimeout(() => holdLoops(false), 150); // tile loops wait out the slide
       if (a) prof('anchor (forces layout)', () => { const r = a.el.getBoundingClientRect(); gridScroll.scrollTop += r.top + a.f * r.height - a.y; });
     }
     // A packed column slides under the next and stays against the stack's edge (never drifting back

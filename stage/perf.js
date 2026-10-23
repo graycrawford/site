@@ -1,7 +1,8 @@
 // Switches for feeling what each part of the page costs, on any device:
 //   ?no=lens,loops,soft,blend,corners   leave those out (the words' lens, tile loops, soft text,
-//       ,worker                         the subtitles' blend, the squircle clips; the worker that
-//                                       lenses loops' frames off the page's thread)
+//       ,worker,hold                    the subtitles' blend, the squircle clips; the worker that
+//                                       lenses loops' frames off the page's thread; loops holding
+//                                       their frame while the grid slides)
 //   ?cap=N                              at most N tile loops play at once, the ones nearest the middle
 //   ?dpr=N                              tiles' pictures drawn at no more than N device px per px
 // ?perf shows a frame meter (frames a second, the slowest frame of the last two seconds, and the page's
@@ -24,7 +25,7 @@ if (off.has('blend')) root.add('no-blend');
 if (q.has('perf')) {
   const hud = document.createElement('div');
   hud.className = 'perf-hud';
-  const SWITCHES = [['lens', 'lens'], ['loops', 'loops'], ['worker', 'lens worker'], ['soft', 'soft text'], ['blend', 'subtitle blend'], ['corners', 'squircles']];
+  const SWITCHES = [['lens', 'lens'], ['loops', 'loops'], ['worker', 'lens worker'], ['soft', 'soft text'], ['blend', 'subtitle blend'], ['corners', 'squircles'], ['hold', 'loops hold for the slide']];
   hud.innerHTML = `<b class="fps">–</b><span class="worst"></span><span class="parts"></span>` +
     SWITCHES.map(([k, label]) => `<label><input type="checkbox" name="${k}"${off.has(k) ? '' : ' checked'}> ${label}</label>`).join('') +
     `<label>loops at once <select name="cap">${['all', 1, 2, 3, 4, 6].map(n => `<option${String(n) === (q.get('cap') ?? 'all') ? ' selected' : ''}>${n}</option>`).join('')}</select></label>` +
