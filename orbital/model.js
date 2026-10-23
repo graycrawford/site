@@ -285,6 +285,7 @@ export class Model {
         let saved = JSON.parse(localStorage.getItem("orbital.session"));
         if (saved) {
           this.apply(saved);
+          if (this.preset === "Restored") this.preset = "Presets"; // sessions saved under the old name
           this.restored = true;
         }
         this.bank = JSON.parse(localStorage.getItem("orbital.bank") || "[]");
@@ -463,7 +464,7 @@ export class Model {
     this.sync();
     this.preset = "Custom";
   }
-  snapshot(name = "Restored", scope = "session") {
+  snapshot(name = "Presets", scope = "session") {
     let p = {
       id: crypto.randomUUID(),
       name,

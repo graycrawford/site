@@ -645,7 +645,7 @@ dialog.bank input {
   #controls::before {
     content: "";
     display: block;
-    height: calc(40dvh + 44px);
+    height: calc(42dvh + var(--aperture) * 1.613); /* the controls start just below the orb's clear zone (the mask's fully opaque edge), not over it */
   }
   .phone-transport {
     display: flex;

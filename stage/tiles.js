@@ -16,7 +16,7 @@ import { off, dpr, prof } from './perf.js';
 
 const SPAN = { mini: [1, 1], normal: [2, 2], big: [4, 4], post: [1, 2] }; // columns, rows
 // Options to try out (?debug shows a panel for them, bottom left), kept per browser.
-const OPTS = Object.assign({ tabsBySize: true, groupGaps: true, yearByDate: false, sharpText: false, darkGrid: false, hideEmpty: false, topBar: true, flow: true, skyControls: false, flushStack: true, stackEdge: 4, blocks: false, springK: 0.07, springD: 0.5, fitOpen: true, zoomK: 0.015, zoomD: 0.55, zoom: 2 }, (() => { try { return JSON.parse(localStorage.getItem('reel.opts')) ?? {}; } catch { return {}; } })());
+const OPTS = Object.assign({ tabsBySize: true, groupGaps: true, yearByDate: false, sharpText: false, darkGrid: false, hideEmpty: true, topBar: true, flow: true, skyControls: false, flushStack: true, stackEdge: 4, blocks: false, springK: 0.07, springD: 0.5, fitOpen: true, zoomK: 0.015, zoomD: 0.55, zoom: 2 }, (() => { try { return JSON.parse(localStorage.getItem('reel.opts')) ?? {}; } catch { return {}; } })());
 // ?edit (see drafting(), below render()): set up before anything opens an entry.
 const LOCAL = /^(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
 const EDIT = new URLSearchParams(location.search).has('edit') && LOCAL;
@@ -81,7 +81,7 @@ const PLACE = {
   'Luma': [
     ['Luma Agents', 'big'], ['Ray3.2 Modify', 'big'],
     ['Latent Blend', 'big'], ['Luma Scenes', 'normal'], ['Ray2 Modify Video', 'normal'], ['Timeline', 'mini'],
-    ['Dream Machine', 'normal'], ['Ray3', 'mini'], ['Ray2', 'mini'],
+    ['Dream Machine', 'normal'], ['Ray3', 'mini'],
   ],
   'Realtime audio': [
     ['Neophon', 'big'], ['Neophon · SPC Demo Night', 'normal'], ['Generating New Sounds with Neophon', 'normal'],
@@ -92,7 +92,7 @@ const PLACE = {
     ['Arca | Live Night, CAP UCLA', 'normal'], ['Moritz von Oswald & Azu Tiwaline', 'normal'], ['Optia · HydeFM × The Lab', 'big'], ['Hesaitix', 'normal'],
   ],
   'Side projects': [
-    ['Neophon', 'big'], ['Orbital', 'big'], ['Exposure', 'big'], ['Engiscope', 'normal'], ['Parhelion', 'big'], ['Tangent', 'normal'], ['Physarum', 'mini'],
+    ['Neophon', 'big'], ['Exposure', 'big'], ['Orbital', 'big'], ['Engiscope', 'normal'], ['Parhelion', 'big'], ['Tangent', 'normal'], ['Physarum', 'mini'],
   ],
   'Talks': [
     ['New Behaviors', 'big'], ['Neophon · SPC Demo Night', 'normal'], ['Generating New Sounds with Neophon', 'normal'],
@@ -181,7 +181,7 @@ function entryTile(e, year, of = null) {
   const t = {
     tile, parts, source: e, view: null, year, when: when(e, year), of, title,
     // A hand-placed size (PLACE) holds in both views; by year keeps its own order.
-    size: placedSize(title) ?? e.dataset.size ?? (first === 'grid' || first === 'video' ? 'big' : 'normal'), group: e.closest('.group')?.querySelector('.group-title')?.textContent.trim() ?? '',
+    size: placedSize(title) ?? e.dataset.size ?? (first === 'grid' || first === 'video' ? 'big' : 'normal'), group: e.dataset.group ?? e.closest('.group')?.querySelector('.group-title')?.textContent.trim() ?? '', // data-group: the cluster it reads as, where its section would say otherwise
     tags: new Set((e.dataset.tags ?? '').split(' ').filter(Boolean)),
   };
   tiles.push(t);
@@ -208,7 +208,7 @@ for (const panel of source.querySelectorAll('.panel')) {
     const group = bq?.dataset.group ?? ''; // and a cluster of its own (a post among the live shows)
     const fake = document.createElement('article');
     fake.innerHTML = `<a class="entry-title" href="${a.getAttribute('href')}">${title ?? 'Post'}</a><time class="date">${year}</time>`;
-    const t = { tile, parts: [...media, `tweet:${id}`], media, source: fake, view: null, year, when: year, title: title ?? 'Post', named: !!title, group, tags: new Set(), post: true, size: 'post' };
+    const t = { tile, parts: [...media, `tweet:${id}`], media, source: fake, view: null, year, when: year, title: title ?? 'Post', named: !!title, years: bq?.dataset.years, group, tags: new Set(), post: true, size: 'post' };
     tiles.push(t);
     addStill(t, `tweet:${id}`);
     hook(t);
@@ -241,11 +241,26 @@ const entryOf = t => t.of ?? t.in ?? t;
 // a still: Parhelion's preset preview), else the still of its first post that has media (downloaded
 // into media/tweet-<id>/; media/tweet-stills.json lists them).
 const postStills = new Set(await fetch(`${MEDIA}tweet-stills.json`).then(r => r.ok ? r.json() : []).catch(() => []));
+// A tile's mosaic drawn small, each cell where it sits and cropped as it is, for its bookmark.
+async function mosaicPicture(m) {
+  const imgs = [...m.querySelectorAll('img')];
+  imgs.forEach(i => { i.loading = 'eager'; });
+  await Promise.all(imgs.map(i => i.decode().catch(() => {})));
+  const box = m.getBoundingClientRect();
+  if (!box.width || !imgs.length) return null;
+  const S = 96, c = Object.assign(document.createElement('canvas'), { width: S, height: S }), g = c.getContext('2d'), k = S / Math.max(box.width, box.height);
+  for (const i of imgs) {
+    if (!i.naturalWidth) continue;
+    const r = i.getBoundingClientRect(), dw = r.width * k, dh = r.height * k, s = Math.max(dw / i.naturalWidth, dh / i.naturalHeight), sw = dw / s, sh = dh / s;
+    g.drawImage(i, (i.naturalWidth - sw) / 2, (i.naturalHeight - sh) / 2, sw, sh, (r.left - box.left) * k, (r.top - box.top) * k, dw, dh);
+  }
+  try { return c.toDataURL('image/jpeg', 0.85); } catch { return null; }
+}
 function tabPicture(t) {
+  const tab = t.source?.dataset?.tab; // a picture made for it (Latent Blend's whole grid, baked)
+  if (tab) return `${MEDIA}${tab}/still.avif`;
   const own = t.tile?.querySelector('.still img')?.src;
   if (own) return own;
-  const tab = t.source?.dataset?.tab;
-  if (tab) return `${MEDIA}${tab}/still.avif`;
   const id = t.parts.flatMap(p => p.split('+')).map(p => p.match(/^tweet:(\d+)/)?.[1]).find(id => id && postStills.has(id));
   return id ? `${MEDIA}tweet-${id}/still.avif` : null;
 }
@@ -398,7 +413,18 @@ function hook(t) {
   t.tile.addEventListener('pointerenter', () => hotEntry(entryOf(t), true));
   t.tile.addEventListener('pointerleave', () => hotEntry(entryOf(t), false));
 }
-await import('./filters.js'); // tiles are .entry elements with data-tags, so the sidebar filters apply
+await import('./filters.js');
+// The name, on this page: everything back to how it opens (the reel home, the grid at its top, no filter,
+// clustered), rather than a reload.
+document.querySelector('.identity-card a[aria-current="page"]')?.addEventListener('click', e => {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; // a new tab or window as usual
+  e.preventDefault();
+  const filter = document.querySelector('.filters button[data-tag].on'), clustered = document.querySelector('.filters.views button[data-view="cluster"]');
+  const view = clustered && !clustered.classList.contains('on');
+  filter?.click();
+  if (view) clustered.click();
+  homeEntry();
+}); // tiles are .entry elements with data-tags, so the sidebar filters apply
 
 // An entry's name in the URL (?open=…), so what's open can be shared.
 const slug = t => `${t.title} ${t.when.slice(0, 4)}`.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -419,6 +445,7 @@ function setLive(view, live) {
   }
 }
 let openEntry = () => {}; // set below, by the mode
+let homeEntry = () => {}; // back to the start: the reel home, the grid at its top (set by the reel)
 let hotEntry = () => {}; // light an entry's counterpart (its bookmark), set by the reel
 
 // Reading entries: the reel. Opening one slides the grid flush left at a third of the screen
@@ -442,7 +469,7 @@ function reelMode() {
   cv.classList.toggle('flow', FLOW);
   const reel = document.createElement('div');
   reel.className = 'reel';
-  const shut = Object.assign(document.createElement('button'), { className: 'reel-close', ariaLabel: 'Close', textContent: '×' });
+  const shut = Object.assign(document.createElement('button'), { className: 'reel-close', ariaLabel: 'Close', innerHTML: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.67 6.67 13.33 13.33M13.33 6.67 6.67 13.33" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"/></svg>' });
   cv.append(reel, shut);
   shut.addEventListener('click', () => close());
   // A column's width; the packed strip's width on the left; scroll px per entry; pages live once
@@ -622,9 +649,9 @@ function reelMode() {
     if (c.card) { run(t, 'hidden'); return; }
     if (t.view?.el.isConnected) { t.view.apis.forEach(a => a?.pause?.()); setLive(t.view, false); t.view.el.remove(); }
   }
-  // A live page runs while three tabs' width or more of it shows; thinner, it holds its last frame (its
-  // own animation frames wait, see hand()), and all but covered it isn't drawn at all. Its state stays.
-  const TAB = 16, RUN = 3 * TAB;
+  // A live page runs while a third or more of its column shows; covered further, it holds its last frame
+  // (its own animation frames wait, see hand()), and all but covered it isn't drawn at all. Its state stays.
+  const TAB = 16, RUN = Math.round(FULL / 3);
   function run(t, state) {
     if (!t.view || state === t.view.state) return;
     t.view.state = state;
@@ -708,6 +735,8 @@ function reelMode() {
         if (src) {
           c.pic = src;
           c.querySelector('.mark .pic').style.backgroundImage = `url("${src}")`;
+          const mosaic = t.tile?.querySelector('.still > .mosaic');
+          if (mosaic && !t.source?.dataset?.tab) mosaicPicture(mosaic).then(u => { if (u) c.querySelector('.mark .pic').style.backgroundImage = `url("${u}")`; }); // a grid's bookmark shows its whole grid, as its tile does
           if (card) c.style.backgroundImage = `url("${src}")`;
         }
       }
@@ -761,6 +790,10 @@ function reelMode() {
     prof('paint', paint);
     if (moving) raf = requestAnimationFrame(frame);
   }
+  let homeUntil = 0; // a re-sort just after (a filter cleared on the way) still ends at home
+  homeEntry = () => { // from far along, a cut to near home first: a glide back across the whole reel takes seconds
+    homeUntil = performance.now() + 1500;
+    if (FLOW) { if (pos.value > home() + 2) pos.jump(home() + 2); glide(home()); } else close(); gridScroll.scrollTo({ top: 0, behavior: 'smooth' }); };
   function glide(k) {
     pos.set(Math.max(FLOW ? home() : 0, Math.min(order.length - 1, k)));
     last = 0;
@@ -780,6 +813,7 @@ function reelMode() {
     near = null;
     layoutTabs();
     paint();
+    if (FLOW && performance.now() < homeUntil) glide(home());
   };
   let pics = 0;
   document.addEventListener('tile-still', () => { if (reading && !pics) pics = requestAnimationFrame(() => { pics = 0; paint(); }); });
@@ -857,7 +891,7 @@ function reelMode() {
   reel.addEventListener('pointerover', e => {
     const a = e.target.closest('a[href*="open="]:not(.mention)'), t = a && linked(a);
     if (!t) return;
-    const src = tabPicture(t), sub = t.source?.dataset?.subtitle, first = t.source?.querySelector?.('.details')?.textContent.trim();
+    const src = tabPicture(t), sub = t.source?.dataset?.subtitle, first = t.source?.querySelector?.(':scope > .details')?.textContent.trim();
     peek.replaceChildren();
     if (src) peek.append(Object.assign(document.createElement('img'), { src, alt: '' }));
     peek.append(Object.assign(document.createElement('b'), { textContent: t.title }));
@@ -1139,8 +1173,8 @@ function render(t) {
   el.innerHTML = `
     <div class="words-block">
       <div class="title">${href ? `<a href="${href}"${out}>${link.innerHTML}</a>` : link?.innerHTML ?? ''}</div>
-      <div class="meta">${meta}${also ? ` · ${also}` : ''}<span class="when">${meta ? ' · ' : ''}${[e.querySelector('.date')?.textContent, t.year].filter(Boolean).join(' ')}</span></div>
-      <div class="text">${e.querySelector('.details:not([data-card])')?.innerHTML ?? ''}</div>
+      <div class="meta">${meta}${also ? ` · ${also}` : ''}<span class="when">${meta ? ' · ' : ''}${[e.querySelector('.date')?.textContent, e.querySelector('.date.range') || e.querySelector('.date')?.textContent.includes(t.year) ? null : t.year].filter(Boolean).join(' ')}</span></div>
+      <div class="text">${e.querySelector(':scope > .details:not([data-card])')?.innerHTML ?? ''}</div>
     </div>
     <div class="media"></div>`;
   const view = { el, apis: [] };
@@ -1175,14 +1209,14 @@ function render(t) {
   const saved = ARRANGE ? orders[`media:${slug(t)}`]?.tags : null; // an arrangement not yet locked in
   fill(el.querySelector('.media'), saved ? saved[0].split(' ').filter(Boolean) : t.parts, view, t, el);
   // More of the same work under its own header in the column (Xoromancy's later showings):
-  // <span class="sub" data-stage="…"><a class="entry-title" href="…">Title</a><time>…</time><span class="place">…</span></span>
+  // <span class="sub" data-stage="…"><a class="entry-title" href="…">Title</a><time>…</time><span class="place">…</span><span class="details">…</span></span>
   [...e.querySelectorAll(':scope > .sub')].forEach((sub, i) => {
     const s = sub.querySelector('.entry-title');
     const head = document.createElement('div');
     head.className = 'sub-head';
     const shref = s?.getAttribute('href');
     head.innerHTML = `<div class="title">${shref ? `<a href="${shref}" target="_blank" rel="noopener">${s.innerHTML}</a>` : s?.innerHTML ?? ''}</div>
-      <div class="meta">${[sub.querySelector('time')?.textContent, sub.querySelector('.place')?.textContent].filter(Boolean).join(' · ')}</div>`;
+      <div class="meta">${[sub.querySelector('time')?.textContent, sub.querySelector('.place')?.textContent].filter(Boolean).join(' · ')}</div>${sub.querySelector('.details') ? `<div class="text">${sub.querySelector('.details').innerHTML}</div>` : ''}`; // its own line of words, if it has one
     const media = document.createElement('div');
     media.className = 'media';
     el.append(head, media);
@@ -1228,6 +1262,8 @@ function zoomable(frame, img) {
     const moving = [z, x, y].map(s => s.step(dt)).some(Boolean);
     const k = z.value;
     img.style.transform = k === 1 ? '' : `translate(${(1 - k) * x.value}px, ${(1 - k) * y.value}px) scale(${k})`;
+    const step = frame.querySelector(':scope > .strip-shown'); // a blend's step drawn over the picture zooms with it
+    if (step) step.style.transform = img.style.transform;
     raf = moving ? requestAnimationFrame(frameStep) : 0;
     if (!raf) last = 0;
   };
@@ -1263,7 +1299,7 @@ function stripSwap(box, frame) {
     if (i === home && !over) { canvas?.remove(); canvas = null; f.querySelector('img').style.visibility = ''; return; }
     const b = bitmaps[i];
     if (!b) return; // not decoded yet: the last one drawn stays
-    if (!canvas) { canvas = Object.assign(document.createElement('canvas'), { className: 'strip-shown' }); f.append(canvas); f.querySelector('img').style.visibility = 'hidden'; } // the picture under it can't peek out at an edge
+    if (!canvas) { canvas = Object.assign(document.createElement('canvas'), { className: 'strip-shown' }); f.append(canvas); f.querySelector('img').style.visibility = 'hidden'; canvas.style.transform = f.querySelector('img').style.transform; } // the picture under it can't peek out at an edge; it takes the picture's zoom as it is, and follows it (zoomable)
     const r = f.getBoundingClientRect(), d = Math.min(2, devicePixelRatio), w = Math.round(r.width * d), h = Math.round(r.height * d);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     // A step of the picture's shape fills it, as the picture does; one of another shape (an input) fits whole.
@@ -1380,7 +1416,7 @@ function renderPosts(g) {
   const el = document.createElement('div');
   el.className = 'entry-view';
   const years = [...new Set(g.posts.map(p => p.year))].sort();
-  el.innerHTML = `<div class="title">${g.named ? g.title : 'Posts'}</div><div class="meta">${years.length > 1 ? `${years[0]}–${years.at(-1)}` : years[0]} · ${g.posts.length}</div><div class="media"></div><div class="media posts"></div>`;
+  el.innerHTML = `<div class="title">${g.named ? g.title : 'Posts'}</div><div class="meta">${g.posts.map(p => p.years).find(Boolean) ?? (years.length > 1 ? `${years[0]}–${String(years.at(-1)).slice(2)}` : years[0])}</div><div class="media"></div><div class="media posts"></div>`;
   const view = { el, apis: [] };
   fill(el.querySelector('.media'), g.media, view, g, el);
   const media = el.querySelector('.media.posts');

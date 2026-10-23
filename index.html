@@ -374,7 +374,8 @@
     .reel .col.page-card .entry-view .meta, .reel .col.page-card .entry-view .text { opacity: .85; }
     .reel .col.page-card .entry-view .media, .reel .col.page-card .entry-view .media > div { height: 100%; inset: 0; position: absolute; }
     .reel .col.page-card .page-frame { border-radius: 0; box-shadow: none; height: 100%; }
-    .reel-close { background: rgba(255, 255, 255, .85); border: 0; border-radius: 50%; box-shadow: 0 1px 6px rgba(0, 0, 0, .15); cursor: pointer; display: none; font-size: 1.1rem; height: 30px; line-height: 1; position: fixed; right: 14px; top: 14px; width: 30px; z-index: 5; }
+    .reel-close { -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); background: rgba(255, 255, 255, .42); border: 0; border-radius: 50%; color: var(--link-color); cursor: pointer; display: none; height: 30px; padding: 0; position: fixed; right: 14px; top: 14px; width: 30px; z-index: 1000; } /* the bookmarks' frosted capsule, round, an x solid in it */
+    .reel-close svg { display: block; height: 100%; width: 100%; }
     .cv.reel-mode.reading .reel-close { display: block; }
     .identity { flex: none; height: 100%; min-height: 0; padding: 28px 0 28px 28px; position: sticky; top: 0; width: min-content; }
     .identity-card::before { right: -24px; }
@@ -543,7 +544,7 @@
     .entry-view .media .part-image a { display: block; filter: none; mix-blend-mode: normal; overflow: hidden; position: relative; width: 100%; } /* the frame a picture zooms inside (tiles.js) */
     .entry-view .media .part-image.tall a { margin: 0 auto; width: fit-content; } /* phone-shaped: as wide as the picture held to the window's height */
     .entry-view .media .part-image.strip a { cursor: crosshair; position: relative; } /* a blend's every step: hover to see one above (tiles.js) */
-    .entry-view .strip-shown { height: 100%; inset: 0; pointer-events: none; position: absolute; width: 100%; } /* the step showing, drawn over the picture */
+    .entry-view .strip-shown { height: 100%; inset: 0; pointer-events: none; position: absolute; transform-origin: 0 0; width: 100%; } /* the step showing, drawn over the picture */
     .entry-view .media .part-image.strip { position: relative; }
     .entry-view .media .part-image.strip::before { bottom: 100%; content: ''; cursor: crosshair; height: 16px; left: 0; position: absolute; right: 0; } /* the gap above it hovers too */
     .entry-view .strip-mark { border: 1.5px solid #fff; border-radius: 4px; bottom: -2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); box-sizing: border-box; opacity: 0; pointer-events: none; position: absolute; top: -2px; transition: opacity .2s; } /* a little proud of the strip, its edge and shadow whole */
