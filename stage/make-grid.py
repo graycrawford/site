@@ -285,6 +285,7 @@ css = '''
     .entry-view .meta { font-size: .84rem; margin-top: 4px; opacity: .6; }
     .entry-view .text { font-size: .84rem; margin: 10px 0 18px; max-width: 34em; opacity: .75; }
     .entry-view .media > * + * { margin-top: 16px; }
+    .entry-view .media > .note { margin: 14px 0 22px; } /* an entry's words after one of its pieces (tiles.js) */
     /* Standalone pictures only; a grid's cells are placed by grid.js. */
     .entry-view .part-image img, .entry-view .part-video video { border-radius: 6px; display: block; height: auto; max-height: none; max-width: 100%; width: 100%; } /* the column's full width, like the grids */
     .entry-view :is(.part-image, .part-video).tall :is(img, video) { max-height: calc(100vh - 160px); width: auto; }

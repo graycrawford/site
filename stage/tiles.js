@@ -1379,6 +1379,9 @@ function fill(media, parts, view, t, el) {
     const unit = row ?? media.lastElementChild; // what ?arrange moves: the part, a row as one
     unit.dataset.part = part;
     if (ARRANGE) unit.draggable = true;
+    // <span class="note" data-after="video:…">words</span> in an entry: its words, right after that piece.
+    const note = [...(t.source?.querySelectorAll?.(':scope > .note') ?? [])].find(n => n.dataset.after === part);
+    if (note) media.append(Object.assign(document.createElement('div'), { className: 'text note', innerHTML: note.innerHTML }));
   }
 }
 

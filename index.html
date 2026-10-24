@@ -240,7 +240,7 @@
     .place, .details { display: block; }
     .place { margin-top: 2px; }
     .details { font-size: .84rem; margin-top: 4px; opacity: .72; }
-    .details-3, .details-10, .foot, .entry > .card, .entry > .app { display: none; } /* feet: tiles at the foot of a column in the grid version */
+    .details-3, .details-10, .foot, .entry > .card, .entry > .app, .entry > .note { display: none; } /* feet: tiles at the foot of a column in the grid version */
     .entry[data-hidden] { display: none; } /* kept, not shown */ /* the longer versions show in the reel's columns */
     .range { font-variant-numeric: tabular-nums; opacity: .55; }
     .year-media { margin-top: 44px; }
@@ -535,6 +535,7 @@
     .entry-view .meta { font-size: .84rem; margin-top: 4px; opacity: .6; }
     .entry-view .text { font-size: .84rem; margin: 10px 0 18px; max-width: 34em; opacity: .75; }
     .entry-view .media > * + * { margin-top: 16px; }
+    .entry-view .media > .note { margin: 14px 0 22px; } /* an entry's words after one of its pieces (tiles.js) */
     /* Standalone pictures only; a grid's cells are placed by grid.js. */
     .entry-view .part-image img, .entry-view .part-video video { border-radius: 6px; display: block; height: auto; max-height: none; max-width: 100%; width: 100%; } /* the column's full width, like the grids */
     .entry-view :is(.part-image, .part-video).tall :is(img, video) { max-height: calc(100vh - 160px); width: auto; }
