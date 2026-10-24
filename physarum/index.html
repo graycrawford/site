@@ -194,9 +194,9 @@ class Spring{
 const PARAMS=[
   {key:'sensorAngle',label:'sensor angle',   unit:'°',min:0,   max:150,  def:22,  dec:1},
   {key:'sensorDist', label:'sensor distance',unit:'',      min:0,   max:120,  def:11,  dec:1,scale:'log1p'},
-  {key:'turnAngle',  label:'turn angle',     unit:'°',min:0,   max:150,  def:26,  dec:1},
+  {key:'turnAngle',  label:'turn angle',     unit:'°',min:0,   max:150,  def:25.5,dec:1},
   {key:'stepSize',   label:'step size',      unit:'',      min:0,   max:6,    def:1.0, dec:2},
-  {key:'decay',      label:'decay',          unit:'',      min:0.60,max:0.999,def:0.93,dec:3,scale:'decay'},
+  {key:'decay',      label:'decay',          unit:'',      min:0.60,max:0.999,def:0.785,dec:3,scale:'decay'},
   {key:'deposit',    label:'deposit',        unit:'',      min:0,   max:5,    def:1.0, dec:2},
 ];
 const P=Object.fromEntries(PARAMS.map(p=>[p.key,p]));
@@ -211,12 +211,12 @@ for(const p of PARAMS){
 const cfg={
   axX:'sensorAngle',axY:'sensorDist',
   fixed:Object.fromEntries(PARAMS.map(p=>[p.key,p.def])),
-  gridX:6,gridY:4,tile:512,density:0.10,diffuse:1.0,steps:2,seedMode:'uniform',cont:false,
+  gridX:5,gridY:7,tile:512,density:0.10,diffuse:1.0,steps:2,seedMode:'ring',cont:false,
   exposure:2.4,gamma:0.85,palette:0,
   pads:[{x:'turnAngle',y:'decay'}],
 };
 /* axis domains in axis space: tgt is where you asked to go, dom springs after it */
-const tgt={x0:P.sensorAngle.f(0),x1:P.sensorAngle.f(120),y0:P.sensorDist.f(0),y1:P.sensorDist.f(60)};
+const tgt={x0:P.sensorAngle.f(0),x1:P.sensorAngle.f(145.5),y0:P.sensorDist.f(0),y1:P.sensorDist.f(60)};
 const dom={x0:new Spring(tgt.x0),x1:new Spring(tgt.x1),y0:new Spring(tgt.y0),y1:new Spring(tgt.y1)};
 const fixedS=Object.fromEntries(PARAMS.map(p=>[p.key,new Spring(p.def,(p.max-p.min)*1e-5)]));
 const expS=new Spring(cfg.exposure),gamS=new Spring(cfg.gamma);
