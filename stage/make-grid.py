@@ -341,6 +341,7 @@ body = f'''<body>
   </main>
   <script type="module" src="/stage/tiles.js"></script>
   <script type="module" src="/stage/sky.js"></script>
+  <script type="module" src="/stage/visits.js"></script>
 {FIT}
 </body>
 </html>

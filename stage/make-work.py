@@ -25,6 +25,7 @@ def page(title, slug=''):
     <main></main>
   </div>
   <script type="module" src="/stage/work.js"></script>
+  <script type="module" src="/stage/visits.js"></script>
 </body>
 </html>
 '''
