@@ -304,6 +304,9 @@ css = '''
     .entry-view .part-video .under video { background: #000; display: block; height: auto; max-height: none; width: 100%; }
     .entry-view .media .part-image a img { transform-origin: 0 0; }
     .entry-view .grid-host { aspect-ratio: 9 / 16; display: flex; max-height: calc(100vh - 160px); width: 100%; }
+    .entry-view .grid-host.framed { position: relative; } /* a blend's grid, inset, its four sources at the corners (grid.js) */
+    .entry-view .grid-host .corner { object-fit: cover; position: absolute; }
+    .entry-view .grid-host .grid-label { font-size: .72rem; opacity: .55; position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
     .entry-view .part-youtube iframe { aspect-ratio: 16 / 9; border: 0; border-radius: 6px; width: 100%; }
     .cv.scaled { height: calc(100vh / var(--s)); zoom: var(--s); }
   </style>

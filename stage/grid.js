@@ -4,6 +4,8 @@
 //
 // manifest.json is either a list of clips (the original 4×4 of 9:16 videos: clips/<id>-s.mp4
 // small, clips/<id>.mp4 full) or { kind: 'image' | 'video', n, aspect, items: [{ id, small, full }] }.
+// With corners: [top left, top right, bottom left, bottom right] (a blend's four sources), the grid sits
+// inset in a frame with those pictures at its corners, and a label (optional) above it.
 import { Spring } from './spring.js';
 
 const FOCUS = Math.sqrt(0.8); // the open cell takes 80% of the grid's area
@@ -75,10 +77,24 @@ function readManifest(m) {
 // Mounts into `root` (sized by its parent) and returns { resize, play, pause }.
 // `onFocus(item | null)` reports the open cell so the page can credit it.
 export async function mountGrid(root, base, onFocus = () => {}) {
-  const { kind, n, aspect, items } = readManifest(await (await fetch(`${base}manifest.json`)).json());
+  const { kind, n, aspect, items, corners, label } = readManifest(await (await fetch(`${base}manifest.json`)).json());
   const video = kind === 'video';
   root.classList.add('grid');
-  root.parentElement.style.aspectRatio = String(aspect);
+  const host = root.parentElement;
+  // A corner's side is S of the grid's height, and the margin is just less than it: the corner pictures reach
+  // into the grid's columns and rows, and their rounding meets the grid's, tangent on the diagonal. Both are
+  // the squircle tiles.js gives every picture (RADIUS 10, less on a small one); along the diagonal a corner
+  // like that sits r·(1 − 1/√2) in from its box's corner, so the boxes keep (r_grid + r_corner)·(1 − 1/√2).
+  const S = 0.135, K = 1 - Math.SQRT1_2, round = side => Math.min(10, side / 2 / 1.6);
+  const gap = h => (round(Math.min(h, h * aspect)) + round(S * h)) * K;
+  const margin = h => (corners ? S * h - gap(h) : 0);
+  host.style.aspectRatio = String(corners ? (aspect + 2 * S) / (1 + 2 * S) : aspect); // near enough until it's measured
+  let marks = [], tag = null;
+  if (corners) {
+    host.classList.add('framed');
+    marks = corners.map(src => host.appendChild(Object.assign(document.createElement('img'), { src: base + src, alt: '', className: 'corner', decoding: 'async' })));
+    if (label) tag = host.appendChild(Object.assign(document.createElement('div'), { className: 'grid-label', textContent: label }));
+  }
 
   const tiles = items.slice(0, n * n).map((c, i) => {
     const el = document.createElement('div');
@@ -106,9 +122,21 @@ export async function mountGrid(root, base, onFocus = () => {}) {
   let W = 0, H = 0, rect;
   function resize() {
     const p = root.parentElement;
-    const h = Math.min(p.clientHeight, p.clientWidth / aspect);
+    // the largest grid height whose frame (the grid and a margin all round) fits the parent
+    let h = Math.min(p.clientHeight, p.clientWidth / aspect);
+    for (let i = 0; i < 4 && corners; i++) h = Math.min((p.clientWidth - 2 * margin(h)) / aspect, p.clientHeight - 2 * margin(h));
     root.style.height = `${h}px`;
     root.style.width = `${h * aspect}px`;
+    if (corners) {
+      const m = margin(h), s = S * h, w = h * aspect;
+      root.style.margin = `${m}px auto`;
+      host.style.aspectRatio = String((w + 2 * m) / (h + 2 * m));
+      const x = root.offsetLeft, y = root.offsetTop;
+      [[x - m, y - m], [x + w + m - s, y - m], [x - m, y + h + m - s], [x + w + m - s, y + h + m - s]].forEach(([l, t], i) => {
+        if (marks[i]) Object.assign(marks[i].style, { left: `${l}px`, top: `${t}px`, width: `${s}px`, height: `${s}px` });
+      });
+      if (tag) Object.assign(tag.style, { left: `${x + w / 2}px`, top: `${y - m / 2}px` });
+    }
     rect = root.getBoundingClientRect();
     W = rect.width; H = rect.height;
     layout();

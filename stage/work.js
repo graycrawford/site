@@ -1,27 +1,12 @@
-// Renders /work/ (a grid of projects) and /work/<slug>/ (one project's assets, large) from
-// stage/projects.json, drawing media with the same code as the CV (media.js).
-import { build, stillFor } from './media.js';
+// Renders /work/<slug>/ (one project's text and assets, large) from stage/projects.json, drawing media
+// with the same code as the CV (media.js).
+import { build } from './media.js';
 
 const projects = await (await fetch('/stage/projects.json')).json();
 const slug = document.body.dataset.project;
 const main = document.querySelector('main');
 
-const nav = document.querySelector('.side nav');
-nav.innerHTML = Object.entries(projects)
-  .map(([s, p]) => `<a href="/work/${s}/"${s === slug ? ' aria-current="page"' : ''}>${p.title}</a>`).join('');
-
-if (!slug) {
-  // Index: one tile per project, its cover still, opening the project page.
-  const tiles = document.createElement('div');
-  tiles.className = 'tiles';
-  main.append(tiles);
-  for (const [s, p] of Object.entries(projects)) {
-    const a = Object.assign(document.createElement('a'), { className: 'tile', href: `/work/${s}/` });
-    a.innerHTML = `<div class="still"></div><div class="label"><span>${p.title}</span><span class="years">${p.years}</span></div>`;
-    tiles.append(a);
-    stillFor(p.cover).then(el => el && a.querySelector('.still').append(el));
-  }
-} else {
+{
   // Project page: title, text, then every asset large. Video and YouTube play muted while on
   // screen and pause off it. An asset is "kind:id", or { part, caption, width } for one with a
   // caption under it and/or drawn no wider than width px, or { text } for a passage of HTML

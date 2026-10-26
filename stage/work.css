@@ -1,34 +1,25 @@
-/* Work index and project pages: the CV's white page, type and blur, with media large. */
+/* Project pages (St. John's): the CV's white page, type and blur, the text to read and its figures. */
 :root { --background: #fff; --font-color: #000; --link-color: #110563; --accent: #7e5566; --good-ease: cubic-bezier(.15, .02, 0, 1); }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--background); color: var(--font-color); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, Helvetica, Arial, sans-serif; }
 a { color: var(--link-color); filter: blur(.65px); mix-blend-mode: plus-darker; text-decoration: none; transition: filter .6s var(--good-ease); }
 a:hover { filter: blur(2.5px); }
-.page { display: grid; gap: 40px; grid-template-columns: min-content minmax(0, 1fr); padding: 28px 28px 160px; }
-.side { position: sticky; top: 28px; align-self: start; display: flex; flex-direction: column; gap: 14px; font-size: .84rem; white-space: nowrap; }
-.side .name { filter: blur(2px); font-size: 1.5rem; font-weight: 600; line-height: 1.15; opacity: .6; white-space: normal; width: min-content; }
-.side nav { display: flex; flex-direction: column; }
-.side nav a[aria-current] { filter: none; }
+.page { margin: 0 auto; max-width: 760px; padding: 28px 28px 160px; }
+.name { display: inline-block; filter: blur(2px); font-size: .84rem; font-weight: 600; margin-bottom: 36px; opacity: .6; }
 h1 { filter: blur(1px); font-size: 1.5rem; font-weight: 600; opacity: .7; }
 .years { font-size: .73rem; font-variant-numeric: tabular-nums; letter-spacing: .025em; opacity: .5; }
 .blurb { filter: blur(.62px); margin: 12px 0 36px; max-width: 34em; opacity: .65; }
-/* Index: a grid of projects, each its strongest still. */
-.tiles { display: grid; gap: 28px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
-.tile { display: block; filter: none; mix-blend-mode: normal; }
-.tile:hover { filter: none; }
-.tile .still { aspect-ratio: 4 / 3; background: #000; border-radius: 6px; display: flex; justify-content: center; overflow: hidden; }
-.tile .still > * { height: 100%; width: auto; max-width: none; }
-.tile .still > img { object-fit: cover; width: 100%; }
-.tile .label { display: flex; justify-content: space-between; margin-top: 8px; filter: blur(.62px); opacity: .7; transition: filter .3s var(--good-ease), opacity .3s var(--good-ease); }
-.tile:hover .label { filter: none; opacity: 1; }
 /* Project page: every asset large, one after another. */
-.assets { display: flex; flex-direction: column; gap: 48px; max-width: 1000px; }
+.assets { display: flex; flex-direction: column; gap: 32px; }
 /* Text between the media, and captions under it: the blurb's voice, a little clearer for reading. */
 .prose { filter: blur(.45px); max-width: 34em; opacity: .72; }
 .prose p, .prose ul, .prose blockquote { margin-bottom: .9em; }
 .prose ul { padding-left: 1.2em; }
 .prose h2 { font-size: .73rem; font-weight: 600; letter-spacing: .06em; margin: 1.6em 0 .7em; text-transform: uppercase; }
 .prose h2:first-child { margin-top: 0; }
+.prose h3 { font-size: 1em; font-weight: 600; margin: 1.4em 0 .5em; scroll-margin-top: 28px; }
+.prose ol { margin-bottom: .9em; padding-left: 1.4em; }
+.prose .essay-title { font-size: 1.05rem; margin-top: 1.2em; }
 .prose blockquote { border-left: 2px solid currentColor; opacity: .85; padding-left: 1em; }
 .prose .fine { font-size: .8rem; opacity: .8; }
 figure figcaption { filter: blur(.45px); font-size: .8rem; margin-top: 10px; max-width: 40em; opacity: .6; }

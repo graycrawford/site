@@ -112,6 +112,9 @@
     /* Short enough that the grid and its caption fit on screen together. */
     .grid-host { aspect-ratio: 9 / 16; display: flex; justify-content: center; max-height: calc(100vh - 120px); width: 100%; }
     .grid { background: #000; overflow: hidden; position: relative; }
+    .grid-host.framed { position: relative; }
+    .grid-host .corner { border-radius: 4px; object-fit: cover; position: absolute; }
+    .grid-host .grid-label { font-size: .72rem; opacity: .55; position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
     .grid .cell { left: 0; overflow: hidden; position: absolute; top: 0; will-change: transform; }
     /* Each picture is placed by grid.js (left/top/width/height) so its crop can stay still on screen. */
     .grid video, .grid img { display: block; height: 100%; left: 0; max-width: none; object-fit: fill; position: absolute; top: 0; width: 100%; }
@@ -554,6 +557,9 @@
     .entry-view .part-video .under video { background: #000; display: block; height: auto; max-height: none; width: 100%; }
     .entry-view .media .part-image a img { transform-origin: 0 0; }
     .entry-view .grid-host { aspect-ratio: 9 / 16; display: flex; max-height: calc(100vh - 160px); width: 100%; }
+    .entry-view .grid-host.framed { position: relative; } /* a blend's grid, inset, its four sources at the corners (grid.js) */
+    .entry-view .grid-host .corner { object-fit: cover; position: absolute; }
+    .entry-view .grid-host .grid-label { font-size: .72rem; opacity: .55; position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
     .entry-view .part-youtube iframe { aspect-ratio: 16 / 9; border: 0; border-radius: 6px; width: 100%; }
     .cv.scaled { height: calc(100vh / var(--s)); zoom: var(--s); }
   </style>
