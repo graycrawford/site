@@ -77,7 +77,7 @@ function readManifest(m) {
 // Mounts into `root` (sized by its parent) and returns { resize, play, pause }.
 // `onFocus(item | null)` reports the open cell so the page can credit it.
 export async function mountGrid(root, base, onFocus = () => {}) {
-  const { kind, n, aspect, items, corners, label } = readManifest(await (await fetch(`${base}manifest.json`)).json());
+  const { kind, n, aspect, items, corners, label } = readManifest(await (await fetch(`${base}manifest.json?v=2`)).json()); // ?v=2: as media.js's MANIFEST
   const video = kind === 'video';
   root.classList.add('grid');
   const host = root.parentElement;

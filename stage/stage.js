@@ -276,7 +276,7 @@ function warm() {
   for (const key of entries.keys()) for (const part of key.split(' ')) {
     const [kind, id] = part.split(':');
     if (kind !== 'image' && kind !== 'video') continue;
-    fetch(`${MEDIA}${id}/manifest.json`).then(r => r.json()).then(m => {
+    fetch(`${MEDIA}${id}/manifest.json?v=2`).then(r => r.json()).then(m => {
       if (kind !== 'image') return;
       const pick = m.srcset.find(([, fw]) => fw >= w) ?? m.srcset[m.srcset.length - 1];
       new Image().src = `${MEDIA}${id}/${pick[0]}`;

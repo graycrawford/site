@@ -550,7 +550,17 @@ function reelMode() {
       filter.connect(gain).connect(ac.destination);
       chains.set(t, c = { filter, gain, e: -1 });
     }
-    for (const a of t.view.apis) { const v = a?.el; if (v && !v.routed) { try { ac.createMediaElementSource(v).connect(c.filter); v.routed = true; } catch {} } }
+    for (const a of t.view.apis) {
+      const v = a?.el;
+      if (!v || v.routed) continue;
+      try {
+        const src = ac.createMediaElementSource(v);
+        // A level of its own (m.volume) as a gain, the element back at 1: Safari ignores an element's volume once
+        // routed and Chrome doesn't, so this way both hear it once.
+        if (v.dataset.volume) { const g = ac.createGain(); g.gain.value = +v.dataset.volume; v.volume = 1; src.connect(g).connect(c.filter); } else src.connect(c.filter);
+        v.routed = true;
+      } catch {}
+    }
     const front = t === (hovered ?? near);
     if (Math.abs(e - c.e) < 0.002 && front === c.front) return;
     c.e = e; c.front = front;

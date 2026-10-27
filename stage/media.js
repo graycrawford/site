@@ -2,6 +2,9 @@
 // (build) and the small still shown at rest (stillFor). Items are named "kind:id", e.g.
 // video:spc-neophon-2026, grid:arca-c2c, tweet:123, youtube:abc, image:latent-blend.
 import { mountGrid } from './grid.js';
+// Manifests change in place, and the media host once told browsers to keep them for a year: this new address
+// (bump it if that ever happens again) gets everyone the current ones. The host now has them checked each time.
+export const MANIFEST = 'manifest.json?v=2';
 
 // Media lives in the R2 bucket "media", served by the media Worker. A local server uses its own
 // media/ folder (so new files show before upload) unless ?media=remote asks for the live bucket.
@@ -25,7 +28,7 @@ export async function build(part, box, ctx = {}) {
   }
   if (kind === 'image') {
     // A web-size copy; the image links to the untouched original.
-    const m = await (await fetch(`${base}manifest.json`)).json();
+    const m = await (await fetch(base + MANIFEST)).json();
     if (m.alpha) box.classList.add('alpha'); // has transparency: shown plain, no backing or corner clip
     // m.frames: a strip of a blend's every step; hovering it shows the step in m.hero above (tiles.js)
     if (m.frames) { box.classList.add('strip'); box.strip = { frames: m.frames.map(f => base + f), cuts: m.cuts, home: m.home, hero: m.hero }; }
@@ -45,20 +48,23 @@ export async function build(part, box, ctx = {}) {
     // clicked or tapped on the page, since browsers only allow sound after that); locking plays it
     // with sound. It resumes where it left off. With the index at the front of the file, the
     // browser fetches only a little ahead of the playhead, as byte ranges.
-    const m = await (await fetch(`${base}manifest.json`)).json();
+    const m = await (await fetch(base + MANIFEST)).json();
     if (m.height > m.width * 1.5) box.classList.add('tall');
     const vid = Object.assign(document.createElement('video'), {
       width: m.width, height: m.height,
-      controls: !bare, playsInline: true, preload: 'none', loop: true, // every video in a column loops; bare (data-bare): no player controls
+      controls: !bare && !m.bare, playsInline: true, preload: 'none', loop: true, // every video in a column loops; bare (data-bare, or m.bare for this one): no player controls
       crossOrigin: 'anonymous', // its sound can be routed through the page's audio (the media host allows it)
       poster: m.still || m.thumb ? base + (m.still ?? m.thumb) : '', // shows until it plays (nothing loads before)
     });
+    // m.volume: its level (Exposure at 0.6). Once the page routes its sound (tiles.js) the level moves to a gain
+    // there, since Safari ignores an element's volume after that.
+    if (m.volume) { vid.volume = m.volume; vid.dataset.volume = m.volume; }
     box.append(vid);
     // m.under: smaller videos cut from this one (Exposure's histograms), a row beneath it, one under each
     // part of the frame, held to its time as it plays, pauses, seeks and loops.
     if (m.under) {
       const row = Object.assign(document.createElement('div'), { className: 'under' });
-      const subs = m.under.map(f => Object.assign(document.createElement('video'), { muted: true, playsInline: true, preload: 'auto', loop: true, src: MEDIA + f }));
+      const subs = m.under.map((f, i) => Object.assign(document.createElement('video'), { muted: true, playsInline: true, preload: 'auto', loop: true, src: MEDIA + f, poster: m.underStill?.[i] ? MEDIA + m.underStill[i] : '' })); // m.underStill: their first frames, for when video can't play (iOS Low Power Mode)
       row.append(...subs);
       box.append(row);
       const follow = (slack = 1 / 30) => { for (const v of subs) if (Math.abs(v.currentTime - vid.currentTime) > slack) v.currentTime = vid.currentTime; };
@@ -69,9 +75,9 @@ export async function build(part, box, ctx = {}) {
       const tick = () => { if (!vid.paused) follow(); vid.requestVideoFrameCallback?.(tick); };
       vid.requestVideoFrameCallback?.(tick);
     }
-    // m.quiet: silent until the visitor clicks this video or turns its sound up themselves.
+    // m.quiet: silent until the visitor clicks this video or turns its sound up themselves; m.silent: always.
     let asked = !m.quiet;
-    const heard = () => asked;
+    const heard = () => asked && !m.silent;
     if (m.quiet) {
       vid.addEventListener('click', () => { asked = true; vid.muted = false; });
       vid.addEventListener('volumechange', () => { if (!vid.muted) asked = true; });
@@ -245,7 +251,7 @@ export async function stillFor(part, want = 0) {
     return set;
   }
   if (!['image', 'video', 'grid'].includes(kind)) return null;
-  const m = await (await fetch(`${base}manifest.json`)).json();
+  const m = await (await fetch(base + MANIFEST)).json();
   // The smallest size that covers `want` (as a cover-cropped square, so by the short side).
   // In the grid, an image with a square version (m.square: a window screenshot with its
   // background extended and the window framed below the title) uses that.
