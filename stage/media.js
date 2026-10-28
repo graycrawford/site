@@ -109,7 +109,7 @@ export async function build(part, box, ctx = {}) {
       play() {
         load();
         vid.muted = !(loud() && navigator.userActivation?.hasBeenActive && heard());
-        vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+        vid.play().catch(e => { if (e?.name !== 'NotAllowedError') return; vid.muted = true; vid.play().catch(() => {}); }); // sound refused: muted instead (not when a pause cut it short)
       },
       pause() { vid.pause(); },
       sound(on) { vid.muted = !(on && navigator.userActivation?.hasBeenActive && heard()); },

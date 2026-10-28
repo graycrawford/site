@@ -426,11 +426,10 @@
     .entry-view :is(.part-tweet, .part-instagram):not(.awake) { cursor: pointer; }
     .cv.filtering .entry-view .mention .tile { filter: none; opacity: 1; } /* copies, not the grid's tiles: a filter leaves them be */
     .entry-view :is(.mentions.kin, .foot-block) { margin-top: 46px; } /* at the foot: the same name's other entries, or tiles a line of words names; space, no rule */
-    .entry-view .meta .when { display: none; }
     .entry-view .media > .lead { margin-top: 56px; } /* data-lead: the first piece set apart from the tiles above it by a section's gap */
     .entry-view .foot-block.lead-foot { margin-top: 16px; } /* a foot placed right under the entry's own media */
     .entry-view .foot-block.top-foot { margin: 0 0 16px; } /* a foot placed above the entry's media */
-    .cv.clustered .entry-view .meta .when { display: inline; } /* clustered, the years mix: a column says when */
+    .entry-view .meta .when { display: inline; } /* a column says when (month and year), in either order */
     .entry-view .foot-label { font-size: .84rem; margin-bottom: 10px; opacity: .6; }
     .entry-view .foot-block .mentions { margin: 0; }
     /* a link to another entry previews it */

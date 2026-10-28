@@ -101,7 +101,7 @@ export async function mountGrid(root, base, onFocus = () => {}) {
     el.className = 'cell';
     const s = video
       ? Object.assign(document.createElement('video'), {
-          src: base + c.small, muted: true, loop: true, playsInline: true, autoplay: true, preload: 'auto',
+          src: base + c.small, muted: true, loop: true, playsInline: true, preload: 'auto', // no autoplay: they play when the page says (play(), a column on screen)
         })
       : Object.assign(document.createElement('img'), { src: base + c.small, alt: c.alt ?? '', decoding: 'async' });
     const f = video

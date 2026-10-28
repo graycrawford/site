@@ -58,22 +58,19 @@ function when(e, fallbackYear) {
     ?? fallbackYear;
 }
 
-// The clusters, in order; each tile goes to the first that claims it. Live video splits by artist.
-// Talks also show again the talks another cluster claimed (the Neophon ones), so they stay together;
-// Spatial UI shows again everything tagged spatial.
+// The clusters say where the work happened or what it was, each entry once; the filters (tags) cut across
+// them by medium and topic. In order; each tile goes to the first that claims it.
 const CLUSTERS = [
   ['Luma', t => /Luma/.test(t.group)],
-  ['Realtime audio', t => t.tags.has('audio')], // the Neophon talks included
-  ['Side projects', t => t.group === 'Side projects' || t.title === 'Neophon', null, { again: true }], // Neophon a second time, its first in Realtime audio
-  ['Live realtime video', t => t.group === 'Live', null, { first: t => /^Arca\b/.test(t.title) }], // Arca's shows first, then the rest
-  ['Talks', t => t.group === 'Talks', null, { again: true }],
+  ['Side projects', t => t.group === 'Side projects' || t.title === 'Neophon'],
+  ['Live shows', t => t.group === 'Live' || t.title === 'Xoromancy', null, { first: t => /^Arca\b/.test(t.title) }], // Arca's shows first, then the rest
+  ['Talks', t => t.group === 'Talks'],
   ['Education', t => t.group === 'Education'],
   ['Posts', t => t.post],
   ['Earlier work', () => true],
-  ['Spatial UI', t => t.tags.has('spatial'), null, { again: true }], // a second tile for each, wherever its first is
 ];
 
-const SHOWN = ['Luma', 'Side projects', 'Realtime audio', 'Live realtime video', 'Spatial UI', 'Talks', 'Earlier work', 'Education', 'Posts'];
+const SHOWN = ['Luma', 'Side projects', 'Live shows', 'Talks', 'Earlier work', 'Education', 'Posts'];
 
 // Hand-placed clusters: [title, size] in order; the grid packs them densely, so a big tile with
 // smaller ones beside it fills in around it. Anything not listed follows, newest first, at its usual size.
@@ -83,12 +80,8 @@ const PLACE = {
     ['Latent Blend', 'big'], ['Luma Scenes', 'normal'], ['Ray2 Modify Video', 'normal'], ['Timeline', 'mini'],
     ['Dream Machine', 'normal'], ['Ray3', 'mini'],
   ],
-  'Realtime audio': [
-    ['Neophon', 'big'], ['Neophon · SPC Demo Night', 'normal'], ['Generating New Sounds with Neophon', 'normal'],
-    ['Neophon · Code with Claude', 'normal'], ['Optia · Cirrus', 'normal'],
-  ],
-  'Live realtime video': [ // same-titled shows by their subtitle: "Title | subtitle"
-    ['Arca | Palomosa, Montréal', 'big'], ['Arca | C2C Festival, NY', 'big'], ['Arca | No LineUp, São Paulo', 'mini'], ['Arca | Portola, San Francisco', 'mini'],
+  'Live shows': [ // same-titled shows by their subtitle: "Title | subtitle"
+    ['Arca | Palomosa, Montréal', 'big'], ['Arca | C2C Festival, NY', 'big'], ['Xoromancy', 'normal'], ['Arca | No LineUp, São Paulo', 'mini'], ['Arca | Portola, San Francisco', 'mini'],
     ['Arca | Live Night, CAP UCLA', 'normal'], ['Moritz von Oswald & Azu Tiwaline', 'normal'], ['Optia · HydeFM × The Lab', 'big'], ['Hesaitix', 'normal'],
   ],
   'Side projects': [
@@ -294,7 +287,7 @@ function arrange(view) {
   const out = [];
   for (const t of tiles) setSize(t, t.size);
   shownView = view;
-  document.querySelector('.cv').classList.toggle('clustered', view === 'cluster'); // columns then say when (month and year)
+  document.querySelector('.cv').classList.toggle('clustered', view === 'cluster');
   if (kind) {
     // A chosen kind: its tiles together under its name, newest first, whichever view.
     const s = section(document.querySelector(`.filters button[data-tag="${kind}"]`)?.firstChild.textContent.trim() ?? kind);
@@ -435,6 +428,7 @@ function remember(list) {
   history.replaceState(null, '', `${location.pathname}${q.size ? `?${q}` : ''}${location.hash}`);
 }
 let current = () => false; // (entry, its video's box?) is this the entry in front, and this the one video in it with sound
+let wanted = t => current(t); // does this entry's column want its videos playing (the reel: while enough of it shows)
 // An entry's embedded frames (posts, YouTube, live pages) load only while it's live: off, each
 // frame is blanked and keeps its address to come back to.
 function setLive(view, live) {
@@ -983,6 +977,7 @@ function reelMode() {
     else if (e.key === 'ArrowLeft') glide(FLOW && pos.target <= 0 ? home() : Math.round(pos.target) - 1);
   });
   current = (t, box) => t === (hovered ?? near) && (!box || leadBox(t) === box);
+  wanted = t => !!cols.get(t)?.playing;
   hotEntry = (t, on) => name(on ? t : null);
   const first = new URLSearchParams(location.search).get('open');
   const t = first && [...tiles.filter(x => !x.of), ...postGroups.values()].find(x => slug(x) === first); // a year's posts column too
@@ -1355,6 +1350,8 @@ function gate(api, box) {
   const g = box.gate = { seen: false, sync() { const now = want && g.seen; if (now !== on) { on = now; (now ? play : pause).call(api); } } };
   api.play = () => { want = true; api.prime?.(); g.sync(); };
   api.pause = () => { want = false; g.sync(); };
+  // Back from another tab (browsers pause video in hidden ones): what should be playing plays again.
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && on && api.el?.paused) play.call(api); });
   onScreen.observe(box);
 }
 
@@ -1374,7 +1371,7 @@ function fill(media, parts, view, t, el) {
           if (api && box.matches('.part-video, .grid-host')) gate(api, box);
           view.apis.push(api);
           if (view.live === false) setLive(view, false); // built after its reel column said not live
-          else if (current(t)) api?.play?.();
+          else if (wanted(t)) api?.play?.(); // built after its column started playing (a manifest still on its way then): it joins in
           if (items.length > 1) { const m = box.querySelector('img, video'), w = +m?.getAttribute('width'), h = +m?.getAttribute('height'); if (w && h) box.style.flex = `${w / h} 1 0`; } // the file's proportions, not its laid-out size
           // The same continuous-curvature corners as the tiles, on each picture, player and grid.
           // A picture zooms toward the pointer, so its frame (its link) takes the corners instead.
