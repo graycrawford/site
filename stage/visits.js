@@ -1,10 +1,12 @@
 // Visit pings to the site's own log (a Cloudflare worker in Gray's account, ~/Desktop/projects/visits),
 // nothing anyone else keeps: a page loaded (and where from), each entry opened and how (a grid tile,
 // a bookmark, a link in an entry, the filters, the name, or sliding the reel), outside links followed,
-// each piece of a column seen for a second or more, and how long the page stayed in view. No cookies:
-// a random id per tab groups one visit. ?me once in this browser leaves it out from then on.
+// each piece of a column seen for a second or more, how long the page stayed in view, and how long
+// someone was there for each entry. No cookies: a random id per tab groups one visit. ?me once in this
+// browser leaves it out from then on.
 const LOG = 'https://visits.freq.workers.dev/v';
 const SEEN = 1000; // ms a piece must stay at least half in view to count as seen
+const IDLE = 30e3; // ms: a gap between inputs counts as someone there up to this (reading, watching), no more
 
 (() => {
   try {
@@ -17,8 +19,17 @@ const SEEN = 1000; // ms a piece must stay at least half in view to count as see
   const send = (k, o = {}) => { try { navigator.sendBeacon(LOG, JSON.stringify({ s: sid, k, p: location.pathname, ...o })); } catch {} };
   const open = () => new URLSearchParams(location.search).get('open') ?? '';
 
+  // Time someone was there: each gap between inputs (pointer, wheel, keys, touch, scroll) counts up to IDLE,
+  // so a tab left open doesn't. Sent, and started over, with each open and hide.
+  let input = performance.now(), held = 0;
+  const stir = () => { const now = performance.now(); held += Math.min(now - input, IDLE); input = now; };
+  for (const k of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart', 'scroll']) addEventListener(k, stir, { capture: true, passive: true });
+  const there = () => { stir(); const a = held; held = 0; return Math.round(a); };
+
   const ref = document.referrer && new URL(document.referrer).host !== location.host ? document.referrer : '';
-  send('view', { e: open(), r: ref, w: innerWidth });
+  let zone = '';
+  try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch {}
+  send('view', { e: open(), r: ref, w: innerWidth, z: zone });
 
   // How the next entry came to open: the last click that can open one, if it was just now.
   let how = null;
@@ -36,6 +47,12 @@ const SEEN = 1000; // ms a piece must stay at least half in view to count as see
     if (via) { how = { via, t: performance.now() }; send('click', { via, what, e: open() }); }
   }, true);
 
+  // An opened entry's title and how many pieces its column has.
+  const entry = s => {
+    const view = s && document.querySelector(`.entry-view[data-slug="${CSS.escape(s)}"]`);
+    return view ? { what: view.querySelector('.title')?.textContent.trim(), n: view.querySelectorAll('[data-part]').length } : {};
+  };
+
   // The reel names what's open in the URL (?open=…) once it comes to rest.
   let last = open();
   const replace = history.replaceState;
@@ -44,7 +61,7 @@ const SEEN = 1000; // ms a piece must stay at least half in view to count as see
     const now = open();
     if (now !== last) {
       last = now;
-      send('open', { e: now, via: how && performance.now() - how.t < 4000 ? how.via : 'slide' }); // e '' : back home
+      send('open', { e: now, via: how && performance.now() - how.t < 4000 ? how.via : 'slide', a: there(), ...entry(now) }); // e '' : back home
       how = null;
     }
     return r;
@@ -80,7 +97,7 @@ const SEEN = 1000; // ms a piece must stay at least half in view to count as see
   // Time in view: from each time the page shows to when it's hidden (tab switched, closed).
   let shown = document.visibilityState === 'visible' ? performance.now() : 0;
   addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && shown) { send('hide', { d: performance.now() - shown, e: open() }); shown = 0; }
-    else if (document.visibilityState === 'visible') shown = performance.now();
+    if (document.visibilityState === 'hidden' && shown) { send('hide', { d: performance.now() - shown, e: open(), a: there() }); shown = 0; }
+    else if (document.visibilityState === 'visible') { shown = input = performance.now(); held = 0; }
   });
 })();
