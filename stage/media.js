@@ -26,6 +26,12 @@ export async function build(part, box, ctx = {}) {
     box.append(grid);
     return mountGrid(grid, base, onFocus);
   }
+  if (kind === 'sphere') {
+    // Latent Blend's grids on the DINOv3 hypersphere: sphere.js draws them, looping on its own.
+    box.classList.add('sphere-host');
+    const m = await import('./sphere.js');
+    return m.mountSphere(box, await m.loadSite(base, MEDIA));
+  }
   if (kind === 'image') {
     // A web-size copy; the image links to the untouched original.
     const m = await (await fetch(base + MANIFEST)).json();
@@ -250,6 +256,8 @@ export async function stillFor(part, want = 0) {
     for (const t of ids) set.append(await stillFor(`tweet:${t}`));
     return set;
   }
+  // A sphere's still is its first grid's (scatter 0).
+  if (kind === 'sphere') return stillFor(`grid:${(await (await fetch(base + MANIFEST)).json()).levels[0].grid}`, want);
   if (!['image', 'video', 'grid'].includes(kind)) return null;
   const m = await (await fetch(base + MANIFEST)).json();
   // The smallest size that covers `want` (as a cover-cropped square, so by the short side).
