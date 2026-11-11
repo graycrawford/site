@@ -21,9 +21,10 @@
   }
   #panel > * { flex: none; }
   #panel.hidden { display: none; }
-  .skies { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 9px; color: var(--faint); }
-  .skies span { cursor: pointer; }
-  .skies span.on { color: var(--ink); }
+  .skies, .bank { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 9px; color: var(--faint); }
+  .skies span, .bank span { cursor: pointer; }
+  .skies span.on, .bank span.on { color: var(--ink); }
+  .bank .slot { min-width: 10px; text-align: center; font-variant-numeric: tabular-nums; }
   .credit { font-size: 8px; line-height: 1.5; letter-spacing: .2px; color: var(--faint); padding-top: 4px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   output { color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -554,7 +555,32 @@ try {
   if (s.cam) { Object.assign(cam, s.cam, { vy: 0, vp: 0, grab: null }); sDist.value = cam.dist; sTy.value = cam.ty; }
 } catch {}
 const save = () => { try { localStorage.setItem('aureole3', JSON.stringify({ ...Object.fromEntries(Object.entries(P).map(([k, p]) => [k, p.v])), cam: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, ty: cam.ty } })); } catch {} };
-const set = (k, v) => { P[k].v = clamp(v, P[k].min, P[k].max); dirty = true; save(); };
+let rate = 14, curPreset = -1;                   // spring rate: 14 under the hand, slower while a preset is travelling
+const hands = () => { rate = 14; curPreset = -1; };
+const set = (k, v) => { P[k].v = clamp(v, P[k].min, P[k].max); hands(); dirty = true; save(); };
+
+// A state is every control target, the camera and the sky (peak is left out: it belongs to the display).
+// Recalling one only moves targets, so everything travels on the springs and can be grabbed mid-flight.
+const r4 = x => +(+x).toPrecision(4);
+const snapshot = () => ({ v: Object.fromEntries(Object.keys(P).filter(k => k !== 'peak').map(k => [k, r4(P[k].v)])), cam: [cam.yaw, cam.pitch, cam.dist, cam.ty].map(r4), sky: skyId() });
+function applyState(p, jump) {
+  for (const k in p.v ?? {}) if (P[k] && k !== 'peak' && Number.isFinite(p.v[k])) {
+    P[k].v = clamp(p.v[k], P[k].min, P[k].max);
+    if (jump) { P[k].s.value = P[k].v; P[k].s.velocity = 0; }
+  }
+  if (Array.isArray(p.cam) && p.cam.every(Number.isFinite)) {
+    const [yaw, pitch, dist, ty] = p.cam;
+    cam.dist = clamp(dist, 0.4, 14); cam.ty = clamp(ty, 0.2, 3);
+    if (jump) { Object.assign(cam, { yaw, pitch: clamp(pitch, -0.3, 1.5), vy: 0, vp: 0, go: null }); sDist.value = cam.dist; sTy.value = cam.ty; sDist.velocity = sTy.velocity = 0; }
+    else cam.go = { yaw: cam.yaw + Math.atan2(Math.sin(yaw - cam.yaw), Math.cos(yaw - cam.yaw)), pitch: clamp(pitch, -0.3, 1.5) };   // the short way round
+  }
+  rate = jump ? 14 : 5; dirty = true; save();
+}
+const encState = o => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const hashState = () => { try { const m = location.hash.match(/^#s=([\w-]+)/); return m ? JSON.parse(atob(m[1].replace(/-/g, '+').replace(/_/g, '/'))) : null; } catch { return null; } };
+let skyId = () => null;
+const shared = hashState();
+if (shared) applyState(shared, true);
 
 const unit = (v, p) => p.log ? Math.log(v / p.min) / Math.log(p.max / p.min) : (v - p.min) / (p.max - p.min);
 const value = (t, p) => p.log ? p.min * Math.pow(p.max / p.min, clamp(t, 0, 1)) : p.min + clamp(t, 0, 1) * (p.max - p.min);
@@ -622,6 +648,7 @@ canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
   if (pts.size === 1) cam.grab = { yaw: cam.yaw, pitch: cam.pitch, age: 0 };
+  cam.go = null; hands();
   pinch = null; dirty = true;
 });
 canvas.addEventListener('pointermove', e => {
@@ -640,12 +667,12 @@ canvas.addEventListener('pointermove', e => {
 });
 const lift = e => { pts.delete(e.pointerId); pinch = null; if (!pts.size) { cam.grab = null; save(); } };
 canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
-canvas.addEventListener('dblclick', () => { Object.assign(cam, { yaw: 0.35, pitch: 0.06, dist: 3.6, ty: 1.4, vy: 0, vp: 0 }); dirty = true; save(); });
+canvas.addEventListener('dblclick', () => { Object.assign(cam, { yaw: 0.35, pitch: 0.06, dist: 3.6, ty: 1.4, vy: 0, vp: 0, go: null }); dirty = true; save(); });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   if (e.shiftKey) cam.ty = clamp(cam.ty + (e.deltaY || e.deltaX) * 0.002, 0.2, 3);
   else cam.dist = clamp(cam.dist * Math.exp(e.deltaY * (e.ctrlKey ? 0.02 : 0.008)), 0.4, 14);
-  dirty = true; save();
+  hands(); dirty = true; save();
 }, { passive: false });
 
 function tickCamera(dt) {
@@ -662,6 +689,16 @@ function tickCamera(dt) {
       }
     }
     moving = true;
+  } else if (cam.go) {                                             // a recalled view: same spring, slower, dropped the moment the canvas is touched
+    let far = false;
+    for (const [k, vk] of [['yaw', 'vy'], ['pitch', 'vp']]) {
+      const off = cam[k] - cam.go[k], c = cam[vk] + rate * off, decay = Math.exp(-rate * dt);
+      cam[k] = cam.go[k] + (off + c * dt) * decay;
+      cam[vk] = (cam[vk] - rate * c * dt) * decay;
+      far ||= Math.abs(cam[k] - cam.go[k]) > 1e-4 || Math.abs(cam[vk]) > 1e-4;
+    }
+    if (!far) { cam.yaw = cam.go.yaw; cam.pitch = cam.go.pitch; cam.vy = cam.vp = 0; cam.go = null; save(); }
+    moving = true;
   } else if (Math.abs(cam.vy) + Math.abs(cam.vp) > 1e-4) {
     const d = Math.exp(-3 * dt);
     cam.vy *= d; cam.vp *= d;
@@ -669,8 +706,8 @@ function tickCamera(dt) {
     if (cam.pitch < -0.3 || cam.pitch > 1.5) { cam.pitch = clamp(cam.pitch, -0.3, 1.5); cam.vp = 0; }
     moving = true;
   } else { cam.vy = cam.vp = 0; }
-  moving = sDist.step(cam.dist, dt) || moving;
-  moving = sTy.step(cam.ty, dt) || moving;
+  moving = sDist.step(cam.dist, dt, rate) || moving;
+  moving = sTy.step(cam.ty, dt, rate) || moving;
   return moving;
 }
 
@@ -695,9 +732,10 @@ const ENVS = [
   { id: 'goegap', name: 'Goegap', dir: 'envs/goegap/', ev: -0.4 },
   { id: 'kloppenheim_02', name: 'Kloppenheim Night', dir: 'envs/kloppenheim_02/', ev: 0 },
 ];
-let envId = query.get('sky');
+let envId = query.get('sky') ?? shared?.sky;
 try { envId ??= localStorage.getItem('aureoleSky'); } catch {}
 let env = ENVS.find(e => e.id === envId) ?? ENVS[0];
+skyId = () => env.id;
 const device = await adapter.requestDevice({ requiredLimits: { maxTextureDimension2D: Math.min(16384, adapter.limits.maxTextureDimension2D), maxBufferSize: Math.min(2 ** 31, adapter.limits.maxBufferSize) } });
 const ctx = canvas.getContext('webgpu');
 const format = 'rgba16float';
@@ -859,6 +897,46 @@ async function setSky(e) {
   if (token === skyLoad) { skyLoad = 0; bar.style.transform = 'scaleX(0)'; }
 }
 
+// preset bank: numbered slots under the sky names. click recalls, shift-click overwrites, alt-click deletes,
+// + saves the current state, link copies a URL holding it, bank copies the whole bank as JSON.
+const BUILTIN = [];
+let bank = [];
+try { bank = JSON.parse(localStorage.getItem('aureoleBank') || '[]'); } catch {}
+const storeBank = () => { try { localStorage.setItem('aureoleBank', JSON.stringify(bank)); } catch {} };
+function recall(p) {
+  applyState(p, false);
+  const e = ENVS.find(e => e.id === p.sky);
+  if (e && e !== env) setSky(e);
+}
+const bankEl = $('div', 'bank');
+const copy = async (el, text, word) => {
+  try { await navigator.clipboard.writeText(text); el.textContent = 'copied'; } catch { el.textContent = 'blocked'; }
+  setTimeout(() => { el.textContent = word; }, 900);
+};
+function drawBank() {
+  bankEl.replaceChildren();
+  [...BUILTIN, ...bank].forEach((p, i) => {
+    const b = $('span', 'slot', String(i + 1)), own = i - BUILTIN.length;
+    b.title = own < 0 ? 'recall' : 'click: recall · shift-click: overwrite · alt-click: delete';
+    b.onclick = ev => {
+      if (ev.altKey && own >= 0) { bank.splice(own, 1); curPreset = -1; storeBank(); drawBank(); }
+      else if (ev.shiftKey && own >= 0) { bank[own] = snapshot(); curPreset = i; storeBank(); }
+      else { recall(p); curPreset = i; }
+      dirty = true;
+    };
+    bankEl.append(b);
+  });
+  const add = $('span', '', '+'), link = $('span', '', 'link'), all = $('span', '', 'bank');
+  add.title = 'save the current state'; link.title = 'copy a link to the current state'; all.title = 'copy the bank as JSON';
+  add.onclick = () => { bank.push(snapshot()); curPreset = BUILTIN.length + bank.length - 1; storeBank(); drawBank(); dirty = true; };
+  link.onclick = () => { const url = location.origin + location.pathname + location.search + '#s=' + encState(snapshot()); history.replaceState(null, '', url); copy(link, url, 'link'); };
+  all.onclick = () => copy(all, JSON.stringify(bank), 'bank');
+  bankEl.append(add, link, all);
+}
+drawBank(); skies.after(bankEl);
+updates.push(() => { let i = 0; for (const b of bankEl.querySelectorAll('.slot')) b.classList.toggle('on', i++ === curPreset); });
+addEventListener('hashchange', () => { const p = hashState(); if (p) recall(p); });
+
 function resize() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
   let w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
@@ -874,10 +952,10 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 let lastT = performance.now(), yOff = 0, frames = 0;
 function loop(now) { requestAnimationFrame(loop); frame(now); }
 function frame(now) {
-  const dt = Math.min((now - lastT) / 1000 || 0, 0.1); lastT = now;
+  const dt = clamp((now - lastT) / 1000 || 0, 0, 0.1); lastT = now;
   if (!canvas.width || !canvas.height) { resize(); dirty = true; return; }
   let moving = tickCamera(dt);
-  for (const k in P) moving = P[k].s.step(P[k].v, dt) || moving;
+  for (const k in P) moving = P[k].s.step(P[k].v, dt, rate) || moving;
   const falling = cur('motes') > 0 && cur('fall') > 0 && !document.hidden;
   if (falling) yOff = (yOff + cur('fall') * dt) % (0.2 * 4096);
   if (!dirty && !moving && !falling) return;
@@ -918,7 +996,7 @@ function frame(now) {
   pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end();
   device.queue.submit([enc.finish()]);
 }
-window.aureole = { P, cam, set, frame, setSky: id => setSky(ENVS.find(e => e.id === id)), sky: () => env.id, ENVS, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
+window.aureole = { P, cam, set, frame, snapshot, recall, bank: () => bank, setSky: id => setSky(ENVS.find(e => e.id === id)), sky: () => env.id, ENVS, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
 requestAnimationFrame(loop);
 </script>
 </body>
