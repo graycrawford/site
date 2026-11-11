@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureole — Gray Crawford</title>
+<meta name="theme-color" content="#000">
+<link rel="icon" href="data:,">
+<meta name="description" content="Gravitational lensing by a ring of mass worn as a halo: curved light, lensed sunlight and caustics in fog. An interactive WebGPU experiment by Gray Crawford.">
+<link rel="canonical" href="https://graycrawford.com/aureole/">
+<script>if (location.hostname === "graycrawford.com" && location.protocol === "http:") location.replace("https:" + location.href.slice(5));</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  :root { --ink: rgba(255,255,255,.65); --faint: rgba(255,255,255,.28); }
+  #panel {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 232px; padding: 14px 12px; box-sizing: border-box; overflow-y: auto; scrollbar-width: none;
+    font: 11px/1.2 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: var(--ink);
+    user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; gap: 12px;
+  }
+  #panel > * { flex: none; }
+  #panel.hidden { display: none; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  output { color: var(--faint); font-variant-numeric: tabular-nums; }
+  .handle, .actual { position: absolute; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); left: var(--x); top: var(--y); }
+  .handle { width: 20px; height: 20px; background: #ffffff3b; }
+  .actual { width: 14px; height: 14px; border: 1px solid #ffffff30; }
+  .rail label { display: flex; justify-content: space-between; font-size: 9px; color: var(--faint); }
+  .track { height: 28px; position: relative; touch-action: none; cursor: ew-resize; }
+  .track::before { content: ""; position: absolute; left: 0; right: 0; height: 20px; top: 4px; border-radius: 20px; background: #ffffff09; }
+  .track .handle, .track .actual { top: 14px; }
+  .pad { min-width: 0; }
+  .pad-title { color: var(--faint); font-size: 8px; letter-spacing: .4px; margin-bottom: 5px; }
+  .pad-body { display: grid; grid-template-columns: minmax(0, 1fr) 16px; gap: 6px; }
+  .pad-field { aspect-ratio: 1; position: relative; border-radius: 12px; background: #ffffff09; touch-action: none; cursor: move; overflow: hidden; }
+  .pad-field .handle, .axis .handle { width: 16px; height: 16px; }
+  .pad-field .actual { width: 12px; height: 12px; }
+  .axis { position: relative; touch-action: none; border-radius: 20px; background: #ffffff09; }
+  .axis.y { cursor: ns-resize; }
+  .axis.x { height: 16px; cursor: ew-resize; }
+  .pad-values { display: flex; justify-content: space-between; font-size: 9px; margin-top: 5px; }
+  #bar { position: fixed; left: 0; right: 0; top: 0; height: 1px; background: rgba(255,255,255,.4); transform-origin: left; transform: scaleX(0); }
+  #home { position: fixed; right: 14px; top: 10px; color: var(--faint); text-decoration: none; font: 13px -apple-system, sans-serif; }
+  #err { position: fixed; left: 16px; bottom: 16px; font: 11px ui-monospace, monospace; color: rgba(255,255,255,.4); white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel"></div>
+<div id="err"></div>
+<div id="bar"></div>
+<a id="home" href="/" aria-label="Gray Crawford home" title="graycrawford.com">←</a>
+<script type="module">
+// ---------------------------------------------------------------------------
+// Physics
+//   Mass: a circular ring of radius a where every element is a Plummer sphere of
+//   scale b (a fuzzy torus of density, nothing emissive, no surface).
+//       Phi(rho,z) = -(2M/pi) K(m) / sqrt(D),  D = (rho+a)^2 + z^2 + b^2,  m = 4 a rho / D
+//   Metric: ds^2 = -e^{2Phi} dt^2 + e^{-2Phi} dx^2 (isotropic static, exact to 1PN).
+//   Null geodesics are rays in an index n = e^{-2Phi}:  dT/ds = -2 (grad Phi - (grad Phi . T) T)
+//   G = c = 1, so M is in metres.
+//
+//   Each pixel carries three rays (centre, +1px x, +1px y). Their separation is the
+//   pixel's footprint anywhere along the path, so:
+//     - the environment is filtered over the exact lensed solid angle (surface brightness conserved)
+//     - a mote smaller than the footprint contributes area/footprint of its radiance, so
+//       focusing brightens it and spreading dims it.
+// ---------------------------------------------------------------------------
+const wgsl = /* wgsl */`
+struct U {
+  camPos: vec4f,    // xyz, tan(fov/2)
+  camRight: vec4f,  // xyz, aspect
+  camUp: vec4f,     // xyz, 1/envScale
+  camFwd: vec4f,    // xyz, guide
+  ring: vec4f,      // centre, M
+  axis: vec4f,      // axis, a
+  p: vec4f,         // b, step k, bend eps, max steps
+  sun: vec4f,       // world dir, exposure
+  res: vec4f,       // w, h, debug, peak
+  sunE: vec4f,      // rgb irradiance, cos(env yaw)
+  part: vec4f,      // density, radius, y offset, sin(env yaw)
+  bmin: vec4f,      // body grid min, voxel
+  bsize: vec4f,     // body grid size, capture height
+  sh: array<vec4f, 9>,
+  lorg: vec4f,      // light volume corner, fog density
+  leu: vec4f,       // u axis, uv extent
+  lev: vec4f,       // v axis, w extent
+  lew: vec4f,       // propagation axis (-sun)
+};
+@group(0) @binding(0) var<uniform> u: U;
+@group(0) @binding(1) var sdfTex: texture_3d<f32>;
+@group(0) @binding(2) var sdfSamp: sampler;
+@group(0) @binding(3) var envTex: texture_2d<f32>;
+@group(0) @binding(4) var envSamp: sampler;
+
+const PI = 3.14159265358979;
+const TAU = 6.28318530717959;
+const CELL = 0.2;
+const PC = vec3f(0.0, 1.5, 0.0);
+const PR = 3.0;
+
+@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
+  let p = vec2f(f32((i << 1u) & 2u), f32(i & 2u));
+  return vec4f(p * 2.0 - 1.0, 0.0, 1.0);
+}
+
+// ---- ring field ------------------------------------------------------------
+
+fn gradPhi(x: vec3f) -> vec4f {
+  let a = u.axis.w; let b = u.p.x; let ax = u.axis.xyz;
+  let r = x - u.ring.xyz;
+  let z = dot(r, ax);
+  let rp = r - z * ax;
+  let rho = length(rp);
+  let zb = z * z + b * b;
+  let D = (rho + a) * (rho + a) + zb;
+  let m1 = ((rho - a) * (rho - a) + zb) / D;
+  let m = 1.0 - m1;
+  var ag = 1.0; var bg = sqrt(m1); var cs = 0.5 * m; var pw = 1.0;
+  for (var i = 0; i < 5; i++) {
+    let an = 0.5 * (ag + bg); let c = 0.5 * (ag - bg);
+    bg = sqrt(ag * bg); ag = an; cs += pw * c * c; pw *= 2.0;
+  }
+  let K = PI / (2.0 * ag);
+  let E = K * (1.0 - cs);
+  var dK: f32;
+  if (m < 0.03) { dK = 0.5 * PI * (0.5 + m * (0.0625 + m * 0.0234375)) / (2.0 * m1); }
+  else { dK = (E - m1 * K) / (2.0 * m * m1); }
+  let sD = sqrt(D);
+  let C = 2.0 * u.ring.w / PI;
+  let mrho = 4.0 * a * (D - 2.0 * rho * (rho + a)) / (D * D);
+  let mz = -8.0 * a * rho * z / (D * D);
+  let dPrho = -C * (dK * mrho / sD - K * (rho + a) / (D * sD));
+  let dPz   = -C * (dK * mz   / sD - K * z         / (D * sD));
+  let g = dPrho * rp / max(rho, 1e-6) + dPz * ax;
+  return vec4f(g, (rho - a) * (rho - a) + z * z);
+}
+
+fn ringDist(x: vec3f) -> f32 {
+  let r = x - u.ring.xyz;
+  let z = dot(r, u.axis.xyz);
+  let rho = length(r - z * u.axis.xyz);
+  let b = u.p.x;
+  return sqrt((rho - u.axis.w) * (rho - u.axis.w) + z * z + b * b);
+}
+
+fn bend(T: vec3f, g: vec3f, h: f32) -> vec3f { return normalize(T - 2.0 * h * (g - dot(g, T) * T)); }
+
+// ---- scene -----------------------------------------------------------------
+
+@group(0) @binding(5) var lightTex: texture_3d<f32>;
+@group(0) @binding(6) var lightSamp: sampler;
+
+// lensed sunlight at p: sum over ray sheets of magnification * direction to the light
+fn lightCoord(p: vec3f) -> vec3f {
+  let q = p - u.lorg.xyz;
+  return vec3f(dot(q, u.leu.xyz) / u.leu.w, dot(q, u.lev.xyz) / u.leu.w, dot(q, u.lew.xyz) / u.lev.w);
+}
+fn sunVA(p: vec3f) -> vec4f {
+  let c = lightCoord(p);
+  let e = min(c, 1.0 - c);
+  let f = smoothstep(0.0, 0.05, min(e.x, min(e.y, e.z)));
+  if (f <= 0.0) { return vec4f(u.sun.xyz, 1.0); }
+  return mix(vec4f(u.sun.xyz, 1.0), textureSampleLevel(lightTex, lightSamp, c, 0.0), f);
+}
+fn sunV(p: vec3f) -> vec3f { return sunVA(p).xyz; }
+
+fn sdBody(p: vec3f) -> f32 {
+  let bb = abs(p - (u.bmin.xyz + 0.5 * u.bsize.xyz)) - 0.5 * u.bsize.xyz;
+  let db = length(max(bb, vec3f(0.0))) + min(max(bb.x, max(bb.y, bb.z)), 0.0);
+  if (db > 0.0) { return db + 0.02; }
+  return textureSampleLevel(sdfTex, sdfSamp, (p - u.bmin.xyz) / u.bsize.xyz, 0.0).r;
+}
+
+fn normalAt(p: vec3f) -> vec3f {
+  let e = vec2f(1.5 * u.bmin.w, 0.0);
+  return normalize(vec3f(sdBody(p + e.xyy) - sdBody(p - e.xyy), sdBody(p + e.yxy) - sdBody(p - e.yxy), sdBody(p + e.yyx) - sdBody(p - e.yyx)));
+}
+
+// ---- light -----------------------------------------------------------------
+
+fn toEnv(d: vec3f) -> vec3f { let c = u.sunE.w; let s = u.part.w; return vec3f(c * d.x + s * d.z, d.y, -s * d.x + c * d.z); }
+
+fn envGrad(d: vec3f, dd: vec3f) -> vec2f {
+  let r2 = max(d.x * d.x + d.z * d.z, 1e-8);
+  return vec2f((d.x * dd.z - d.z * dd.x) / (r2 * TAU), -dd.y / (PI * sqrt(r2)));
+}
+
+// radiance from world direction d, filtered over the footprint spanned by d1-d, d2-d
+fn env(d: vec3f, d1: vec3f, d2: vec3f) -> vec3f {
+  let e = toEnv(d);
+  let uv = vec2f(atan2(e.z, e.x) / TAU + 0.5, acos(clamp(e.y, -1.0, 1.0)) / PI);
+  return textureSampleGrad(envTex, envSamp, uv, envGrad(e, toEnv(d1 - d)), envGrad(e, toEnv(d2 - d))).rgb * u.camUp.w;
+}
+
+fn irradiance(nw: vec3f) -> vec3f {
+  let n = toEnv(nw);
+  let e = u.sh[0] + u.sh[1] * n.y + u.sh[2] * n.z + u.sh[3] * n.x + u.sh[4] * n.x * n.y + u.sh[5] * n.y * n.z
+        + u.sh[6] * (3.0 * n.z * n.z - 1.0) + u.sh[7] * n.x * n.z + u.sh[8] * (n.x * n.x - n.y * n.y);
+  return max(e.rgb, vec3f(0.0));
+}
+
+// shadow ray that follows the light path back through the field
+fn shadow(p: vec3f, l: vec3f) -> f32 {
+  var x = p; var T = l; var t = 0.012; var s = 1.0;
+  let lens = u.ring.w > 0.0;
+  for (var i = 0; i < 72; i++) {
+    let d = sdBody(x);
+    s = min(s, 16.0 * d / t);
+    if (d < 0.0004 || t > 6.0) { break; }
+    var h = clamp(d, 0.003, 1.0);
+    if (lens) { h = min(h, u.p.y * ringDist(x)); }
+    let xm = x + 0.5 * h * T;
+    if (lens) { T = bend(T, gradPhi(xm).xyz, h); }
+    x = xm + 0.5 * h * T; t += h;
+  }
+  return clamp(s, 0.0, 1.0);
+}
+
+fn ao(p: vec3f, n: vec3f) -> f32 {
+  var o = 0.0; var w = 1.0;
+  for (var i = 1; i <= 5; i++) {
+    let h = 0.025 * f32(i);
+    o += w * max(h - sdBody(p + n * h), 0.0);
+    w *= 0.65;
+  }
+  return clamp(1.0 - 5.0 * o, 0.0, 1.0);
+}
+
+fn hash3(v: vec3u) -> vec3u {
+  var x = v * 1664525u + 1013904223u;
+  x.x += x.y * x.z; x.y += x.z * x.x; x.z += x.x * x.y;
+  x ^= x >> vec3u(16u);
+  x.x += x.y * x.z; x.y += x.z * x.x; x.z += x.x * x.y;
+  return x;
+}
+
+fn oetf(c: vec3f) -> vec3f {
+  let a = abs(c);
+  return sign(c) * select(1.055 * pow(a, vec3f(1.0 / 2.4)) - 0.055, a * 12.92, a <= vec3f(0.0031308));
+}
+
+// ---- trace -----------------------------------------------------------------
+
+fn camRay(uv: vec2f) -> vec3f {
+  let th = u.camPos.w;
+  return normalize(u.camFwd.xyz + uv.x * th * u.camRight.w * u.camRight.xyz + uv.y * th * u.camUp.xyz);
+}
+
+@fragment fn fs(@builtin(position) fc: vec4f) -> @location(0) vec4f {
+  let uv = vec2f(fc.x / u.res.x, 1.0 - fc.y / u.res.y) * 2.0 - 1.0;
+  var T = camRay(uv);
+  var T1 = camRay(uv + vec2f(2.0 / u.res.x, 0.0));
+  var T2 = camRay(uv + vec2f(0.0, 2.0 / u.res.y));
+  var x = u.camPos.xyz; var x1 = x; var x2 = x;
+  let lens = u.ring.w > 0.0;
+  let motes = u.part.x > 0.0;
+  let n = i32(u.p.w);
+  let off = vec3f(0.0, u.part.z, 0.0);
+  let rp = u.part.y;
+  var t = 0.0; var gm = 0.0; var glow = 0.0; var kind = 0; var steps = 0.0;
+  var pcol = vec3f(0.0); var ptr = 1.0;
+  let jit = f32(hash3(vec3u(vec2u(fc.xy), 7u)).x) / 4294967296.0;
+
+  for (var i = 0; i < n; i++) {
+    steps += 1.0;
+    let ds = sdBody(x);
+    if (ds < 0.0004 * (1.0 + 0.5 * t)) { kind = 1; break; }
+    var h = min(ds, 60.0);
+    if (lens) {
+      h = min(h, u.p.y * ringDist(x));
+      h = min(h, u.p.z / (2.0 * gm + 1e-5));
+    }
+    let fogd = u.lorg.w * exp(-dot(x - PC, x - PC) / 25.0);
+    if (fogd > 2e-4) {
+      let c = lightCoord(x);
+      let e = min(c, 1.0 - c);
+      h = min(h, select(0.5, 0.06, min(e.x, min(e.y, e.z)) > 0.0));
+    }
+    var inP = false;
+    if (motes) {
+      let dc = length(x - PC) - PR;
+      if (dc > 0.0) { h = min(h, dc + 0.01); }
+      else {
+        inP = true;
+        let fr = fract((x + off) / CELL);
+        let ex = select(fr, 1.0 - fr, T > vec3f(0.0)) / max(abs(T), vec3f(1e-6)) * CELL;
+        h = min(h, min(ex.x, min(ex.y, ex.z)) + 1e-4);
+      }
+    }
+    h = max(h, 2e-4);
+    let xm = x + 0.5 * h * T;
+    let xm1 = x1 + 0.5 * h * T1;
+    let xm2 = x2 + 0.5 * h * T2;
+    if (lens) {
+      let g = gradPhi(xm);
+      gm = length(g.xyz);
+      T = bend(T, g.xyz, h);
+      T1 = bend(T1, gradPhi(xm1).xyz, h);
+      T2 = bend(T2, gradPhi(xm2).xyz, h);
+      glow += h * exp(-0.5 * g.w / (u.p.x * u.p.x)) / u.p.x;
+    }
+    let xn = xm + 0.5 * h * T;
+    if (fogd > 2e-4) {
+      // single scattering of the lensed sun plus sky light, sampled at a jittered point of the step
+      let V = sunVA(x + jit * h * T);
+      let mu = dot(normalize(V.xyz), T);
+      let hg = 0.64 / (4.0 * PI * pow(1.36 - 1.2 * mu, 1.5));          // Henyey-Greenstein, g = 0.6
+      let a = 1.0 - exp(-fogd * h);
+      // sky: forward-weighted mix of the environment seen along the ray and the all-round mean
+      let skyl = (0.7 * irradiance(T) + 0.3 * u.sh[0].rgb) / PI;
+      pcol += ptr * a * (u.sunE.rgb * V.w * hg + skyl);
+      ptr *= 1.0 - a;
+    }
+    if (xn.y < 0.0) {
+      let f = x.y / (x.y - xn.y);
+      x = mix(x, xn, f); t += h * f; kind = 3; break;
+    }
+
+    if (inP && ptr > 0.003) {
+      let cell = vec3i(floor((xm + off) / CELL));
+      let hs = hash3(bitcast<vec3u>(cell));
+      let rnd = vec3f(hs) / 4294967296.0;
+      let pp = (vec3f(cell) + 0.1 + 0.8 * rnd) * CELL - off;
+      let dp = pp - xm;
+      let s = dot(dp, T);
+      let keep = f32(hash3(hs).x) / 4294967296.0;
+      let fall = smoothstep(PR, PR - 0.6, length(pp - PC));
+      if (abs(s) <= 0.5 * h && keep < u.part.x * fall && pp.y > 0.01 && sdBody(pp) > rp) {
+        let n1 = normalize(cross(T, select(vec3f(0.0, 1.0, 0.0), vec3f(1.0, 0.0, 0.0), abs(T.y) > 0.9)));
+        let n2 = cross(T, n1);
+        let xi1 = xm1 - xm; let xi2 = xm2 - xm;
+        let e1 = vec2f(dot(xi1, n1), dot(xi1, n2));
+        let e2 = vec2f(dot(xi2, n1), dot(xi2, n2));
+        let m11 = (e1.x * e1.x + e2.x * e2.x) / TAU + 0.5 * rp * rp;
+        let m22 = (e1.y * e1.y + e2.y * e2.y) / TAU + 0.5 * rp * rp;
+        let m12 = (e1.x * e1.y + e2.x * e2.y) / TAU;
+        let det = max(m11 * m22 - m12 * m12, 1e-30);
+        let d2 = vec2f(dot(dp, n1), dot(dp, n2));
+        let q = (m22 * d2.x * d2.x - 2.0 * m12 * d2.x * d2.y + m11 * d2.y * d2.y) / det;
+        let w = min(0.5 * rp * rp / sqrt(det), 1.0) * exp(-0.5 * q);
+        if (w > 1e-4) {
+          let VA = sunVA(pp);
+          let vm = VA.w;
+          let ca = clamp(dot(normalize(VA.xyz), -T), -1.0, 1.0);
+          let al = acos(ca);
+          let ph = (sin(al) + (PI - al) * ca) / PI;
+          let lp = 0.9 / PI * (u.sunE.rgb * vm * (2.0 / 3.0) * ph + u.sh[0].rgb);
+          pcol += ptr * w * lp;
+          ptr *= 1.0 - w;
+        }
+      }
+    }
+
+    x = xn; t += h;
+    x1 = xm1 + 0.5 * h * T1;
+    x2 = xm2 + 0.5 * h * T2;
+    if (t > 200.0 || (x.y > 14.0 && T.y > 0.0)) { break; }
+  }
+
+  var col: vec3f;
+  if (kind == 1) {
+    let nn = normalAt(x);
+    let V = sunV(x);
+    let ndl = max(dot(nn, V), 0.0);
+    var sh = 0.0;
+    if (ndl > 0.0) { sh = shadow(x + nn * 0.004, normalize(V)); }
+    col = vec3f(0.58, 0.57, 0.56) / PI * (irradiance(nn) * ao(x, nn) + u.sunE.rgb * ndl * sh);
+  } else if (kind == 3) {
+    // ground: the environment re-projected from its capture point onto y = 0, then shadowed
+    let c = vec3f(0.0, u.bsize.w, 0.0);
+    let g0 = vec3f(x.x, 0.0, x.z);
+    let g1 = x1 + T1 * (-x1.y / min(T1.y, -1e-4));
+    let g2 = x2 + T2 * (-x2.y / min(T2.y, -1e-4));
+    let d0 = normalize(g0 - c);
+    let base = env(d0, normalize(g1 - c), normalize(g2 - c));
+    let up = vec3f(0.0, 1.0, 0.0);
+    let ea = irradiance(up);
+    let es = u.sunE.rgb * max(u.sun.y, 0.0);
+    let V = sunV(g0);
+    var sh = 1.0; var o = 1.0;
+    if (length(g0.xz) < 8.0 && V.y > 1e-3) { sh = shadow(g0 + up * 0.004, normalize(V)); o = ao(g0, up); }
+    col = base * (ea * o + u.sunE.rgb * max(V.y, 0.0) * sh) / (ea + es + 1e-6);
+  } else {
+    col = env(T, T1, T2);
+  }
+  col = pcol + ptr * col;
+  col += vec3f(0.35, 0.6, 1.0) * glow * u.camFwd.w;
+
+  if (u.res.z > 1.5) {       // sunlight magnification at the surface, 0.5 = unlensed
+    if (kind == 0) { return vec4f(0.0, 0.0, 0.0, 1.0); }
+    return vec4f(oetf(vec3f(0.18 * length(sunV(x)))), 1.0);
+  }
+  if (u.res.z > 0.5) { return vec4f(vec3f(steps / f32(n)), 1.0); }
+
+  // exposure, hue-preserving shoulder up to display peak, extended sRGB
+  col *= u.sun.w;
+  let P = u.res.w; let k = min(0.8, P * 0.8);
+  let m = max(col.r, max(col.g, col.b));
+  if (m > k) {
+    let m2 = k + (P - k) * (1.0 - exp(-(m - k) / (P - k)));
+    col *= m2 / m;
+    col = mix(col, vec3f(m2), 0.6 * smoothstep(k, P, m2));
+  }
+  return vec4f(oetf(col), 1.0);
+}
+`;
+
+// Sunlight: a 512 x 512 sheet of parallel rays is marched through the field in lockstep.
+// At each of 128 planes across the beam the deformed sheet is rasterised additively; a
+// fragment's density is the Jacobian of (ray index -> position), so folds stack into caustics.
+const LN = 512, LD = 128, LUV = 2.8, LW = 10, LBACK = 2.5, LSHEET = 1.6;   // sheet is wider than the volume so edge rays bent inward leave no gap
+const common = wgsl.slice(0, wgsl.indexOf('// ---- scene'));
+const lightC = common + /* wgsl */`
+struct Ray { pos: vec4f, dir: vec4f, aux: vec4f };   // aux.x = 1 once the ray has met the figure
+@group(0) @binding(5) var<storage, read_write> rays: array<Ray>;
+fn sdBody(p: vec3f) -> f32 {
+  let bb = abs(p - (u.bmin.xyz + 0.5 * u.bsize.xyz)) - 0.5 * u.bsize.xyz;
+  let db = length(max(bb, vec3f(0.0))) + min(max(bb.x, max(bb.y, bb.z)), 0.0);
+  if (db > 0.0) { return db + 0.02; }
+  return textureSampleLevel(sdfTex, sdfSamp, (p - u.bmin.xyz) / u.bsize.xyz, 0.0).r;
+}
+const LN = ${LN}u; const LD = ${LD}.0;
+
+@compute @workgroup_size(8, 8) fn init(@builtin(global_invocation_id) id: vec3u) {
+  if (id.x >= LN || id.y >= LN) { return; }
+  let c = ((vec2f(id.xy) + 0.5) / f32(LN) - 0.5) * ${LSHEET} + 0.5;
+  let p = u.lorg.xyz + u.leu.w * (c.x * u.leu.xyz + c.y * u.lev.xyz);
+  rays[id.y * LN + id.x] = Ray(vec4f(p, 0.0), vec4f(u.lew.xyz, 1.0), vec4f(0.0));
+}
+
+@compute @workgroup_size(8, 8) fn advance(@builtin(global_invocation_id) id: vec3u) {
+  if (id.x >= LN || id.y >= LN) { return; }
+  let i = id.y * LN + id.x;
+  let r = rays[i];
+  if (r.dir.w < 0.5) { rays[i].pos.w = r.pos.w + 1.0; return; }
+  let wt = (r.pos.w + 0.5) * u.lev.w / LD;
+  let lens = u.ring.w > 0.0;
+  var x = r.pos.xyz; var T = r.dir.xyz; var gm = 0.0; var alive = 1.0; var blocked = r.aux.x;
+  for (var s = 0; s < 96; s++) {
+    let cw = dot(T, u.lew.xyz);
+    if (cw < 0.05) { alive = 0.0; break; }
+    let rem = (wt - dot(x - u.lorg.xyz, u.lew.xyz)) / cw;
+    if (rem <= 1e-5) { break; }
+    var h = rem;
+    if (lens) { h = min(h, u.p.y * ringDist(x)); h = min(h, u.p.z / (2.0 * gm + 1e-5)); }
+    let sd = sdBody(x);
+    if (sd < 0.0 || x.y < 0.0) { blocked = 1.0; }
+    h = min(h, max(sd, 0.015));
+    h = min(max(h, 2e-4), rem);
+    let xm = x + 0.5 * h * T;
+    if (lens) { let g = gradPhi(xm).xyz; gm = length(g); T = bend(T, g, h); }
+    x = xm + 0.5 * h * T;
+  }
+  rays[i] = Ray(vec4f(x, r.pos.w + 1.0), vec4f(T, alive), vec4f(blocked, 0.0, 0.0, 0.0));
+}
+`;
+const lightR = common + /* wgsl */`
+struct Ray { pos: vec4f, dir: vec4f, aux: vec4f };
+@group(0) @binding(5) var<storage, read> rays: array<Ray>;
+const LN = ${LN}u;
+struct LV { @builtin(position) pos: vec4f, @location(0) uv0: vec2f, @location(1) dir: vec3f, @location(2) alive: f32, @location(3) blocked: f32 };
+
+@vertex fn lvs(@builtin(vertex_index) vi: u32) -> LV {
+  const off = array<vec2u, 6>(vec2u(0, 0), vec2u(1, 0), vec2u(0, 1), vec2u(0, 1), vec2u(1, 0), vec2u(1, 1));
+  let cell = vi / 6u;
+  let g = vec2u(cell % (LN - 1u), cell / (LN - 1u)) + off[vi % 6u];
+  let r = rays[g.y * LN + g.x];
+  let q = r.pos.xyz - u.lorg.xyz;
+  let c = vec2f(dot(q, u.leu.xyz), dot(q, u.lev.xyz)) / u.leu.w;
+  var o: LV;
+  o.pos = vec4f(c.x * 2.0 - 1.0, 1.0 - c.y * 2.0, 0.0, 1.0);
+  o.uv0 = vec2f(g) + 0.5;
+  o.dir = r.dir.xyz;
+  o.alive = r.dir.w;
+  o.blocked = r.aux.x;
+  return o;
+}
+
+@fragment fn lfs(v: LV) -> @location(0) vec4f {
+  let ax = dpdx(v.uv0); let ay = dpdy(v.uv0);
+  let dens = abs(ax.x * ay.y - ax.y * ay.x) * ${LSHEET * LSHEET};          // wavefront area per plane area
+  if (v.alive < 0.999) { discard; }
+  let d = normalize(v.dir);
+  let mu = dens / max(dot(d, u.lew.xyz), 0.05);       // flux density across the ray itself
+  return vec4f(-d * mu, mu * (1.0 - clamp(v.blocked, 0.0, 1.0)));
+}
+`;
+
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('c');
+const err = document.getElementById('err');
+const hdr = matchMedia('(dynamic-range: high)').matches;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+class Spring {                                   // Orbital's critically damped spring
+  constructor(value) { this.value = value; this.velocity = 0; }
+  step(target, dt, f = 14) {
+    const offset = this.value - target, c = this.velocity + f * offset, decay = Math.exp(-f * dt);
+    this.value = target + (offset + c * dt) * decay;
+    this.velocity = (this.velocity - f * c * dt) * decay;
+    if (Math.abs(this.value - target) < 1e-5 * (1 + Math.abs(target)) && Math.abs(this.velocity) < 1e-4) { this.value = target; this.velocity = 0; return false; }
+    return true;
+  }
+}
+//          default, min, max, log
+const DEF = {
+  mass:     [0.012, 0, 0.2],
+  radius:   [0.18, 0.05, 0.8, true],
+  width:    [0.04, 0.008, 0.3, true],
+  height:   [1.86, 0.8, 3.0],
+  tilt:     [0, -90, 90],
+  motes:    [0.5, 0, 1],
+  mote:     [2.0, 0.3, 8, true],
+  fall:     [0.25, 0, 3],
+  fog:      [0.05, 0, 0.5],
+  sun:      [150, -180, 180],
+  exposure: [-0.5, -5, 5],
+  peak:     [hdr ? 4 : 1, 1, 12],
+  guide:    [0, 0, 1],
+};
+const P = {};
+for (const [k, [v, min, max, log]] of Object.entries(DEF)) P[k] = { v, def: v, min, max, log: !!log, s: new Spring(v) };
+const cur = k => P[k].s.value;
+const cam = { yaw: 0.35, pitch: 0.06, dist: 3.6, ty: 1.4, fov: 38, vy: 0, vp: 0, grab: null };
+const sDist = new Spring(cam.dist), sTy = new Spring(cam.ty);
+let debug = 0, dirty = true;
+
+try {
+  const s = JSON.parse(localStorage.getItem('aureole3') || '{}');
+  for (const k in P) if (typeof s[k] === 'number') { P[k].v = clamp(s[k], P[k].min, P[k].max); P[k].s.value = P[k].v; }
+  if (s.cam) { Object.assign(cam, s.cam, { vy: 0, vp: 0, grab: null }); sDist.value = cam.dist; sTy.value = cam.ty; }
+} catch {}
+const save = () => { try { localStorage.setItem('aureole3', JSON.stringify({ ...Object.fromEntries(Object.entries(P).map(([k, p]) => [k, p.v])), cam: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, ty: cam.ty } })); } catch {} };
+const set = (k, v) => { P[k].v = clamp(v, P[k].min, P[k].max); dirty = true; save(); };
+
+const unit = (v, p) => p.log ? Math.log(v / p.min) / Math.log(p.max / p.min) : (v - p.min) / (p.max - p.min);
+const value = (t, p) => p.log ? p.min * Math.pow(p.max / p.min, clamp(t, 0, 1)) : p.min + clamp(t, 0, 1) * (p.max - p.min);
+const fmt = v => { const a = Math.abs(v); return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3); };
+const $ = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+const place = (el, x, y) => { el.style.setProperty('--x', x + 'px'); if (y !== undefined) el.style.setProperty('--y', y + 'px'); };
+function dragOn(el, start, change) {
+  el.onpointerdown = e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const rect = el.getBoundingClientRect(), o = [e.clientX, e.clientY], data = start(e, rect);
+    change(e, rect, data, [0, 0]);
+    el.onpointermove = ev => { if (el.hasPointerCapture(ev.pointerId)) change(ev, rect, data, [ev.clientX - o[0], ev.clientY - o[1]]); };
+    el.onpointerup = el.onpointercancel = ev => { el.onpointermove = null; };
+  };
+}
+const updates = [];
+function rail(k) {
+  const p = P[k], e = $('div', 'rail'), head = $('label', '', k), out = $('output'), track = $('div', 'track'), actual = $('i', 'actual'), target = $('i', 'handle');
+  head.append(out); track.append(actual, target); e.append(head, track);
+  dragOn(track, () => null, (ev, rect) => set(k, value((ev.clientX - rect.left - 10) / Math.max(1, rect.width - 20), p)));
+  e.ondblclick = () => set(k, p.def);
+  updates.push(() => {
+    const w = track.clientWidth - 20;
+    place(target, 10 + w * unit(p.v, p)); place(actual, 10 + w * unit(cur(k), p));
+    out.value = fmt(p.v);
+  });
+  return e;
+}
+function pad(xk, yk) {
+  const px = P[xk], py = P[yk], el = $('div', 'pad'), body = $('div', 'pad-body'), field = $('div', 'pad-field'), y = $('div', 'axis y'), x = $('div', 'axis x'),
+    vals = $('div', 'pad-values'), xo = $('output'), yo = $('output'), target = $('i', 'handle'), actual = $('i', 'actual'), xh = $('i', 'handle'), yh = $('i', 'handle');
+  field.append(actual, target); x.append(xh); y.append(yh); body.append(field, y, x); vals.append(xo, yo);
+  el.append($('div', 'pad-title', `${xk} · ${yk}`), body, vals);
+  for (const [area, axis] of [[field, null], [x, 0], [y, 1]]) {
+    dragOn(area, () => [px.v, py.v], (ev, rect, st, [dx, dy]) => {
+      const travel = Math.max(1, field.clientWidth - 16);
+      if (axis !== 1) set(xk, value(unit(st[0], px) + dx / travel, px));
+      if (axis !== 0) set(yk, value(unit(st[1], py) - dy / travel, py));
+    });
+    area.ondblclick = () => { if (axis !== 1) set(xk, px.def); if (axis !== 0) set(yk, py.def); };
+  }
+  updates.push(() => {
+    const side = field.clientWidth, t = side - 16;
+    const pos = (a, b) => [8 + t * unit(a, px), side - 8 - t * unit(b, py)];
+    const [tx, ty] = pos(px.v, py.v), [cx, cy] = pos(cur(xk), cur(yk));
+    place(target, tx, ty); place(actual, cx, cy); place(xh, tx, 8); place(yh, 8, ty);
+    xo.value = fmt(px.v); yo.value = fmt(py.v);
+  });
+  return el;
+}
+const row = (...c) => { const r = $('div', 'row'); r.append(...c); return r; };
+const panel = document.getElementById('panel');
+panel.append(row(pad('radius', 'width'), pad('tilt', 'height')), rail('mass'), row(pad('motes', 'mote'), pad('exposure', 'peak')), rail('fall'), rail('fog'), rail('sun'), rail('guide'));
+
+addEventListener('keydown', e => {
+  if (e.key === 'h') panel.classList.toggle('hidden');
+  if (e.key === 's') { debug = debug === 1 ? 0 : 1; dirty = true; }
+  if (e.key === 'l') { debug = debug === 2 ? 0 : 2; dirty = true; }
+});
+
+// orbit: drag pulls the view through a spring, release coasts, a touch brakes
+const pts = new Map(); let pinch = null;
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pts.size === 1) cam.grab = { yaw: cam.yaw, pitch: cam.pitch, age: 0 };
+  pinch = null; dirty = true;
+});
+canvas.addEventListener('pointermove', e => {
+  const q = pts.get(e.pointerId); if (!q) return;
+  const dx = e.clientX - q[0], dy = e.clientY - q[1];
+  pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pts.size === 2) {
+    const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch) cam.dist = clamp(cam.dist * pinch / d, 0.4, 14);
+    pinch = d;
+  } else if (cam.grab) {
+    cam.grab.yaw -= dx * 0.005;
+    cam.grab.pitch = clamp(cam.grab.pitch + dy * 0.005, -0.3, 1.5);
+  }
+  dirty = true;
+});
+const lift = e => { pts.delete(e.pointerId); pinch = null; if (!pts.size) { cam.grab = null; save(); } };
+canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
+canvas.addEventListener('dblclick', () => { Object.assign(cam, { yaw: 0.35, pitch: 0.06, dist: 3.6, ty: 1.4, vy: 0, vp: 0 }); dirty = true; save(); });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.shiftKey) cam.ty = clamp(cam.ty + (e.deltaY || e.deltaX) * 0.002, 0.2, 3);
+  else cam.dist = clamp(cam.dist * Math.exp(e.deltaY * (e.ctrlKey ? 0.02 : 0.008)), 0.4, 14);
+  dirty = true; save();
+}, { passive: false });
+
+function tickCamera(dt) {
+  let moving = false;
+  if (cam.grab) {
+    const g = cam.grab, steps = Math.max(1, Math.ceil(dt * 240)), h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      const f = 14 * (1 - Math.exp(-(g.age + h / 2) / 0.18));      // ease into contact so a touch can't erase momentum
+      g.age += h;
+      for (const [k, vk] of [['yaw', 'vy'], ['pitch', 'vp']]) {
+        const off = cam[k] - g[k], c = cam[vk] + f * off, decay = Math.exp(-f * h);
+        cam[k] = g[k] + (off + c * h) * decay;
+        cam[vk] = (cam[vk] - f * c * h) * decay;
+      }
+    }
+    moving = true;
+  } else if (Math.abs(cam.vy) + Math.abs(cam.vp) > 1e-4) {
+    const d = Math.exp(-3 * dt);
+    cam.vy *= d; cam.vp *= d;
+    cam.yaw += cam.vy * dt; cam.pitch += cam.vp * dt;
+    if (cam.pitch < -0.3 || cam.pitch > 1.5) { cam.pitch = clamp(cam.pitch, -0.3, 1.5); cam.vp = 0; }
+    moving = true;
+  } else { cam.vy = cam.vp = 0; }
+  moving = sDist.step(cam.dist, dt) || moving;
+  moving = sTy.step(cam.ty, dt) || moving;
+  return moving;
+}
+
+// gpu
+if (!navigator.gpu) { err.textContent = 'webgpu unavailable'; throw new Error('no webgpu'); }
+const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+if (!adapter) { err.textContent = 'webgpu unavailable'; throw new Error('no adapter'); }
+
+// Assets: local files when developing, the media host on the site. The environment is one mip
+// chain cut into 64 MB parts, so a smaller version is the same file minus its first levels:
+// ?env=16k | 8k | 4k picks one (default 16k locally, 8k on a desktop, 4k on a phone).
+const query = new URLSearchParams(location.search);
+const local = ['localhost', '127.0.0.1'].includes(location.hostname) && query.get('media') !== 'remote';   // ?media=remote tests the hosted files
+const BASE = local ? 'assets/' : 'https://media.freq.workers.dev/aureole/v1/';
+const phone = matchMedia('(pointer: coarse)').matches;
+const want = { '16k': 0, '8k': 1, '4k': 2 }[query.get('env')] ?? (phone ? 2 : local ? 0 : 1);
+const envMeta = await fetch(BASE + 'env.json').then(r => r.json());
+let skip = want;
+while ((envMeta.w >> skip) > adapter.limits.maxTextureDimension2D) skip++;
+const EW = envMeta.w >> skip, EH = envMeta.h >> skip, ELEVELS = envMeta.levels - skip;
+const device = await adapter.requestDevice({ requiredLimits: { maxTextureDimension2D: Math.max(8192, EW), maxBufferSize: Math.min(2 ** 31, adapter.limits.maxBufferSize) } });
+const ctx = canvas.getContext('webgpu');
+const format = 'rgba16float';
+ctx.configure({ device, format, alphaMode: 'opaque', colorSpace: 'srgb', toneMapping: { mode: 'extended' } });
+
+const bar = document.getElementById('bar');
+let got = 0, total = 1;
+const progress = n => { got += n; bar.style.transform = `scaleX(${Math.min(1, got / total)})`; };
+async function fetchBytes(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(url + ' ' + r.status);
+  const chunks = []; let n = 0;
+  for (const reader = r.body.getReader(); ;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value); n += value.length; progress(value.length);
+  }
+  const out = new Uint8Array(n); let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+const PART = 67108864;
+let envStart = 0, envEnd = 0;
+for (let l = 0, w = envMeta.w, h = envMeta.h; l < envMeta.levels; l++) {
+  if (l < skip) envStart += w * h * 4;
+  envEnd += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+}
+const bodyName = phone ? 'body6' : 'body3';
+const bodyMeta = await fetch(BASE + bodyName + '.json').then(r => r.json());
+total = envEnd - envStart + bodyMeta.dims[0] * bodyMeta.dims[1] * bodyMeta.dims[2] * 2;
+const p0 = Math.floor(envStart / PART), p1 = Math.floor((envEnd - 1) / PART);
+const [bodyBytes, ...parts] = await Promise.all([
+  fetchBytes(BASE + bodyName + '.bin'),
+  ...Array.from({ length: p1 - p0 + 1 }, (_, i) => fetchBytes(`${BASE}parts/env.bin.${String(p0 + i).padStart(3, '0')}`)),
+]);
+const envBytes = new Uint8Array(envEnd - envStart);
+parts.forEach((part, i) => {
+  const at = (p0 + i) * PART - envStart;
+  envBytes.set(at < 0 ? part.subarray(-at) : part, Math.max(0, at));
+});
+bar.remove();
+
+const envTex = device.createTexture({ size: [EW, EH], format: 'rgb9e5ufloat', mipLevelCount: ELEVELS, usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+for (let l = 0, o = 0, w = EW, h = EH; l < ELEVELS; l++) {
+  for (let y = 0; y < h; y += 1024) {
+    const n = Math.min(1024, h - y);
+    device.queue.writeTexture({ texture: envTex, mipLevel: l, origin: [0, y] }, envBytes.subarray(o + y * w * 4, o + (y + n) * w * 4), { bytesPerRow: w * 4 }, [w, n]);
+    device.queue.submit([]);
+  }
+  o += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+}
+const [bx, by, bz] = bodyMeta.dims;
+const sdfTex = device.createTexture({ size: [bx, by, bz], dimension: '3d', format: 'r16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+device.queue.writeTexture({ texture: sdfTex }, bodyBytes, { bytesPerRow: bx * 2, rowsPerImage: by }, [bx, by, bz]);
+
+device.onuncapturederror = e => { err.textContent = e.error.message.slice(0, 300); };
+const lightTex = device.createTexture({ size: [LN, LN, LD], dimension: '3d', format: 'rgba16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+const module = device.createShaderModule({ code: wgsl });
+module.getCompilationInfo().then(info => {
+  const m = info.messages.filter(m => m.type === 'error');
+  if (m.length) err.textContent = m.map(m => `${m.lineNum}:${m.linePos} ${m.message}`).join('\n');
+});
+const pipeline = device.createRenderPipeline({
+  layout: 'auto',
+  vertex: { module, entryPoint: 'vs' },
+  fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+});
+const NU = 104;
+const ubuf = device.createBuffer({ size: NU * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+  { binding: 0, resource: { buffer: ubuf } },
+  { binding: 1, resource: sdfTex.createView() },
+  { binding: 2, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+  { binding: 3, resource: envTex.createView() },
+  { binding: 4, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', maxAnisotropy: 16, addressModeU: 'repeat' }) },
+  { binding: 5, resource: lightTex.createView() },
+  { binding: 6, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+] });
+
+const rayBuf = device.createBuffer({ size: LN * LN * 48, usage: GPUBufferUsage.STORAGE });
+const modC = device.createShaderModule({ code: lightC }), modR = device.createShaderModule({ code: lightR });
+for (const m of [modC, modR]) m.getCompilationInfo().then(info => {
+  const e = info.messages.filter(m => m.type === 'error');
+  if (e.length) err.textContent = e.map(m => `light ${m.lineNum}:${m.linePos} ${m.message}`).join('\n');
+});
+const initPipe = device.createComputePipeline({ layout: 'auto', compute: { module: modC, entryPoint: 'init' } });
+const advPipe = device.createComputePipeline({ layout: 'auto', compute: { module: modC, entryPoint: 'advance' } });
+const add = { srcFactor: 'one', dstFactor: 'one' };
+const splatPipe = device.createRenderPipeline({
+  layout: 'auto',
+  vertex: { module: modR, entryPoint: 'lvs' },
+  fragment: { module: modR, entryPoint: 'lfs', targets: [{ format: 'rgba16float', blend: { color: add, alpha: add } }] },
+});
+const rayBind = pl => device.createBindGroup({ layout: pl.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ubuf } }, { binding: 5, resource: { buffer: rayBuf } }] });
+const initBind = rayBind(initPipe), splatBind = rayBind(splatPipe);
+const advBind = device.createBindGroup({ layout: advPipe.getBindGroupLayout(0), entries: [
+  { binding: 0, resource: { buffer: ubuf } },
+  { binding: 1, resource: sdfTex.createView() },
+  { binding: 2, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+  { binding: 5, resource: { buffer: rayBuf } },
+] });
+const lightView = lightTex.createView();
+
+function traceSun(enc) {
+  const groups = Math.ceil(LN / 8);
+  let c = enc.beginComputePass();
+  c.setPipeline(initPipe); c.setBindGroup(0, initBind); c.dispatchWorkgroups(groups, groups); c.end();
+  for (let k = 0; k < LD; k++) {
+    c = enc.beginComputePass();
+    c.setPipeline(advPipe); c.setBindGroup(0, advBind); c.dispatchWorkgroups(groups, groups); c.end();
+    const r = enc.beginRenderPass({ colorAttachments: [{ view: lightView, depthSlice: k, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] });
+    r.setPipeline(splatPipe); r.setBindGroup(0, splatBind); r.draw((LN - 1) * (LN - 1) * 6); r.end();
+  }
+}
+const U = new Float32Array(NU);
+envMeta.sh.forEach((c, i) => U.set([c[0], c[1], c[2], 0], 52 + i * 4));
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  let w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+  const cap = 3.2e6;
+  if (w * h > cap) { const s = Math.sqrt(cap / (w * h)); w = Math.round(w * s); h = Math.round(h * s); }
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; dirty = true; }
+}
+addEventListener('resize', resize); resize();
+
+const norm = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+let lastT = performance.now(), yOff = 0, frames = 0, lightKey = '';
+function loop(now) { requestAnimationFrame(loop); frame(now); }
+function frame(now) {
+  const dt = Math.min((now - lastT) / 1000 || 0, 0.1); lastT = now;
+  if (!canvas.width || !canvas.height) { resize(); dirty = true; return; }
+  let moving = tickCamera(dt);
+  for (const k in P) moving = P[k].s.step(P[k].v, dt) || moving;
+  const falling = cur('motes') > 0 && cur('fall') > 0 && !document.hidden;
+  if (falling) yOff = (yOff + cur('fall') * dt) % (0.2 * 4096);
+  if (!dirty && !moving && !falling) return;
+  dirty = false; frames++;
+  for (const f of updates) f();
+  const dist = sDist.value, tgt = [0, sTy.value, 0];
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const pos = [tgt[0] + dist * cp * Math.sin(cam.yaw), tgt[1] + dist * sp, tgt[2] + dist * cp * Math.cos(cam.yaw)];
+  pos[1] = Math.max(pos[1], 0.03);
+  const fwd = norm([tgt[0] - pos[0], tgt[1] - pos[1], tgt[2] - pos[2]]);
+  const right = norm(cross(fwd, [0, 1, 0]));
+  const up = cross(right, fwd);
+  const tl = cur('tilt') * Math.PI / 180, ey = cur('sun') * Math.PI / 180, ec = Math.cos(ey), es = Math.sin(ey);
+  const sd = envMeta.sunDir;
+  U.set([...pos, Math.tan(cam.fov * Math.PI / 360)], 0);
+  U.set([...right, canvas.width / canvas.height], 4);
+  U.set([...up, 1 / envMeta.scale], 8);
+  U.set([...fwd, cur('guide')], 12);
+  U.set([0, cur('height'), 0, cur('mass')], 16);
+  U.set([0, Math.cos(tl), Math.sin(tl), cur('radius')], 20);
+  U.set([cur('width'), 0.18, 0.04, 640], 24);
+  U.set([ec * sd[0] - es * sd[2], sd[1], es * sd[0] + ec * sd[2], Math.pow(2, cur('exposure'))], 28);
+  U.set([canvas.width, canvas.height, debug, cur('peak')], 32);
+  U.set([...envMeta.sunE, ec], 36);
+  U.set([cur('motes'), cur('mote') * 0.001, yOff, es], 40);
+  U.set([...bodyMeta.min, bodyMeta.voxel], 44);
+  U.set([bx * bodyMeta.voxel, by * bodyMeta.voxel, bz * bodyMeta.voxel, 1.6], 48);
+  const sun = [U[28], U[29], U[30]], ew = sun.map(v => -v);
+  const eu = norm(cross([0, 1, 0], ew)), ev = cross(ew, eu);
+  const org = [0, 1, 2].map(i => [0, 1.0, 0][i] - 0.5 * LUV * (eu[i] + ev[i]) - LBACK * ew[i]);
+  U.set([...org, cur('fog')], 88); U.set([...eu, LUV], 92); U.set([...ev, LW], 96); U.set([...ew, 0], 100);
+  device.queue.writeBuffer(ubuf, 0, U);
+  const enc = device.createCommandEncoder();
+  const key = ['mass', 'radius', 'width', 'height', 'tilt', 'sun'].map(cur).join();
+  if (key !== lightKey) { lightKey = key; traceSun(enc); }
+  const pass = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }] });
+  pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end();
+  device.queue.submit([enc.finish()]);
+}
+window.aureole = { P, cam, set, frame, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
