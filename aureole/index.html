@@ -21,6 +21,9 @@
   }
   #panel > * { flex: none; }
   #panel.hidden { display: none; }
+  .skies { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 9px; color: var(--faint); }
+  .skies span { cursor: pointer; }
+  .skies span.on { color: var(--ink); }
   .credit { font-size: 8px; line-height: 1.5; letter-spacing: .2px; color: var(--faint); padding-top: 4px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   output { color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -197,12 +200,13 @@ fn env(d: vec3f, d1: vec3f, d2: vec3f) -> vec3f {
   return textureSampleGrad(envTex, envSamp, uv, envGrad(e, toEnv(d1 - d)), envGrad(e, toEnv(d2 - d))).rgb * u.camUp.w;
 }
 
-fn irradiance(nw: vec3f) -> vec3f {
+fn irrBands(nw: vec3f, k1: f32, k2: f32) -> vec3f {
   let n = toEnv(nw);
-  let e = u.sh[0] + u.sh[1] * n.y + u.sh[2] * n.z + u.sh[3] * n.x + u.sh[4] * n.x * n.y + u.sh[5] * n.y * n.z
-        + u.sh[6] * (3.0 * n.z * n.z - 1.0) + u.sh[7] * n.x * n.z + u.sh[8] * (n.x * n.x - n.y * n.y);
+  let e = u.sh[0] + k1 * (u.sh[1] * n.y + u.sh[2] * n.z + u.sh[3] * n.x) + k2 * (u.sh[4] * n.x * n.y + u.sh[5] * n.y * n.z
+        + u.sh[6] * (3.0 * n.z * n.z - 1.0) + u.sh[7] * n.x * n.z + u.sh[8] * (n.x * n.x - n.y * n.y));
   return max(e.rgb, vec3f(0.0));
 }
+fn irradiance(nw: vec3f) -> vec3f { return irrBands(nw, 1.0, 1.0); }
 
 // shadow ray that follows the light path back through the field
 fn shadow(p: vec3f, l: vec3f) -> f32 {
@@ -353,7 +357,12 @@ fn camRay(uv: vec2f) -> vec3f {
           let ca = clamp(dot(normalize(VA.xyz), -T), -1.0, 1.0);
           let al = acos(ca);
           let ph = (sin(al) + (PI - al) * ca) / PI;
-          let lp = 0.9 / PI * (u.sunE.rgb * vm * (2.0 / 3.0) * ph + u.sh[0].rgb);
+          // snow: a white flake, part matte sphere (lit side faces the light), part ice that throws light forward.
+          // The sun term carries the caustic magnification vm; the sky term is the matte sphere's disc average
+          // under the environment, seen from the eye (band weights 1, 2/3, 1/4).
+          let gs = 0.75;
+          let fwd = (1.0 - gs * gs) / (4.0 * PI * pow(max(1.0 + gs * gs + 2.0 * gs * ca, 1e-3), 1.5));
+          let lp = 0.95 * (u.sunE.rgb * vm * mix((2.0 / 3.0) * ph / PI, fwd, 0.3) + irrBands(-T, 2.0 / 3.0, 0.25) / PI);
           pcol += ptr * w * lp;
           ptr *= 1.0 - w;
         }
@@ -678,11 +687,18 @@ const local = ['localhost', '127.0.0.1'].includes(location.hostname) && query.ge
 const BASE = local ? 'assets/' : 'https://media.freq.workers.dev/aureole/v1/';
 const phone = matchMedia('(pointer: coarse)').matches;
 const want = { '16k': 0, '8k': 1, '4k': 2 }[query.get('env')] ?? (phone ? 2 : local ? 0 : 1);
-const envMeta = await fetch(BASE + 'env.json').then(r => r.json());
-let skip = want;
-while ((envMeta.w >> skip) > adapter.limits.maxTextureDimension2D) skip++;
-const EW = envMeta.w >> skip, EH = envMeta.h >> skip, ELEVELS = envMeta.levels - skip;
-const device = await adapter.requestDevice({ requiredLimits: { maxTextureDimension2D: Math.max(8192, EW), maxBufferSize: Math.min(2 ** 31, adapter.limits.maxBufferSize) } });
+// skies: each is a folder holding env.json and parts/; ev is an exposure offset in stops applied on top of the slider
+const ENVS = [
+  { id: 'evening_meadow', name: 'Evening Meadow', dir: '', ev: 0 },
+  { id: 'noon_grass', name: 'Noon Grass', dir: 'envs/noon_grass/', ev: 0 },
+  { id: 'je_gray_02', name: 'J&E Gray', dir: 'envs/je_gray_02/', ev: 0.6 },
+  { id: 'goegap', name: 'Goegap', dir: 'envs/goegap/', ev: -0.4 },
+  { id: 'kloppenheim_02', name: 'Kloppenheim Night', dir: 'envs/kloppenheim_02/', ev: 0 },
+];
+let envId = query.get('sky');
+try { envId ??= localStorage.getItem('aureoleSky'); } catch {}
+let env = ENVS.find(e => e.id === envId) ?? ENVS[0];
+const device = await adapter.requestDevice({ requiredLimits: { maxTextureDimension2D: Math.min(16384, adapter.limits.maxTextureDimension2D), maxBufferSize: Math.min(2 ** 31, adapter.limits.maxBufferSize) } });
 const ctx = canvas.getContext('webgpu');
 const format = 'rgba16float';
 ctx.configure({ device, format, alphaMode: 'opaque', colorSpace: 'srgb', toneMapping: { mode: 'extended' } });
@@ -704,38 +720,56 @@ async function fetchBytes(url) {
   return out;
 }
 const PART = 67108864;
-let envStart = 0, envEnd = 0;
-for (let l = 0, w = envMeta.w, h = envMeta.h; l < envMeta.levels; l++) {
-  if (l < skip) envStart += w * h * 4;
-  envEnd += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+async function envInfo(e) {
+  const r = await fetch(BASE + e.dir + 'env.json');
+  if (!r.ok) throw new Error(e.name + ' ' + r.status);
+  const meta = await r.json();
+  let skip = want, start = 0, end = 0;
+  while ((meta.w >> skip) > device.limits.maxTextureDimension2D) skip++;
+  for (let l = 0, w = meta.w, h = meta.h; l < meta.levels; l++) {
+    if (l < skip) start += w * h * 4;
+    end += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+  }
+  return { meta, skip, start, end, dir: e.dir };
+}
+async function envTexture(info) {
+  const { meta, skip, start, end } = info;
+  const p0 = Math.floor(start / PART), p1 = Math.floor((end - 1) / PART);
+  const parts = await Promise.all(Array.from({ length: p1 - p0 + 1 }, (_, i) => fetchBytes(`${BASE}${info.dir}parts/env.bin.${String(p0 + i).padStart(3, '0')}`)));
+  const bytes = new Uint8Array(end - start);
+  parts.forEach((part, i) => {
+    const at = (p0 + i) * PART - start;
+    bytes.set(at < 0 ? part.subarray(-at) : part, Math.max(0, at));
+  });
+  const W = meta.w >> skip, H = meta.h >> skip, levels = meta.levels - skip;
+  const tex = device.createTexture({ size: [W, H], format: 'rgb9e5ufloat', mipLevelCount: levels, usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+  for (let l = 0, o = 0, w = W, h = H; l < levels; l++) {
+    for (let y = 0; y < h; y += 1024) {
+      const n = Math.min(1024, h - y);
+      device.queue.writeTexture({ texture: tex, mipLevel: l, origin: [0, y] }, bytes.subarray(o + y * w * 4, o + (y + n) * w * 4), { bytesPerRow: w * 4 }, [w, n]);
+      device.queue.submit([]);
+    }
+    o += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+  }
+  return tex;
 }
 const figure = query.get('body') ?? 'hebe';
 let bodyName = figure + (query.get('res') ?? (phone ? 6 : 3));
 if (!(await fetch(BASE + bodyName + '.json', { method: 'HEAD' })).ok) bodyName = figure + 6;   // ?body=hebe | body, ?res=3 | 6 (mm)
 const bodyMeta = await fetch(BASE + bodyName + '.json').then(r => r.json());
-{ const c = $('div', 'credit'); c.textContent = (figure === 'hebe' ? 'Hebe, Bertel Thorvaldsen, 1806. Scan: SMK, National Gallery of Denmark, CC0.' : 'Figure: MakeHuman, CC0.') + ' Sky: Evening Meadow, Poly Haven, CC0.'; panel.append(c); }
-total = envEnd - envStart + bodyMeta.dims[0] * bodyMeta.dims[1] * bodyMeta.dims[2] * 2;
-const p0 = Math.floor(envStart / PART), p1 = Math.floor((envEnd - 1) / PART);
-const [bodyBytes, ...parts] = await Promise.all([
-  fetchBytes(BASE + bodyName + '.bin'),
-  ...Array.from({ length: p1 - p0 + 1 }, (_, i) => fetchBytes(`${BASE}parts/env.bin.${String(p0 + i).padStart(3, '0')}`)),
-]);
-const envBytes = new Uint8Array(envEnd - envStart);
-parts.forEach((part, i) => {
-  const at = (p0 + i) * PART - envStart;
-  envBytes.set(at < 0 ? part.subarray(-at) : part, Math.max(0, at));
-});
-bar.remove();
-
-const envTex = device.createTexture({ size: [EW, EH], format: 'rgb9e5ufloat', mipLevelCount: ELEVELS, usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
-for (let l = 0, o = 0, w = EW, h = EH; l < ELEVELS; l++) {
-  for (let y = 0; y < h; y += 1024) {
-    const n = Math.min(1024, h - y);
-    device.queue.writeTexture({ texture: envTex, mipLevel: l, origin: [0, y] }, envBytes.subarray(o + y * w * 4, o + (y + n) * w * 4), { bytesPerRow: w * 4 }, [w, n]);
-    device.queue.submit([]);
-  }
-  o += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
-}
+let info = await envInfo(env).catch(() => null);
+if (!info) { env = ENVS[0]; info = await envInfo(env); }
+let envMeta = info.meta;
+const credit = $('div', 'credit'), skies = $('div', 'skies');
+const label = () => {
+  credit.textContent = (figure === 'hebe' ? 'Hebe, Bertel Thorvaldsen, 1806. Scan: SMK, National Gallery of Denmark, CC0.' : 'Figure: MakeHuman, CC0.') + ` Sky: ${env.name}, Poly Haven, CC0.`;
+  for (const b of skies.children) b.classList.toggle('on', b.dataset.id === env.id);
+};
+for (const e of ENVS) { const b = $('span', '', e.name); b.dataset.id = e.id; b.onclick = () => setSky(e); skies.append(b); }
+panel.prepend(skies); panel.append(credit); label();
+total = info.end - info.start + bodyMeta.dims[0] * bodyMeta.dims[1] * bodyMeta.dims[2] * 2;
+let [bodyBytes, envTex] = await Promise.all([fetchBytes(BASE + bodyName + '.bin'), envTexture(info)]);
+bar.style.transform = 'scaleX(0)';
 const [bx, by, bz] = bodyMeta.dims;
 const sdfTex = device.createTexture({ size: [bx, by, bz], dimension: '3d', format: 'r16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
 device.queue.writeTexture({ texture: sdfTex }, bodyBytes, { bytesPerRow: bx * 2, rowsPerImage: by }, [bx, by, bz]);
@@ -754,15 +788,18 @@ const pipeline = device.createRenderPipeline({
 });
 const NU = 112;
 const ubuf = device.createBuffer({ size: NU * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+const samplers = [device.createSampler({ magFilter: 'linear', minFilter: 'linear' }), device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', maxAnisotropy: 16, addressModeU: 'repeat' })];
+const sdfView = sdfTex.createView(), lightTexView = lightTex.createView();
+const makeBind = () => device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
   { binding: 0, resource: { buffer: ubuf } },
-  { binding: 1, resource: sdfTex.createView() },
-  { binding: 2, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+  { binding: 1, resource: sdfView },
+  { binding: 2, resource: samplers[0] },
   { binding: 3, resource: envTex.createView() },
-  { binding: 4, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', maxAnisotropy: 16, addressModeU: 'repeat' }) },
-  { binding: 5, resource: lightTex.createView() },
-  { binding: 6, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+  { binding: 4, resource: samplers[1] },
+  { binding: 5, resource: lightTexView },
+  { binding: 6, resource: samplers[0] },
 ] });
+let bind = makeBind();
 
 const rayBuf = device.createBuffer({ size: LN * LN * 48, usage: GPUBufferUsage.STORAGE });
 const modC = device.createShaderModule({ code: lightC }), modR = device.createShaderModule({ code: lightR });
@@ -799,8 +836,28 @@ function traceSun(enc) {
     r.setPipeline(splatPipe); r.setBindGroup(0, splatBind); r.draw((LN - 1) * (LN - 1) * 6); r.end();
   }
 }
+let lightKey = '';
 const U = new Float32Array(NU);
-envMeta.sh.forEach((c, i) => U.set([c[0], c[1], c[2], 0], 52 + i * 4));
+const setSH = () => envMeta.sh.forEach((c, i) => U.set([c[0], c[1], c[2], 0], 52 + i * 4));
+setSH();
+// switch sky: the current one keeps rendering until the new one has loaded
+let skyLoad = 0;
+async function setSky(e) {
+  if (e === env && !skyLoad) return;
+  const token = ++skyLoad;
+  try {
+    const next = await envInfo(e);
+    got = 0; total = next.end - next.start;
+    const tex = await envTexture(next);
+    if (token !== skyLoad) { tex.destroy(); return; }
+    const old = envTex;
+    envTex = tex; envMeta = next.meta; env = e; bind = makeBind(); setSH();
+    lightKey = ''; dirty = true; label();
+    try { localStorage.setItem('aureoleSky', e.id); } catch {}
+    await device.queue.onSubmittedWorkDone(); old.destroy();
+  } catch (x) { err.textContent = String(x.message || x).slice(0, 200); }
+  if (token === skyLoad) { skyLoad = 0; bar.style.transform = 'scaleX(0)'; }
+}
 
 function resize() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -814,7 +871,7 @@ addEventListener('resize', resize); resize();
 const norm = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
-let lastT = performance.now(), yOff = 0, frames = 0, lightKey = '';
+let lastT = performance.now(), yOff = 0, frames = 0;
 function loop(now) { requestAnimationFrame(loop); frame(now); }
 function frame(now) {
   const dt = Math.min((now - lastT) / 1000 || 0, 0.1); lastT = now;
@@ -842,7 +899,7 @@ function frame(now) {
   U.set([0, cur('height'), 0, cur('mass')], 16);
   U.set([0, Math.cos(tl), Math.sin(tl), cur('radius')], 20);
   U.set([cur('width'), 0.18, 0.04, 640], 24);
-  U.set([ec * sd[0] - es * sd[2], sd[1], es * sd[0] + ec * sd[2], Math.pow(2, cur('exposure'))], 28);
+  U.set([ec * sd[0] - es * sd[2], sd[1], es * sd[0] + ec * sd[2], Math.pow(2, cur('exposure') + env.ev)], 28);
   U.set([canvas.width, canvas.height, debug, cur('peak')], 32);
   U.set([...envMeta.sunE, ec], 36);
   U.set([cur('motes'), cur('mote') * 0.001, yOff, es], 40);
@@ -861,7 +918,7 @@ function frame(now) {
   pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end();
   device.queue.submit([enc.finish()]);
 }
-window.aureole = { P, cam, set, frame, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
+window.aureole = { P, cam, set, frame, setSky: id => setSky(ENVS.find(e => e.id === id)), sky: () => env.id, ENVS, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
 requestAnimationFrame(loop);
 </script>
 </body>
