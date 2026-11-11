@@ -87,6 +87,8 @@ struct U {
   leu: vec4f,       // u axis, uv extent
   lev: vec4f,       // v axis, w extent
   lew: vec4f,       // propagation axis (-sun)
+  fogp: vec4f,      // anisotropy, ambient gain, dispersion exponent, rayleigh mix
+  fogq: vec4f,      // step length, jitter amount
 };
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var sdfTex: texture_3d<f32>;
@@ -260,7 +262,7 @@ fn camRay(uv: vec2f) -> vec3f {
   let off = vec3f(0.0, u.part.z, 0.0);
   let rp = u.part.y;
   var t = 0.0; var gm = 0.0; var glow = 0.0; var kind = 0; var steps = 0.0;
-  var pcol = vec3f(0.0); var ptr = 1.0;
+  var pcol = vec3f(0.0); var ptr = vec3f(1.0);
   let jit = f32(hash3(vec3u(vec2u(fc.xy), 7u)).x) / 4294967296.0;
 
   for (var i = 0; i < n; i++) {
@@ -276,7 +278,7 @@ fn camRay(uv: vec2f) -> vec3f {
     if (fogd > 2e-4) {
       let c = lightCoord(x);
       let e = min(c, 1.0 - c);
-      h = min(h, select(0.5, 0.06, min(e.x, min(e.y, e.z)) > 0.0));
+      h = min(h, select(0.5, u.fogq.x, min(e.x, min(e.y, e.z)) > 0.0));
     }
     var inP = false;
     if (motes) {
@@ -304,13 +306,17 @@ fn camRay(uv: vec2f) -> vec3f {
     let xn = xm + 0.5 * h * T;
     if (fogd > 2e-4) {
       // single scattering of the lensed sun plus sky light, sampled at a jittered point of the step
-      let V = sunVA(x + jit * h * T);
+      let V = sunVA(x + (0.5 + u.fogq.y * (jit - 0.5)) * h * T);
       let mu = dot(normalize(V.xyz), T);
-      let hg = 0.64 / (4.0 * PI * pow(1.36 - 1.2 * mu, 1.5));          // Henyey-Greenstein, g = 0.6
-      let a = 1.0 - exp(-fogd * h);
+      let g = u.fogp.x;
+      let hg = (1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * mu, 1e-3), 1.5));
+      let ph = mix(hg, 3.0 / (16.0 * PI) * (1.0 + mu * mu), u.fogp.w);      // Henyey-Greenstein to Rayleigh
+      // dispersion: scattering strength rises toward blue, as (535 nm / wavelength)^exponent
+      let beta = pow(vec3f(535.0 / 615.0, 1.0, 535.0 / 465.0), vec3f(u.fogp.z));
+      let a = 1.0 - exp(-fogd * h * beta);
       // sky: forward-weighted mix of the environment seen along the ray and the all-round mean
       let skyl = (0.7 * irradiance(T) + 0.3 * u.sh[0].rgb) / PI;
-      pcol += ptr * a * (u.sunE.rgb * V.w * hg + skyl);
+      pcol += ptr * a * (u.sunE.rgb * V.w * ph + u.fogp.y * skyl);
       ptr *= 1.0 - a;
     }
     if (xn.y < 0.0) {
@@ -318,7 +324,7 @@ fn camRay(uv: vec2f) -> vec3f {
       x = mix(x, xn, f); t += h * f; kind = 3; break;
     }
 
-    if (inP && ptr > 0.003) {
+    if (inP && max(ptr.x, max(ptr.y, ptr.z)) > 0.003) {
       let cell = vec3i(floor((xm + off) / CELL));
       let hs = hash3(bitcast<vec3u>(cell));
       let rnd = vec3f(hs) / 4294967296.0;
@@ -514,6 +520,12 @@ const DEF = {
   mote:     [2.0, 0.3, 8, true],
   fall:     [0.25, 0, 3],
   fog:      [0.05, 0, 0.5],
+  anisotropy: [0.6, -0.5, 0.95],
+  ambient:  [1, 0, 2],
+  dispersion: [0, 0, 4],
+  rayleigh: [0, 0, 1],
+  step:     [0.06, 0.01, 0.25, true],
+  jitter:   [1, 0, 1],
   sun:      [150, -180, 180],
   exposure: [-0.5, -5, 5],
   peak:     [hdr ? 4 : 1, 1, 12],
@@ -586,7 +598,7 @@ function pad(xk, yk) {
 }
 const row = (...c) => { const r = $('div', 'row'); r.append(...c); return r; };
 const panel = document.getElementById('panel');
-panel.append(row(pad('radius', 'width'), pad('tilt', 'height')), rail('mass'), row(pad('motes', 'mote'), pad('exposure', 'peak')), rail('fall'), rail('fog'), rail('sun'), rail('guide'));
+panel.append(row(pad('radius', 'width'), pad('tilt', 'height')), rail('mass'), row(pad('motes', 'mote'), pad('exposure', 'peak')), rail('fall'), rail('sun'), rail('guide'), row(pad('fog', 'anisotropy'), pad('ambient', 'dispersion')), rail('rayleigh'), rail('step'), rail('jitter'));
 
 addEventListener('keydown', e => {
   if (e.key === 'h') panel.classList.toggle('hidden');
@@ -736,7 +748,7 @@ const pipeline = device.createRenderPipeline({
   vertex: { module, entryPoint: 'vs' },
   fragment: { module, entryPoint: 'fs', targets: [{ format }] },
 });
-const NU = 104;
+const NU = 112;
 const ubuf = device.createBuffer({ size: NU * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
   { binding: 0, resource: { buffer: ubuf } },
@@ -836,6 +848,7 @@ function frame(now) {
   const eu = norm(cross([0, 1, 0], ew)), ev = cross(ew, eu);
   const org = [0, 1, 2].map(i => [0, 1.0, 0][i] - 0.5 * LUV * (eu[i] + ev[i]) - LBACK * ew[i]);
   U.set([...org, cur('fog')], 88); U.set([...eu, LUV], 92); U.set([...ev, LW], 96); U.set([...ew, 0], 100);
+  U.set([cur('anisotropy'), cur('ambient'), cur('dispersion'), cur('rayleigh'), cur('step'), cur('jitter'), 0, 0], 104);
   device.queue.writeBuffer(ubuf, 0, U);
   const enc = device.createCommandEncoder();
   const key = ['mass', 'radius', 'width', 'height', 'tilt', 'sun'].map(cur).join();
