@@ -21,6 +21,7 @@
   }
   #panel > * { flex: none; }
   #panel.hidden { display: none; }
+  .credit { font-size: 8px; line-height: 1.5; letter-spacing: .2px; color: var(--faint); padding-top: 4px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   output { color: var(--faint); font-variant-numeric: tabular-nums; }
   .handle, .actual { position: absolute; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); left: var(--x); top: var(--y); }
@@ -708,8 +709,11 @@ for (let l = 0, w = envMeta.w, h = envMeta.h; l < envMeta.levels; l++) {
   if (l < skip) envStart += w * h * 4;
   envEnd += w * h * 4; w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
 }
-const bodyName = phone ? 'body6' : 'body3';
+const figure = query.get('body') ?? 'hebe';
+let bodyName = figure + (query.get('res') ?? (phone ? 6 : 3));
+if (!(await fetch(BASE + bodyName + '.json', { method: 'HEAD' })).ok) bodyName = figure + 6;   // ?body=hebe | body, ?res=3 | 6 (mm)
 const bodyMeta = await fetch(BASE + bodyName + '.json').then(r => r.json());
+{ const c = $('div', 'credit'); c.textContent = (figure === 'hebe' ? 'Hebe, Bertel Thorvaldsen, 1806. Scan: SMK, National Gallery of Denmark, CC0.' : 'Figure: MakeHuman, CC0.') + ' Sky: Evening Meadow, Poly Haven, CC0.'; panel.append(c); }
 total = envEnd - envStart + bodyMeta.dims[0] * bodyMeta.dims[1] * bodyMeta.dims[2] * 2;
 const p0 = Math.floor(envStart / PART), p1 = Math.floor((envEnd - 1) / PART);
 const [bodyBytes, ...parts] = await Promise.all([
