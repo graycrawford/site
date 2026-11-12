@@ -72,6 +72,9 @@
 //     - a mote smaller than the footprint contributes area/footprint of its radiance, so
 //       focusing brightens it and spreading dims it.
 // ---------------------------------------------------------------------------
+const CN = 64, CD = 32;                           // coarse map of the light volume
+const GEXT = 6, GN = 2048;                       // ground caustic map: +-6 m at 2048 px
+const ALBEDO = new URLSearchParams(location.search).get('body') === 'body' ? 'vec3f(0.58, 0.57, 0.56)' : 'vec3f(0.80, 0.78, 0.74)';   // grey figure, or the plaster of the cast
 const wgsl = /* wgsl */`
 struct U {
   camPos: vec4f,    // xyz, tan(fov/2)
@@ -91,9 +94,10 @@ struct U {
   lorg: vec4f,      // light volume corner, fog density
   leu: vec4f,       // u axis, uv extent
   lev: vec4f,       // v axis, w extent
-  lew: vec4f,       // propagation axis (-sun)
+  lew: vec4f,       // propagation axis (-sun), run-up before the first slice
   fogp: vec4f,      // anisotropy, ambient gain, dispersion exponent, rayleigh mix
-  fogq: vec4f,      // step length, jitter amount
+  fogq: vec4f,      // step length, jitter amount, sunlight gain, caustic reveal
+  lsh: vec4f,       // ray sheet: centre offset along v, half extent, stretch k, (2 k X / sinh k)^2
 };
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var sdfTex: texture_3d<f32>;
@@ -106,6 +110,7 @@ const TAU = 6.28318530717959;
 const CELL = 0.2;
 const PC = vec3f(0.0, 1.5, 0.0);
 const PR = 3.0;
+const ALBEDO = ${ALBEDO};
 
 @vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
   let p = vec2f(f32((i << 1u) & 2u), f32(i & 2u));
@@ -172,6 +177,56 @@ fn sunVA(p: vec3f) -> vec4f {
   return mix(vec4f(u.sun.xyz, 1.0), textureSampleLevel(lightTex, lightSamp, c, 0.0), f);
 }
 fn sunV(p: vec3f) -> vec3f { return sunVA(p).xyz; }
+@group(0) @binding(9) var softTex: texture_3d<f32>;
+fn sunAir(p: vec3f) -> vec4f {                 // the same light, from the softened copy
+  let c = lightCoord(p);
+  let e = min(c, 1.0 - c);
+  let f = smoothstep(0.0, 0.05, min(e.x, min(e.y, e.z)));
+  if (f <= 0.0) { return vec4f(u.sun.xyz, 1.0); }
+  return mix(vec4f(u.sun.xyz, 1.0), textureSampleLevel(softTex, lightSamp, c, 0.0), f);
+}
+// distance from outside to the light volume's box
+fn sdLight(p: vec3f) -> f32 {
+  let c = lightCoord(p) - 0.5;
+  let q = (abs(c) - 0.5) * vec3f(u.leu.w, u.leu.w, u.lev.w);
+  return length(max(q, vec3f(0.0)));
+}
+// coarse map of the light volume: how far the light in each block strays from plain sunlight (x8, saturating)
+@group(0) @binding(8) var devTex: texture_3d<f32>;
+
+// The sun is a disc 0.53 degrees across, so a caustic softens by 4.65 mm per metre travelled from the lens.
+// Surfaces average the light over that disc, which is also what removes the grid of the light volume.
+const SUNR = 0.00465;
+const DISC = array<vec2f, 8>(vec2f(0.354, 0.0), vec2f(-0.451, 0.413), vec2f(0.066, -0.787), vec2f(0.546, 0.762),
+                             vec2f(-0.993, -0.116), vec2f(0.756, -0.654), vec2f(-0.156, 0.987), vec2f(-0.612, -0.791));
+fn sunSoft(p: vec3f) -> vec3f {
+  var v = sunVA(p).xyz;
+  let r = SUNR * length(p - u.ring.xyz);
+  if (u.ring.w <= 0.0 || r < 0.001) { return v; }
+  for (var i = 0; i < 8; i++) { v += sunVA(p + r * (DISC[i].x * u.leu.xyz + DISC[i].y * u.lev.xyz)).xyz; }
+  return v / 9.0;
+}
+
+// sunlight reaching the ground per unit area, as a fraction of the sun's irradiance: the ray sheet
+// rasterised where it lands (r), and how much of the sheet covers the spot (g)
+@group(0) @binding(7) var groundTex: texture_2d<f32>;
+const GEXT = ${GEXT}.0;
+fn groundTap(g: vec2f) -> f32 {
+  let uv = vec2f(0.5 + 0.5 * g.x / GEXT, 0.5 - 0.5 * g.y / GEXT);
+  let e = min(uv, 1.0 - uv);
+  let t = textureSampleLevel(groundTex, lightSamp, uv, 0.0).rg;
+  return mix(max(u.sun.y, 0.0), t.r, clamp(t.g, 0.0, 1.0) * smoothstep(0.0, 0.02, min(e.x, e.y)));
+}
+fn groundSun(g: vec3f) -> f32 {
+  if (u.ring.w <= 0.0 || u.sun.y < 0.02) { return max(u.sun.y, 0.0); }
+  var s = groundTap(g.xz);
+  let r = SUNR * length(g - u.ring.xyz);
+  for (var i = 0; i < 8; i++) {
+    let o = r * (DISC[i].x * u.leu.xyz + DISC[i].y * u.lev.xyz);
+    s += groundTap((g + o - u.sun.xyz * (o.y / u.sun.y)).xz);
+  }
+  return s / 9.0;
+}
 
 fn sdBody(p: vec3f) -> f32 {
   let bb = abs(p - (u.bmin.xyz + 0.5 * u.bsize.xyz)) - 0.5 * u.bsize.xyz;
@@ -211,18 +266,19 @@ fn irradiance(nw: vec3f) -> vec3f { return irrBands(nw, 1.0, 1.0); }
 
 // shadow ray that follows the light path back through the field
 fn shadow(p: vec3f, l: vec3f) -> f32 {
-  var x = p; var T = l; var t = 0.012; var s = 1.0;
+  var x = p; var T = l; var t = 0.012; var s = 1.0; var fin = false;
   let lens = u.ring.w > 0.0;
-  for (var i = 0; i < 72; i++) {
+  for (var i = 0; i < 110; i++) {
     let d = sdBody(x);
-    s = min(s, 16.0 * d / t);
-    if (d < 0.0004 || t > 6.0) { break; }
-    var h = clamp(d, 0.003, 1.0);
+    s = min(s, 60.0 * d / t);                    // penumbra about 1 degree wide, near the sun's own half degree
+    if (d < 0.0004 || t > 6.0) { fin = true; break; }
+    var h = clamp(0.6 * d, 0.003, 1.0);          // short of the full distance, so the nearest miss is sampled finely and the penumbra doesn't band
     if (lens) { h = min(h, u.p.y * ringDist(x)); }
     let xm = x + 0.5 * h * T;
     if (lens) { T = bend(T, gradPhi(xm).xyz, h); }
     x = xm + 0.5 * h * T; t += h;
   }
+  if (!fin) { s = 0.0; }                       // still creeping along the figure after all those steps: in its shade
   return clamp(s, 0.0, 1.0);
 }
 
@@ -256,6 +312,117 @@ fn camRay(uv: vec2f) -> vec3f {
   return normalize(u.camFwd.xyz + uv.x * th * u.camRight.w * u.camRight.xyz + uv.y * th * u.camUp.xyz);
 }
 
+// Fog and motes along one straight piece of the path. The geodesic only needs steps as fine as the
+// field demands; everything in the air is sampled inside each step, without re-evaluating the field.
+struct Acc { col: vec3f, tr: vec3f, beta: vec3f, skyl: vec3f, fogR2: f32 };   // light gathered, transmittance, and per-pixel fog constants
+fn media(o: vec3f, d: vec3f, len: f32, o1: vec3f, d1: vec3f, o2: vec3f, d2: vec3f, jit: f32, acc: ptr<function, Acc>) {
+  let motes = u.part.x > 0.0;
+  let rev = u.fogq.w;
+  if (len <= 0.0 || (!motes && u.lorg.w <= 0.0 && rev <= 0.0)) { return; }
+  let rp = u.part.y;
+  let off = vec3f(0.0, u.part.z, 0.0);
+  let g = u.fogp.x;
+  let beta = (*acc).beta; let skyl = (*acc).skyl;
+  // fog matters only inside the bank (or, for the reveal, inside the light volume, which the bank's reach covers)
+  let om = o + d * 0.5 * len - PC;
+  let reach = sqrt(max((*acc).fogR2, 0.0)) + 0.5 * len;
+  let fogOn = (u.lorg.w > 0.0 || rev > 0.0) && dot(om, om) < reach * reach;
+  if (!motes && !fogOn) { return; }
+  let mu0 = dot(u.sun.xyz, d);
+  let ph0 = mix((1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * mu0, 1e-3), 1.5)), 3.0 / (16.0 * PI) * (1.0 + mu0 * mu0), u.fogp.w);
+  var t = 0.0;
+  for (var i = 0; i < 64 && t < len; i++) {
+    let p = o + d * t;
+    var t1 = len; var inP = false;
+    if (motes) {
+      let dc = length(p - PC) - PR;
+      if (dc > 0.0) { t1 = min(len, t + dc + 0.01); }
+      else {
+        inP = true;
+        let fr = fract((p + off) / CELL);
+        let ex = select(fr, 1.0 - fr, d > vec3f(0.0)) / max(abs(d), vec3f(1e-6)) * CELL;
+        t1 = min(len, t + min(ex.x, min(ex.y, ex.z)) + 1e-4);
+      }
+    }
+    if (fogOn) {
+      // inside the light volume, walk in short pieces and ask the coarse map whether the light here is anything
+      // but plain sunlight; only then is the full volume sampled at the fog step
+      let c0 = lightCoord(p + d * 1e-3);
+      let e0 = min(c0, 1.0 - c0);
+      let inL = min(e0.x, min(e0.y, e0.z)) > 0.0;
+      if (inL) { t1 = min(t1, t + 0.1); }
+      else { t1 = min(t1, t + max(0.1, 0.9 * sdLight(p))); }
+      let pm = o + d * 0.5 * (t + t1);
+      let fogd = u.lorg.w * exp(-dot(pm - PC, pm - PC) / 25.0);
+      let fine = inL && textureSampleLevel(devTex, lightSamp, lightCoord(pm), 0.0).r > 0.16;   // light here strays over 2% from plain sunlight
+      if (fine) {
+        // single scattering of the lensed sun plus sky light, at jittered points
+        let ns = clamp(ceil((t1 - t) / u.fogq.x), 1.0, 24.0);
+        let hs = (t1 - t) / ns;
+        let a = 1.0 - exp(-fogd * hs * beta);
+        for (var k = 0.0; k < ns; k += 1.0) {
+          let j = fract(jit + 0.61803 * k + 0.37 * f32(i));
+          let V = sunAir(o + d * (t + (k + 0.5 + u.fogq.y * (j - 0.5)) * hs));
+          let mu = dot(normalize(V.xyz), d);
+          let hg = (1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * mu, 1e-3), 1.5));
+          let ph = mix(hg, 3.0 / (16.0 * PI) * (1.0 + mu * mu), u.fogp.w);      // Henyey-Greenstein to Rayleigh
+          // caustic reveal: only the light the lens adds over plain sunlight scatters, and nothing is absorbed
+          (*acc).col += (*acc).tr * (a * (u.sunE.rgb * V.w * ph + skyl) + rev * hs * u.sunE.rgb * max(V.w - 1.03, 0.0) * ph);
+          (*acc).tr *= 1.0 - a;
+        }
+      } else if (fogd > 2e-4) {
+        // plain sunlight: the whole piece in one go
+        let a = 1.0 - exp(-fogd * (t1 - t) * beta);
+        (*acc).col += (*acc).tr * a * (u.sunE.rgb * ph0 + skyl);
+        (*acc).tr *= 1.0 - a;
+      }
+    }
+    let pm = o + d * 0.5 * (t + t1);
+    let tr = (*acc).tr;
+    if (inP && max(tr.x, max(tr.y, tr.z)) > 0.003) {
+      let cell = vec3i(floor((pm + off) / CELL));
+      let hs = hash3(bitcast<vec3u>(cell));
+      let rnd = vec3f(hs) / 4294967296.0;
+      let pp = (vec3f(cell) + 0.1 + 0.8 * rnd) * CELL - off;
+      let s = dot(pp - o, d);
+      let keep = f32(hash3(hs).x) / 4294967296.0;
+      let fall = smoothstep(PR, PR - 0.6, length(pp - PC));
+      if (s >= t && s < t1 && keep < u.part.x * fall && pp.y > 0.01 && sdBody(pp) > rp) {
+        let xc = o + d * s;
+        let n1 = normalize(cross(d, select(vec3f(0.0, 1.0, 0.0), vec3f(1.0, 0.0, 0.0), abs(d.y) > 0.9)));
+        let n2 = cross(d, n1);
+        let xi1 = o1 + d1 * s - xc; let xi2 = o2 + d2 * s - xc;
+        let e1 = vec2f(dot(xi1, n1), dot(xi1, n2));
+        let e2 = vec2f(dot(xi2, n1), dot(xi2, n2));
+        let m11 = (e1.x * e1.x + e2.x * e2.x) / TAU + 0.5 * rp * rp;
+        let m22 = (e1.y * e1.y + e2.y * e2.y) / TAU + 0.5 * rp * rp;
+        let m12 = (e1.x * e1.y + e2.x * e2.y) / TAU;
+        let det = max(m11 * m22 - m12 * m12, 1e-30);
+        let dp = pp - xc;
+        let d2v = vec2f(dot(dp, n1), dot(dp, n2));
+        let q = (m22 * d2v.x * d2v.x - 2.0 * m12 * d2v.x * d2v.y + m11 * d2v.y * d2v.y) / det;
+        let w = min(0.5 * rp * rp / sqrt(det), 1.0) * exp(-0.5 * q);
+        if (w > 1e-4) {
+          let VA = sunAir(pp);
+          let vm = VA.w;
+          let ca = clamp(dot(normalize(VA.xyz), -d), -1.0, 1.0);
+          let al = acos(ca);
+          let ph = (sin(al) + (PI - al) * ca) / PI;
+          // snow: a white flake, part matte sphere (lit side faces the light), part ice that throws light forward.
+          // The sun term carries the caustic magnification vm; the sky term is the matte sphere's disc average
+          // under the environment, seen from the eye (band weights 1, 2/3, 1/4).
+          let gs = 0.75;
+          let fwd = (1.0 - gs * gs) / (4.0 * PI * pow(max(1.0 + gs * gs + 2.0 * gs * ca, 1e-3), 1.5));
+          let lp = 0.95 * (u.sunE.rgb * vm * mix((2.0 / 3.0) * ph / PI, fwd, 0.3) + irrBands(-d, 2.0 / 3.0, 0.25) / PI);
+          (*acc).col += (*acc).tr * w * lp;
+          (*acc).tr *= 1.0 - w;
+        }
+      }
+    }
+    t = t1;
+  }
+}
+
 @fragment fn fs(@builtin(position) fc: vec4f) -> @location(0) vec4f {
   let uv = vec2f(fc.x / u.res.x, 1.0 - fc.y / u.res.y) * 2.0 - 1.0;
   var T = camRay(uv);
@@ -263,12 +430,14 @@ fn camRay(uv: vec2f) -> vec3f {
   var T2 = camRay(uv + vec2f(0.0, 2.0 / u.res.y));
   var x = u.camPos.xyz; var x1 = x; var x2 = x;
   let lens = u.ring.w > 0.0;
-  let motes = u.part.x > 0.0;
+  let air = u.part.x > 0.0 || u.lorg.w > 0.0 || u.fogq.w > 0.0;
   let n = i32(u.p.w);
-  let off = vec3f(0.0, u.part.z, 0.0);
-  let rp = u.part.y;
   var t = 0.0; var gm = 0.0; var glow = 0.0; var kind = 0; var steps = 0.0;
-  var pcol = vec3f(0.0); var ptr = vec3f(1.0);
+  // fog constants for this pixel. dispersion: scattering strength rises toward blue, as (535 nm / wavelength)^exponent.
+  // sky light in the fog: forward-weighted mix of the environment along the view ray and the all-round mean.
+  var acc = Acc(vec3f(0.0), vec3f(1.0), pow(vec3f(535.0 / 615.0, 1.0, 535.0 / 465.0), vec3f(u.fogp.z)),
+                u.fogp.y * (0.7 * irradiance(T) + 0.3 * u.sh[0].rgb) / PI, 25.0 * log(max(u.lorg.w, 2e-4) / 2e-4));
+  if (u.fogq.w > 0.0) { acc.fogR2 = max(acc.fogR2, 144.0); }
   let jit = f32(hash3(vec3u(vec2u(fc.xy), 7u)).x) / 4294967296.0;
 
   for (var i = 0; i < n; i++) {
@@ -280,27 +449,17 @@ fn camRay(uv: vec2f) -> vec3f {
       h = min(h, u.p.y * ringDist(x));
       h = min(h, u.p.z / (2.0 * gm + 1e-5));
     }
-    let fogd = u.lorg.w * exp(-dot(x - PC, x - PC) / 25.0);
-    if (fogd > 2e-4) {
-      let c = lightCoord(x);
-      let e = min(c, 1.0 - c);
-      h = min(h, select(0.5, u.fogq.x, min(e.x, min(e.y, e.z)) > 0.0));
-    }
-    var inP = false;
-    if (motes) {
-      let dc = length(x - PC) - PR;
-      if (dc > 0.0) { h = min(h, dc + 0.01); }
-      else {
-        inP = true;
-        let fr = fract((x + off) / CELL);
-        let ex = select(fr, 1.0 - fr, T > vec3f(0.0)) / max(abs(T), vec3f(1e-6)) * CELL;
-        h = min(h, min(ex.x, min(ex.y, ex.z)) + 1e-4);
-      }
-    }
+    if (air) { h = min(h, max(1.5, length(x - PC) - 12.0)); }
     h = max(h, 2e-4);
+    let To = T; let T1o = T1; let T2o = T2;
     let xm = x + 0.5 * h * T;
     let xm1 = x1 + 0.5 * h * T1;
     let xm2 = x2 + 0.5 * h * T2;
+    if (xm.y < 0.0) {
+      let l = 0.5 * h * x.y / (x.y - xm.y);
+      media(x, To, l, x1, T1o, x2, T2o, jit, &acc);
+      x += To * l; x1 += T1o * l; x2 += T2o * l; t += l; kind = 3; break;
+    }
     if (lens) {
       let g = gradPhi(xm);
       gm = length(g.xyz);
@@ -309,81 +468,29 @@ fn camRay(uv: vec2f) -> vec3f {
       T2 = bend(T2, gradPhi(xm2).xyz, h);
       glow += h * exp(-0.5 * g.w / (u.p.x * u.p.x)) / u.p.x;
     }
+    media(x, To, 0.5 * h, x1, T1o, x2, T2o, jit, &acc);
     let xn = xm + 0.5 * h * T;
-    if (fogd > 2e-4) {
-      // single scattering of the lensed sun plus sky light, sampled at a jittered point of the step
-      let V = sunVA(x + (0.5 + u.fogq.y * (jit - 0.5)) * h * T);
-      let mu = dot(normalize(V.xyz), T);
-      let g = u.fogp.x;
-      let hg = (1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * mu, 1e-3), 1.5));
-      let ph = mix(hg, 3.0 / (16.0 * PI) * (1.0 + mu * mu), u.fogp.w);      // Henyey-Greenstein to Rayleigh
-      // dispersion: scattering strength rises toward blue, as (535 nm / wavelength)^exponent
-      let beta = pow(vec3f(535.0 / 615.0, 1.0, 535.0 / 465.0), vec3f(u.fogp.z));
-      let a = 1.0 - exp(-fogd * h * beta);
-      // sky: forward-weighted mix of the environment seen along the ray and the all-round mean
-      let skyl = (0.7 * irradiance(T) + 0.3 * u.sh[0].rgb) / PI;
-      pcol += ptr * a * (u.sunE.rgb * V.w * ph + u.fogp.y * skyl);
-      ptr *= 1.0 - a;
-    }
     if (xn.y < 0.0) {
-      let f = x.y / (x.y - xn.y);
-      x = mix(x, xn, f); t += h * f; kind = 3; break;
+      let l = 0.5 * h * xm.y / (xm.y - xn.y);
+      media(xm, T, l, xm1, T1, xm2, T2, jit, &acc);
+      x = xm + T * l; x1 = xm1 + T1 * l; x2 = xm2 + T2 * l; t += 0.5 * h + l; kind = 3; break;
     }
-
-    if (inP && max(ptr.x, max(ptr.y, ptr.z)) > 0.003) {
-      let cell = vec3i(floor((xm + off) / CELL));
-      let hs = hash3(bitcast<vec3u>(cell));
-      let rnd = vec3f(hs) / 4294967296.0;
-      let pp = (vec3f(cell) + 0.1 + 0.8 * rnd) * CELL - off;
-      let dp = pp - xm;
-      let s = dot(dp, T);
-      let keep = f32(hash3(hs).x) / 4294967296.0;
-      let fall = smoothstep(PR, PR - 0.6, length(pp - PC));
-      if (abs(s) <= 0.5 * h && keep < u.part.x * fall && pp.y > 0.01 && sdBody(pp) > rp) {
-        let n1 = normalize(cross(T, select(vec3f(0.0, 1.0, 0.0), vec3f(1.0, 0.0, 0.0), abs(T.y) > 0.9)));
-        let n2 = cross(T, n1);
-        let xi1 = xm1 - xm; let xi2 = xm2 - xm;
-        let e1 = vec2f(dot(xi1, n1), dot(xi1, n2));
-        let e2 = vec2f(dot(xi2, n1), dot(xi2, n2));
-        let m11 = (e1.x * e1.x + e2.x * e2.x) / TAU + 0.5 * rp * rp;
-        let m22 = (e1.y * e1.y + e2.y * e2.y) / TAU + 0.5 * rp * rp;
-        let m12 = (e1.x * e1.y + e2.x * e2.y) / TAU;
-        let det = max(m11 * m22 - m12 * m12, 1e-30);
-        let d2 = vec2f(dot(dp, n1), dot(dp, n2));
-        let q = (m22 * d2.x * d2.x - 2.0 * m12 * d2.x * d2.y + m11 * d2.y * d2.y) / det;
-        let w = min(0.5 * rp * rp / sqrt(det), 1.0) * exp(-0.5 * q);
-        if (w > 1e-4) {
-          let VA = sunVA(pp);
-          let vm = VA.w;
-          let ca = clamp(dot(normalize(VA.xyz), -T), -1.0, 1.0);
-          let al = acos(ca);
-          let ph = (sin(al) + (PI - al) * ca) / PI;
-          // snow: a white flake, part matte sphere (lit side faces the light), part ice that throws light forward.
-          // The sun term carries the caustic magnification vm; the sky term is the matte sphere's disc average
-          // under the environment, seen from the eye (band weights 1, 2/3, 1/4).
-          let gs = 0.75;
-          let fwd = (1.0 - gs * gs) / (4.0 * PI * pow(max(1.0 + gs * gs + 2.0 * gs * ca, 1e-3), 1.5));
-          let lp = 0.95 * (u.sunE.rgb * vm * mix((2.0 / 3.0) * ph / PI, fwd, 0.3) + irrBands(-T, 2.0 / 3.0, 0.25) / PI);
-          pcol += ptr * w * lp;
-          ptr *= 1.0 - w;
-        }
-      }
-    }
-
+    media(xm, T, 0.5 * h, xm1, T1, xm2, T2, jit, &acc);
     x = xn; t += h;
     x1 = xm1 + 0.5 * h * T1;
     x2 = xm2 + 0.5 * h * T2;
     if (t > 200.0 || (x.y > 14.0 && T.y > 0.0)) { break; }
   }
+  let pcol = acc.col; let ptr = acc.tr;
 
   var col: vec3f;
   if (kind == 1) {
     let nn = normalAt(x);
-    let V = sunV(x);
+    let V = sunSoft(x);
     let ndl = max(dot(nn, V), 0.0);
     var sh = 0.0;
     if (ndl > 0.0) { sh = shadow(x + nn * 0.004, normalize(V)); }
-    col = vec3f(0.58, 0.57, 0.56) / PI * (irradiance(nn) * ao(x, nn) + u.sunE.rgb * ndl * sh);
+    col = ALBEDO / PI * (irradiance(nn) * ao(x, nn) + u.sunE.rgb * ndl * sh);
   } else if (kind == 3) {
     // ground: the environment re-projected from its capture point onto y = 0, then shadowed
     let c = vec3f(0.0, u.bsize.w, 0.0);
@@ -394,11 +501,12 @@ fn camRay(uv: vec2f) -> vec3f {
     let base = env(d0, normalize(g1 - c), normalize(g2 - c));
     let up = vec3f(0.0, 1.0, 0.0);
     let ea = irradiance(up);
-    let es = u.sunE.rgb * max(u.sun.y, 0.0);
+    let es = u.sunE.rgb / u.fogq.z * max(u.sun.y, 0.0);        // the sun as photographed, before the sunlight gain
     let V = sunV(g0);
+    let gs = groundSun(g0);
     var sh = 1.0; var o = 1.0;
     if (length(g0.xz) < 8.0 && V.y > 1e-3) { sh = shadow(g0 + up * 0.004, normalize(V)); o = ao(g0, up); }
-    col = base * (ea * o + u.sunE.rgb * max(V.y, 0.0) * sh) / (ea + es + 1e-6);
+    col = base * mix((ea * o + u.sunE.rgb * gs * sh) / (ea + es + 1e-6), vec3f(1.0), smoothstep(6.0, 14.0, length(g0.xz)));   // far ground stays as photographed
   } else {
     col = env(T, T1, T2);
   }
@@ -407,7 +515,8 @@ fn camRay(uv: vec2f) -> vec3f {
 
   if (u.res.z > 1.5) {       // sunlight magnification at the surface, 0.5 = unlensed
     if (kind == 0) { return vec4f(0.0, 0.0, 0.0, 1.0); }
-    return vec4f(oetf(vec3f(0.18 * length(sunV(x)))), 1.0);
+    if (kind == 3) { return vec4f(oetf(vec3f(0.18 * groundSun(x) / max(u.sun.y, 0.05))), 1.0); }
+    return vec4f(oetf(vec3f(0.18 * length(sunSoft(x)))), 1.0);
   }
   if (u.res.z > 0.5) { return vec4f(vec3f(steps / f32(n)), 1.0); }
 
@@ -427,10 +536,11 @@ fn camRay(uv: vec2f) -> vec3f {
 // Sunlight: a 512 x 512 sheet of parallel rays is marched through the field in lockstep.
 // At each of 128 planes across the beam the deformed sheet is rasterised additively; a
 // fragment's density is the Jacobian of (ray index -> position), so folds stack into caustics.
-const LN = 512, LD = 128, LUV = 2.8, LW = 10, LBACK = 2.5, LSHEET = 1.6;   // sheet is wider than the volume so edge rays bent inward leave no gap
+const LN = 512, LD = 128, LUV = 2.8, LW = 10, LBACK = 2.5;
+const SN = 256;                                  // xy size of the softened copy of the light volume that fog and motes read
 const common = wgsl.slice(0, wgsl.indexOf('// ---- scene'));
 const lightC = common + /* wgsl */`
-struct Ray { pos: vec4f, dir: vec4f, aux: vec4f };   // aux.x = 1 once the ray has met the figure
+struct Ray { pos: vec4f, dir: vec4f, aux: vec4f };   // aux.x = 1 once the ray has met the figure, yz = where it landed on the ground, w = 1 once it has
 @group(0) @binding(5) var<storage, read_write> rays: array<Ray>;
 fn sdBody(p: vec3f) -> f32 {
   let bb = abs(p - (u.bmin.xyz + 0.5 * u.bsize.xyz)) - 0.5 * u.bsize.xyz;
@@ -442,9 +552,12 @@ const LN = ${LN}u; const LD = ${LD}.0;
 
 @compute @workgroup_size(8, 8) fn init(@builtin(global_invocation_id) id: vec3u) {
   if (id.x >= LN || id.y >= LN) { return; }
-  let c = ((vec2f(id.xy) + 0.5) / f32(LN) - 0.5) * ${LSHEET} + 0.5;
-  let p = u.lorg.xyz + u.leu.w * (c.x * u.leu.xyz + c.y * u.lev.xyz);
-  rays[id.y * LN + id.x] = Ray(vec4f(p, 0.0), vec4f(u.lew.xyz, 1.0), vec4f(0.0));
+  // rays are spaced finely around the ring's axis and ever wider further out (x = X sinh(2 k c) / sinh k), so the
+  // sheet reaches many metres: gravity's pull falls off slowly, and a sheet that stops short shows its edge
+  let c = (vec2f(id.xy) + 0.5) / f32(LN) - 0.5;
+  let o = u.lsh.y * sinh(2.0 * u.lsh.z * c) / sinh(u.lsh.z);
+  let p = u.lorg.xyz + 0.5 * u.leu.w * (u.leu.xyz + u.lev.xyz) + o.x * u.leu.xyz + (o.y + u.lsh.x) * u.lev.xyz;
+  rays[id.y * LN + id.x] = Ray(vec4f(p - u.lew.w * u.lew.xyz, 0.0), vec4f(u.lew.xyz, 1.0), vec4f(0.0));
 }
 
 @compute @workgroup_size(8, 8) fn advance(@builtin(global_invocation_id) id: vec3u) {
@@ -454,7 +567,7 @@ const LN = ${LN}u; const LD = ${LD}.0;
   if (r.dir.w < 0.5) { rays[i].pos.w = r.pos.w + 1.0; return; }
   let wt = (r.pos.w + 0.5) * u.lev.w / LD;
   let lens = u.ring.w > 0.0;
-  var x = r.pos.xyz; var T = r.dir.xyz; var gm = 0.0; var alive = 1.0; var blocked = r.aux.x;
+  var x = r.pos.xyz; var T = r.dir.xyz; var gm = 0.0; var alive = 1.0; var blocked = r.aux.x; var land = r.aux.yzw;
   for (var s = 0; s < 96; s++) {
     let cw = dot(T, u.lew.xyz);
     if (cw < 0.05) { alive = 0.0; break; }
@@ -468,15 +581,78 @@ const LN = ${LN}u; const LD = ${LD}.0;
     h = min(max(h, 2e-4), rem);
     let xm = x + 0.5 * h * T;
     if (lens) { let g = gradPhi(xm).xyz; gm = length(g); T = bend(T, g, h); }
-    x = xm + 0.5 * h * T;
+    let xn = xm + 0.5 * h * T;
+    if (land.z < 0.5 && x.y >= 0.0 && xn.y < 0.0) { land = vec3f(mix(x.xz, xn.xz, x.y / (x.y - xn.y)), 1.0); }
+    x = xn;
   }
-  rays[i] = Ray(vec4f(x, r.pos.w + 1.0), vec4f(T, alive), vec4f(blocked, 0.0, 0.0, 0.0));
+  rays[i] = Ray(vec4f(x, r.pos.w + 1.0), vec4f(T, alive), vec4f(blocked, land));
 }
 `;
 const lightR = common + /* wgsl */`
 struct Ray { pos: vec4f, dir: vec4f, aux: vec4f };
 @group(0) @binding(5) var<storage, read> rays: array<Ray>;
 const LN = ${LN}u;
+const GEXT = ${GEXT}.0;
+fn landing(r: Ray) -> vec3f {                 // ground position (x, z) and whether the ray gets there
+  if (r.aux.w > 0.5) { return vec3f(r.aux.yz, 1.0); }
+  let s = -r.pos.y / min(r.dir.y, -1e-3);     // still in the air after the last slice: carry on straight
+  return vec3f(r.pos.xz + s * r.dir.xz, select(1.0, 0.0, r.dir.w < 0.5 || r.dir.y > -1e-3 || r.pos.y < 0.0));
+}
+struct GV { @builtin(position) pos: vec4f, @location(0) uv0: vec2f, @location(1) ok: f32 };
+@vertex fn gvs(@builtin(vertex_index) vi: u32) -> GV {
+  const off = array<vec2u, 6>(vec2u(0, 0), vec2u(1, 0), vec2u(0, 1), vec2u(0, 1), vec2u(1, 0), vec2u(1, 1));
+  let cell = vi / 6u;
+  let g = vec2u(cell % (LN - 1u), cell / (LN - 1u)) + off[vi % 6u];
+  let h = landing(rays[g.y * LN + g.x]);
+  var o: GV;
+  o.pos = vec4f(h.xy / GEXT, 0.0, 1.0);
+  o.uv0 = vec2f(g) + 0.5;
+  o.ok = h.z;
+  return o;
+}
+@fragment fn gfs(v: GV) -> @location(0) vec4f {
+  let ax = dpdx(v.uv0); let ay = dpdy(v.uv0);
+  if (v.ok < 0.999) { discard; }
+  // sheet area per ground area: (rays per pixel) * (area one ray carries) / (area of a pixel); exactly conserves the light
+  let c = v.uv0 / f32(LN) - 0.5;
+  let dens = abs(ax.x * ay.y - ax.y * ay.x) * u.lsh.w * cosh(2.0 * u.lsh.z * c.x) * cosh(2.0 * u.lsh.z * c.y) * ${1 / LN ** 2 / (2 * GEXT / GN) ** 2};
+  return vec4f(dens, 1.0, 0.0, 0.0);
+}
+@group(0) @binding(6) var fineTex: texture_3d<f32>;
+@group(0) @binding(7) var fineSamp: sampler;
+struct DV { @builtin(position) pos: vec4f, @location(0) @interpolate(flat) k: u32 };
+@vertex fn dvs(@builtin(vertex_index) i: u32, @builtin(instance_index) k: u32) -> DV {
+  let p = vec2f(f32((i << 1u) & 2u), f32(i & 2u));
+  return DV(vec4f(p * 2.0 - 1.0, 0.0, 1.0), k);
+}
+// Coarse map in two cheap stages. First 4 x 4 x 4 voxel blocks: eight filtered taps, each the mean of 2 x 2 x 2
+// voxels, keep the largest departure from 1 (x8, saturating). Then pairs of those with a one-block rim.
+@fragment fn dfs(v: DV) -> @location(0) vec4f {
+  let b = vec3f(floor(v.pos.xy), f32(v.k)) * 4.0 + 1.0;
+  var m = 0.0;
+  for (var i = 0; i < 8; i++) {
+    let c = (b + 2.0 * vec3f(f32(i & 1), f32((i >> 1) & 1), f32(i >> 2))) / vec3f(${LN}.0, ${LN}.0, ${LD}.0);
+    m = max(m, abs(textureSampleLevel(fineTex, fineSamp, c, 0.0).a - 1.0));
+  }
+  return vec4f(min(8.0 * m, 1.0), 0.0, 0.0, 1.0);
+}
+// softened copy for the air: each texel is the mean of 4 x 4 voxels of one slice. Where the sheet has folded, its
+// triangles are thinner than a voxel and land unevenly; fog and motes don't need that grain.
+@fragment fn sfs(v: DV) -> @location(0) vec4f {
+  let c = vec3f((floor(v.pos.xy) + 0.5) / ${SN}.0, (f32(v.k) + 0.5) / ${LD}.0);
+  let e = vec2f(1.0 / ${LN}.0, 0.0);
+  return 0.25 * (textureSampleLevel(fineTex, fineSamp, c + vec3f(e.x, e.x, 0.0), 0.0) + textureSampleLevel(fineTex, fineSamp, c + vec3f(-e.x, e.x, 0.0), 0.0)
+               + textureSampleLevel(fineTex, fineSamp, c + vec3f(e.x, -e.x, 0.0), 0.0) + textureSampleLevel(fineTex, fineSamp, c - vec3f(e.x, e.x, 0.0), 0.0));
+}
+@group(0) @binding(8) var midTex: texture_3d<f32>;
+@fragment fn dfs2(v: DV) -> @location(0) vec4f {
+  let b = vec3i(vec2i(floor(v.pos.xy)) * 2, i32(v.k));
+  var m = 0.0;
+  for (var z = -1; z <= 1; z++) { for (var y = -1; y <= 2; y++) { for (var x = -1; x <= 2; x++) {
+    m = max(m, textureLoad(midTex, clamp(b + vec3i(x, y, z), vec3i(0), vec3i(${2 * CN - 1}, ${2 * CN - 1}, ${CD - 1})), 0).r);
+  } } }
+  return vec4f(m, 0.0, 0.0, 1.0);
+}
 struct LV { @builtin(position) pos: vec4f, @location(0) uv0: vec2f, @location(1) dir: vec3f, @location(2) alive: f32, @location(3) blocked: f32 };
 
 @vertex fn lvs(@builtin(vertex_index) vi: u32) -> LV {
@@ -497,7 +673,8 @@ struct LV { @builtin(position) pos: vec4f, @location(0) uv0: vec2f, @location(1)
 
 @fragment fn lfs(v: LV) -> @location(0) vec4f {
   let ax = dpdx(v.uv0); let ay = dpdy(v.uv0);
-  let dens = abs(ax.x * ay.y - ax.y * ay.x) * ${LSHEET * LSHEET};          // wavefront area per plane area
+  let c = v.uv0 / f32(LN) - 0.5;
+  let dens = abs(ax.x * ay.y - ax.y * ay.x) * u.lsh.w * cosh(2.0 * u.lsh.z * c.x) * cosh(2.0 * u.lsh.z * c.y) * ${1 / LUV ** 2};          // wavefront area per plane area
   if (v.alive < 0.999) { discard; }
   let d = normalize(v.dir);
   let mu = dens / max(dot(d, u.lew.xyz), 0.05);       // flux density across the ray itself
@@ -535,9 +712,11 @@ const DEF = {
   ambient:  [1, 0, 2],
   dispersion: [0, 0, 4],
   rayleigh: [0, 0, 1],
-  step:     [0.06, 0.01, 0.25, true],
+  step:     [0.03, 0.01, 0.25, true],
   jitter:   [1, 0, 1],
   sun:      [150, -180, 180],
+  sunlight: [1, 0.25, 16, true],
+  caustic:  [0, 0, 2],
   exposure: [-0.5, -5, 5],
   peak:     [hdr ? 4 : 1, 1, 12],
   guide:    [0, 0, 1],
@@ -548,6 +727,7 @@ const cur = k => P[k].s.value;
 const cam = { yaw: 0.35, pitch: 0.06, dist: 3.6, ty: 1.4, fov: 38, vy: 0, vp: 0, grab: null };
 const sDist = new Spring(cam.dist), sTy = new Spring(cam.ty);
 let debug = 0, dirty = true;
+const hold = { paused: false, size: null };   // test hook: stop the display loop and pin the canvas size
 
 try {
   const s = JSON.parse(localStorage.getItem('aureole3') || '{}');
@@ -634,7 +814,7 @@ function pad(xk, yk) {
 }
 const row = (...c) => { const r = $('div', 'row'); r.append(...c); return r; };
 const panel = document.getElementById('panel');
-panel.append(row(pad('radius', 'width'), pad('tilt', 'height')), rail('mass'), row(pad('motes', 'mote'), pad('exposure', 'peak')), rail('fall'), rail('sun'), rail('guide'), row(pad('fog', 'anisotropy'), pad('ambient', 'dispersion')), rail('rayleigh'), rail('step'), rail('jitter'));
+panel.append(row(pad('radius', 'width'), pad('tilt', 'height')), rail('mass'), row(pad('motes', 'mote'), pad('exposure', 'peak')), rail('fall'), rail('sun'), rail('sunlight'), rail('caustic'), rail('guide'), row(pad('fog', 'anisotropy'), pad('ambient', 'dispersion')), rail('rayleigh'), rail('step'), rail('jitter'));
 
 addEventListener('keydown', e => {
   if (e.key === 'h') panel.classList.toggle('hidden');
@@ -759,7 +939,7 @@ async function fetchBytes(url) {
 }
 const PART = 67108864;
 async function envInfo(e) {
-  const r = await fetch(BASE + e.dir + 'env.json');
+  const r = await fetch(BASE + e.dir + 'env2.json');
   if (!r.ok) throw new Error(e.name + ' ' + r.status);
   const meta = await r.json();
   let skip = want, start = 0, end = 0;
@@ -824,10 +1004,14 @@ const pipeline = device.createRenderPipeline({
   vertex: { module, entryPoint: 'vs' },
   fragment: { module, entryPoint: 'fs', targets: [{ format }] },
 });
-const NU = 112;
+const NU = 116;
 const ubuf = device.createBuffer({ size: NU * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 const samplers = [device.createSampler({ magFilter: 'linear', minFilter: 'linear' }), device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', maxAnisotropy: 16, addressModeU: 'repeat' })];
-const sdfView = sdfTex.createView(), lightTexView = lightTex.createView();
+const groundTex = device.createTexture({ size: [GN, GN], format: 'rg16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+const devTex = device.createTexture({ size: [CN, CN, CD], dimension: '3d', format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+const softTex = device.createTexture({ size: [SN, SN, LD], dimension: '3d', format: 'rgba16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+const softView = softTex.createView();
+const sdfView = sdfTex.createView(), lightTexView = lightTex.createView(), groundView = groundTex.createView(), devView = devTex.createView();
 const makeBind = () => device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
   { binding: 0, resource: { buffer: ubuf } },
   { binding: 1, resource: sdfView },
@@ -836,6 +1020,9 @@ const makeBind = () => device.createBindGroup({ layout: pipeline.getBindGroupLay
   { binding: 4, resource: samplers[1] },
   { binding: 5, resource: lightTexView },
   { binding: 6, resource: samplers[0] },
+  { binding: 7, resource: groundView },
+  { binding: 8, resource: devView },
+  { binding: 9, resource: softView },
 ] });
 let bind = makeBind();
 
@@ -853,8 +1040,34 @@ const splatPipe = device.createRenderPipeline({
   vertex: { module: modR, entryPoint: 'lvs' },
   fragment: { module: modR, entryPoint: 'lfs', targets: [{ format: 'rgba16float', blend: { color: add, alpha: add } }] },
 });
+const groundPipe = device.createRenderPipeline({
+  layout: 'auto',
+  vertex: { module: modR, entryPoint: 'gvs' },
+  fragment: { module: modR, entryPoint: 'gfs', targets: [{ format: 'rg16float', blend: { color: add, alpha: add } }] },
+});
+const softPipe = device.createRenderPipeline({
+  layout: 'auto',
+  vertex: { module: modR, entryPoint: 'dvs' },
+  fragment: { module: modR, entryPoint: 'sfs', targets: [{ format: 'rgba16float' }] },
+});
+const fineSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+const softBind = device.createBindGroup({ layout: softPipe.getBindGroupLayout(0), entries: [{ binding: 6, resource: lightTex.createView() }, { binding: 7, resource: fineSampler }] });
+const midTex = device.createTexture({ size: [2 * CN, 2 * CN, CD], dimension: '3d', format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+const midView = midTex.createView();
+const dev2Pipe = device.createRenderPipeline({
+  layout: 'auto',
+  vertex: { module: modR, entryPoint: 'dvs' },
+  fragment: { module: modR, entryPoint: 'dfs2', targets: [{ format: 'r8unorm' }] },
+});
+const dev2Bind = device.createBindGroup({ layout: dev2Pipe.getBindGroupLayout(0), entries: [{ binding: 8, resource: midView }] });
+const devPipe = device.createRenderPipeline({
+  layout: 'auto',
+  vertex: { module: modR, entryPoint: 'dvs' },
+  fragment: { module: modR, entryPoint: 'dfs', targets: [{ format: 'r8unorm' }] },
+});
+const devBind = device.createBindGroup({ layout: devPipe.getBindGroupLayout(0), entries: [{ binding: 6, resource: lightTexView }, { binding: 7, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) }] });
 const rayBind = pl => device.createBindGroup({ layout: pl.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ubuf } }, { binding: 5, resource: { buffer: rayBuf } }] });
-const initBind = rayBind(initPipe), splatBind = rayBind(splatPipe);
+const initBind = rayBind(initPipe), splatBind = rayBind(splatPipe), groundBind = rayBind(groundPipe);
 const advBind = device.createBindGroup({ layout: advPipe.getBindGroupLayout(0), entries: [
   { binding: 0, resource: { buffer: ubuf } },
   { binding: 1, resource: sdfTex.createView() },
@@ -872,6 +1085,16 @@ function traceSun(enc) {
     c.setPipeline(advPipe); c.setBindGroup(0, advBind); c.dispatchWorkgroups(groups, groups); c.end();
     const r = enc.beginRenderPass({ colorAttachments: [{ view: lightView, depthSlice: k, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] });
     r.setPipeline(splatPipe); r.setBindGroup(0, splatBind); r.draw((LN - 1) * (LN - 1) * 6); r.end();
+  }
+  const r = enc.beginRenderPass({ colorAttachments: [{ view: groundView, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] });
+  r.setPipeline(groundPipe); r.setBindGroup(0, groundBind); r.draw((LN - 1) * (LN - 1) * 6); r.end();
+  for (let k = 0; k < LD; k++) {
+    const d = enc.beginRenderPass({ colorAttachments: [{ view: softView, depthSlice: k, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] });
+    d.setPipeline(softPipe); d.setBindGroup(0, softBind); d.draw(3, 1, 0, k); d.end();
+  }
+  for (const [view, pipe, bind] of [[midView, devPipe, devBind], [devView, dev2Pipe, dev2Bind]]) for (let k = 0; k < CD; k++) {
+    const d = enc.beginRenderPass({ colorAttachments: [{ view, depthSlice: k, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] });
+    d.setPipeline(pipe); d.setBindGroup(0, bind); d.draw(3, 1, 0, k); d.end();
   }
 }
 let lightKey = '';
@@ -940,6 +1163,7 @@ addEventListener('hashchange', () => { const p = hashState(); if (p) recall(p); 
 function resize() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
   let w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+  if (hold.size) [w, h] = hold.size;
   const cap = 3.2e6;
   if (w * h > cap) { const s = Math.sqrt(cap / (w * h)); w = Math.round(w * s); h = Math.round(h * s); }
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; dirty = true; }
@@ -950,7 +1174,7 @@ const norm = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 let lastT = performance.now(), yOff = 0, frames = 0;
-function loop(now) { requestAnimationFrame(loop); frame(now); }
+function loop(now) { requestAnimationFrame(loop); if (!hold.paused) frame(now); }
 function frame(now) {
   const dt = clamp((now - lastT) / 1000 || 0, 0, 0.1); lastT = now;
   if (!canvas.width || !canvas.height) { resize(); dirty = true; return; }
@@ -979,15 +1203,24 @@ function frame(now) {
   U.set([cur('width'), 0.18, 0.04, 640], 24);
   U.set([ec * sd[0] - es * sd[2], sd[1], es * sd[0] + ec * sd[2], Math.pow(2, cur('exposure') + env.ev)], 28);
   U.set([canvas.width, canvas.height, debug, cur('peak')], 32);
-  U.set([...envMeta.sunE, ec], 36);
+  const gain = cur('sunlight');
+  U.set([...envMeta.sunE.map(v => v * gain), ec], 36);
   U.set([cur('motes'), cur('mote') * 0.001, yOff, es], 40);
   U.set([...bodyMeta.min, bodyMeta.voxel], 44);
   U.set([bx * bodyMeta.voxel, by * bodyMeta.voxel, bz * bodyMeta.voxel, 1.6], 48);
   const sun = [U[28], U[29], U[30]], ew = sun.map(v => -v);
   const eu = norm(cross([0, 1, 0], ew)), ev = cross(ew, eu);
-  const org = [0, 1, 2].map(i => [0, 1.0, 0][i] - 0.5 * LUV * (eu[i] + ev[i]) - LBACK * ew[i]);
-  U.set([...org, cur('fog')], 88); U.set([...eu, LUV], 92); U.set([...ev, LW], 96); U.set([...ew, 0], 100);
-  U.set([cur('anisotropy'), cur('ambient'), cur('dispersion'), cur('rayleigh'), cur('step'), cur('jitter'), 0, 0], 104);
+  // the slices run from just upstream of the ring to where the beam has gone into the ground, so none are spent elsewhere
+  const wS = clamp(Math.min(-(cur('height') - 1) * sun[1] - cur('radius') - 0.5, -0.3), 0.2 - LBACK, 0);
+  const wE = clamp(sun[1] > 0.05 ? (1 + 0.5 * LUV * Math.abs(ev[1])) / sun[1] + 0.1 : LW, wS + 1.5, LW - LBACK);
+  const org = [0, 1, 2].map(i => [0, 1.0, 0][i] - 0.5 * LUV * (eu[i] + ev[i]) + wS * ew[i]);
+  U.set([...org, cur('fog')], 88); U.set([...eu, LUV], 92); U.set([...ev, wE - wS], 96); U.set([...ew, LBACK + wS], 100);
+  U.set([cur('anisotropy'), cur('ambient'), cur('dispersion'), cur('rayleigh'), cur('step'), cur('jitter'), gain, cur('caustic')], 104);
+  // ray sheet: centred on the ring, reaching further the heavier the ring, with the spacing at its centre held near 9 mm
+  const SX = clamp(2.24 + 50 * cur('mass'), 2.24, 12);
+  let k0 = 1e-3, k1 = 8;
+  for (let i = 0; i < 40; i++) { const k = 0.5 * (k0 + k1); if (2 * k * SX / Math.sinh(k) > 4.48) k0 = k; else k1 = k; }
+  U.set([(cur('height') - 1) * ev[1], SX, k1, (2 * k1 * SX / Math.sinh(k1)) ** 2], 112);
   device.queue.writeBuffer(ubuf, 0, U);
   const enc = device.createCommandEncoder();
   const key = ['mass', 'radius', 'width', 'height', 'tilt', 'sun'].map(cur).join();
@@ -996,7 +1229,7 @@ function frame(now) {
   pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end();
   device.queue.submit([enc.finish()]);
 }
-window.aureole = { P, cam, set, frame, snapshot, recall, bank: () => bank, setSky: id => setSky(ENVS.find(e => e.id === id)), sky: () => env.id, ENVS, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
+window.aureole = { hold, resize, P, cam, set, frame, snapshot, recall, bank: () => bank, setSky: id => setSky(ENVS.find(e => e.id === id)), sky: () => env.id, ENVS, setDebug: d => { debug = d; dirty = true; }, redraw: () => { dirty = true; }, frames: () => frames, device };
 requestAnimationFrame(loop);
 </script>
 </body>
